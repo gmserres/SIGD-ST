@@ -1,0 +1,16 @@
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: sigdst
+      POSTGRES_USER: sigdst
+      POSTGRES_PASSWORD: sigdst
+    ports:
+      - "5432:5432"

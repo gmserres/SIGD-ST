@@ -1,0 +1,106 @@
+body {
+  margin: 0;
+  font-family: Segoe UI, Arial, sans-serif;
+  background: #f4f6f8;
+  color: #1f2937;
+}
+
+.layout {
+  display: flex;
+  min-height: 100vh;
+}
+
+.sidebar {
+  width: 260px;
+  background: #14324a;
+  color: white;
+  padding: 24px;
+}
+
+.sidebar h1 {
+  margin: 0 0 8px;
+}
+
+.sidebar p {
+  color: #cbd5e1;
+  font-size: 14px;
+  line-height: 1.4;
+  margin-bottom: 28px;
+}
+
+.sidebar button {
+  display: block;
+  width: 100%;
+  margin-bottom: 8px;
+  padding: 12px;
+  border: 0;
+  border-radius: 10px;
+  background: rgba(255,255,255,.1);
+  color: white;
+  text-align: left;
+  cursor: pointer;
+}
+
+.content {
+  flex: 1;
+  padding: 28px;
+}
+
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 18px;
+}
+
+.card {
+  background: white;
+  border: 1px solid #d1d5db;
+  border-radius: 16px;
+  padding: 18px;
+  margin-bottom: 18px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.08);
+}
+
+label {
+  display: block;
+  margin-top: 12px;
+  margin-bottom: 6px;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+input, textarea {
+  width: 100%;
+  padding: 11px;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  font-size: 15px;
+  box-sizing: border-box;
+}
+
+textarea {
+  min-height: 80px;
+}
+
+.primary {
+  margin-top: 16px;
+  padding: 12px 16px;
+  border: 0;
+  border-radius: 10px;
+  background: #1f5f8b;
+  color: white;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+td, th {
+  padding: 10px;
+  border-bottom: 1px solid #d1d5db;
+  text-align: left;
+}

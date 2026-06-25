@@ -1,0 +1,8 @@
+from enum import Enum
+
+
+class RolUsuario(str, Enum):
+    ADMINISTRADOR = "ADMINISTRADOR"
+    SECRETARIO_TECNICO = "SECRETARIO_TECNICO"
+    OPERADOR = "OPERADOR"
+    CONSULTA = "CONSULTA"
