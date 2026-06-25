@@ -1,4 +1,4 @@
--- SIGD-ST - Esquema inicial
+-- SIGD-ST - Esquema inicial ampliado
 
 CREATE TABLE usuarios (
     id UUID PRIMARY KEY,
@@ -6,6 +6,21 @@ CREATE TABLE usuarios (
     email TEXT UNIQUE NOT NULL,
     rol TEXT NOT NULL,
     activo BOOLEAN DEFAULT TRUE
+);
+
+CREATE TABLE proveedores (
+    id UUID PRIMARY KEY,
+    cuit TEXT UNIQUE NOT NULL,
+    razon_social TEXT NOT NULL,
+    condicion_iva TEXT
+);
+
+CREATE TABLE establecimientos (
+    id UUID PRIMARY KEY,
+    tipo TEXT NOT NULL,
+    numero TEXT NOT NULL,
+    nombre_abreviado TEXT NOT NULL,
+    nombre_completo TEXT
 );
 
 CREATE TABLE expedientes (
@@ -26,14 +41,15 @@ CREATE TABLE documentos (
     tipo TEXT NOT NULL,
     nombre_archivo TEXT NOT NULL,
     ruta TEXT NOT NULL,
-    fecha_carga TIMESTAMP NOT NULL
+    fecha_carga TIMESTAMP NOT NULL,
+    observaciones TEXT
 );
 
-CREATE TABLE auditoria (
+CREATE TABLE historial_expediente (
     id UUID PRIMARY KEY,
     expediente_id UUID REFERENCES expedientes(id),
-    usuario_id UUID REFERENCES usuarios(id),
     accion TEXT NOT NULL,
+    usuario TEXT NOT NULL,
     fecha TIMESTAMP NOT NULL,
     detalle TEXT
 );

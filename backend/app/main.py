@@ -1,11 +1,11 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-
+from app.api.catalogos import router as catalogos_router
 from app.api.expedientes import router as expedientes_router
 
 app = FastAPI(
     title="SIGD-ST API",
-    version="0.1.0",
+    version="0.2.0",
     description="API Alfa del Sistema Inteligente de Gestión Documental",
 )
 
@@ -18,12 +18,8 @@ app.add_middleware(
 )
 
 app.include_router(expedientes_router, prefix="/expedientes", tags=["Expedientes"])
-
+app.include_router(catalogos_router, prefix="/catalogos", tags=["Catálogos"])
 
 @app.get("/")
 def healthcheck():
-    return {
-        "sistema": "SIGD-ST",
-        "estado": "ALFA",
-        "version": "0.1.0",
-    }
+    return {"sistema": "SIGD-ST", "estado": "ALFA", "version": "0.2.0"}
