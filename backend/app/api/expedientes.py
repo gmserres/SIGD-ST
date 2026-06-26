@@ -64,19 +64,11 @@ async def subir_documento(
     file: UploadFile = File(...),
 ):
     obtener_expediente(expediente_id)
-
     nombre_original, ruta_relativa = await guardar_upload(expediente_id, file, tipo.lower())
-
     documento = documento_service.agregar(
         expediente_id,
-        DocumentoCreate(
-            tipo=tipo,
-            nombre_archivo=nombre_original,
-            ruta=ruta_relativa,
-            observaciones=observaciones,
-        ),
+        DocumentoCreate(tipo=tipo, nombre_archivo=nombre_original, ruta=ruta_relativa, observaciones=observaciones),
     )
-
     historial_service.registrar(expediente_id, "DOCUMENTO_CARGADO", detalle=f"{tipo}: {nombre_original}")
     return documento
 
@@ -90,18 +82,13 @@ def listar_documentos(expediente_id: str):
 @router.get("/{expediente_id}/documentos/{documento_id}/descargar")
 def descargar_documento(expediente_id: str, documento_id: str):
     obtener_expediente(expediente_id)
-
     documentos = documento_service.listar_por_expediente(expediente_id)
     documento = next((doc for doc in documentos if doc.id == documento_id), None)
-
     if documento is None:
         raise HTTPException(status_code=404, detail="Documento no encontrado")
-
     ruta = Path(__file__).resolve().parents[3] / documento.ruta
-
     if not ruta.exists():
         raise HTTPException(status_code=404, detail="Archivo físico no encontrado")
-
     return FileResponse(path=ruta, filename=documento.nombre_archivo)
 
 
@@ -113,7 +100,6 @@ async def cargar_op(expediente_id: str, file: UploadFile = File(...)):
         raise HTTPException(status_code=404, detail="Expediente no encontrado") from exc
 
     nombre_original, ruta_relativa = await guardar_upload(expediente_id, file, "op")
-
     documento = documento_service.agregar(
         expediente_id,
         DocumentoCreate(
@@ -123,7 +109,6 @@ async def cargar_op(expediente_id: str, file: UploadFile = File(...)):
             observaciones="Orden de Pago cargada desde la ficha del expediente.",
         ),
     )
-
     historial_service.registrar(expediente_id, "OP_CARGADA", detalle=documento.nombre_archivo)
     return documento
 
@@ -131,6 +116,8 @@ async def cargar_op(expediente_id: str, file: UploadFile = File(...)):
 @router.post("/{expediente_id}/analizar-op", response_model=AnalisisOPRead)
 def analizar_op(expediente_id: str):
     obtener_expediente(expediente_id)
+    if not validacion_service.tiene_op(expediente_id):
+        historial_service.registrar(expediente_id, "ANALISIS_OP_BLOQUEADO", detalle="No existe OP cargada.")
     analisis = analisis_op_service.analizar(expediente_id)
     historial_service.registrar(expediente_id, "OP_ANALIZADA_IA", detalle=f"Modo {analisis.modo}")
     return analisis
@@ -144,19 +131,40 @@ def validar_controles_expediente(expediente_id: str):
 
 @router.post("/{expediente_id}/validar", response_model=ExpedienteRead)
 def validar_expediente(expediente_id: str):
-    try:
-        expediente = expediente_service.cambiar_estado(expediente_id, EstadoExpediente.VALIDADO)
-        historial_service.registrar(expediente_id, "EXPEDIENTE_VALIDADO")
-        return expediente
-    except KeyError as exc:
-        raise HTTPException(status_code=404, detail="Expediente no encontrado") from exc
+    obtener_expediente(expediente_id)
+    errores = validacion_service.errores_bloqueantes(expediente_id)
+    if errores:
+        detalle = " | ".join(errores)
+        historial_service.registrar(expediente_id, "VALIDACION_BLOQUEADA", detalle=detalle)
+        raise HTTPException(
+            status_code=409,
+            detail={"mensaje": "No se puede validar el expediente. Existen errores críticos.", "errores": errores},
+        )
+    expediente = expediente_service.cambiar_estado(expediente_id, EstadoExpediente.VALIDADO)
+    historial_service.registrar(expediente_id, "EXPEDIENTE_VALIDADO")
+    return expediente
 
 
 @router.post("/{expediente_id}/generar-disposicion", response_model=ExpedienteRead)
 def generar_disposicion(expediente_id: str):
     expediente = obtener_expediente(expediente_id)
+    errores = validacion_service.errores_bloqueantes(expediente_id)
+    if errores:
+        detalle = " | ".join(errores)
+        historial_service.registrar(expediente_id, "GENERACION_DISPOSICION_BLOQUEADA", detalle=detalle)
+        raise HTTPException(
+            status_code=409,
+            detail={"mensaje": "No se puede generar la disposición. Existen errores críticos.", "errores": errores},
+        )
     if expediente.estado != EstadoExpediente.VALIDADO:
-        raise HTTPException(status_code=409, detail="El expediente debe estar VALIDADO antes de generar la disposición.")
+        historial_service.registrar(expediente_id, "GENERACION_DISPOSICION_BLOQUEADA", detalle="El expediente no está validado.")
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "mensaje": "No se puede generar la disposición. El expediente debe estar validado.",
+                "errores": ["El expediente debe estar VALIDADO antes de generar la disposición."],
+            },
+        )
 
     expediente = expediente_service.cambiar_estado(expediente_id, EstadoExpediente.DISPOSICION_EMITIDA)
     historial_service.registrar(expediente_id, "DISPOSICION_GENERADA")

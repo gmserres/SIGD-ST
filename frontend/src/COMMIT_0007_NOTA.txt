@@ -1,0 +1,3 @@
+Commit 0007 aplica principalmente reglas de backend.
+El frontend actual ya muestra mensajes de error cuando la API devuelve 409 en validación/generación.
+Si el navegador conserva estado anterior, actualizar con Ctrl+F5.

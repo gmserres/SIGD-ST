@@ -6,7 +6,7 @@ from app.services.historial import historial_service
 
 
 class ValidacionService:
-    def validar(self, expediente_id: str) -> ValidacionExpedienteRead:
+    def validar(self, expediente_id: str, registrar_historial: bool = True) -> ValidacionExpedienteRead:
         expediente = expediente_service.obtener(expediente_id)
         documentos = documento_service.listar_por_expediente(expediente_id)
 
@@ -18,48 +18,19 @@ class ValidacionService:
             if ok:
                 controles.append(ControlValidacion(control=control, estado="OK", observacion=observacion_ok))
                 return
-
             controles.append(ControlValidacion(control=control, estado=severidad, observacion=observacion_error))
             if severidad == "ERROR":
                 errores.append(observacion_error)
             else:
                 advertencias.append(observacion_error)
 
-        agregar(
-            "Expediente interno",
-            bool(expediente.numero_interno),
-            "Expediente informado.",
-            "Falta número de expediente interno.",
-        )
-
-        agregar(
-            "Número de disposición",
-            bool(expediente.numero_disposicion),
-            "Número de disposición informado.",
-            "Falta número de disposición.",
-        )
-
-        agregar(
-            "Establecimiento",
-            bool(expediente.establecimiento),
-            "Establecimiento informado.",
-            "Falta establecimiento.",
-        )
-
-        agregar(
-            "Objeto",
-            bool(expediente.objeto),
-            "Objeto informado.",
-            "Falta objeto de la contratación.",
-        )
+        agregar("Expediente interno", bool(expediente.numero_interno), "Expediente informado.", "Falta número de expediente interno.")
+        agregar("Número de disposición", bool(expediente.numero_disposicion), "Número de disposición informado.", "Falta número de disposición.")
+        agregar("Establecimiento", bool(expediente.establecimiento), "Establecimiento informado.", "Falta establecimiento.")
+        agregar("Objeto", bool(expediente.objeto), "Objeto informado.", "Falta objeto de la contratación.")
 
         tiene_op = any(doc.tipo == "OP" for doc in documentos)
-        agregar(
-            "Orden de Pago",
-            tiene_op,
-            "OP cargada.",
-            "Falta cargar la Orden de Pago.",
-        )
+        agregar("Orden de Pago", tiene_op, "OP cargada.", "Falta cargar la Orden de Pago.")
 
         agregar(
             "Documentos complementarios",
@@ -69,10 +40,9 @@ class ValidacionService:
             severidad="ADVERTENCIA",
         )
 
-        puede_generar = expediente.estado == EstadoExpediente.VALIDADO
         agregar(
             "Estado para generar disposición",
-            puede_generar,
+            expediente.estado == EstadoExpediente.VALIDADO,
             "El expediente está validado.",
             "El expediente aún no está validado.",
             severidad="ADVERTENCIA",
@@ -80,11 +50,8 @@ class ValidacionService:
 
         estado_general = "ROJO" if errores else ("AMARILLO" if advertencias else "VERDE")
 
-        historial_service.registrar(
-            expediente_id,
-            "VALIDACION_CONSULTADA",
-            detalle=f"Estado general: {estado_general}",
-        )
+        if registrar_historial:
+            historial_service.registrar(expediente_id, "VALIDACION_CONSULTADA", detalle=f"Estado general: {estado_general}")
 
         return ValidacionExpedienteRead(
             expediente_id=expediente_id,
@@ -93,6 +60,13 @@ class ValidacionService:
             advertencias=advertencias,
             controles=controles,
         )
+
+    def errores_bloqueantes(self, expediente_id: str) -> list[str]:
+        return self.validar(expediente_id, registrar_historial=False).errores
+
+    def tiene_op(self, expediente_id: str) -> bool:
+        documentos = documento_service.listar_por_expediente(expediente_id)
+        return any(doc.tipo == "OP" for doc in documentos)
 
 
 validacion_service = ValidacionService()
