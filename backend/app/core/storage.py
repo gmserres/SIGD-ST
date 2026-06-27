@@ -32,7 +32,7 @@ def nombre_seguro(nombre: str) -> str:
     return limpio or "documento"
 
 
-async def guardar_upload(expediente_id: str, archivo: UploadFile, prefijo: str) -> tuple[str, str]:
+async def guardar_upload(expediente_id: str, archivo: UploadFile, prefijo: str) -> tuple[str, str, int, str | None]:
     carpeta = asegurar_carpeta_expediente(expediente_id)
     nombre_original = archivo.filename or "documento.pdf"
     nombre_final = f"{prefijo}_{uuid4().hex[:8]}_{nombre_seguro(nombre_original)}"
@@ -42,4 +42,4 @@ async def guardar_upload(expediente_id: str, archivo: UploadFile, prefijo: str) 
     destino.write_bytes(contenido)
 
     ruta_relativa = destino.relative_to(Path(__file__).resolve().parents[3]).as_posix()
-    return nombre_original, ruta_relativa
+    return nombre_original, ruta_relativa, len(contenido), archivo.content_type

@@ -2,28 +2,24 @@
 
 Sistema Inteligente de Gestión Documental para la Secretaría Técnica del Consejo Escolar de General Alvarado.
 
-## Inicio rápido en Windows
-
-Desde la carpeta raíz del repositorio:
+## Inicio rápido
 
 ```bat
 scripts\iniciar_sigd_st.bat
 ```
 
-Luego abrir:
+Frontend:
 
 ```text
 http://localhost:5173
 ```
 
-API:
+Backend:
 
 ```text
 http://localhost:8000/docs
 ```
 
-## Verificar entorno
+## Sprint 0009-0011
 
-```bat
-scripts\verificar_entorno.bat
-```
+Se incorpora gestión documental avanzada, vista previa de documentos y lectura inicial de PDF.

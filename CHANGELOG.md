@@ -1,15 +1,23 @@
 # CHANGELOG
 
-## Commit 0008
+## Sprint 0009-0011
 
+### Commit 0011 - Lectura inicial de PDF
+- Se agrega servicio de extracción de texto desde PDF.
+- Se agrega endpoint para extraer texto de documentos.
+- Se prepara el terreno para lectura real de OP.
+
+### Commit 0010 - Visor documental
+- Se agrega endpoint de vista previa de documentos.
+- Se prepara apertura de PDF en navegador.
+
+### Commit 0009 - Gestión documental avanzada
+- Se amplían metadatos de documentos.
+- Se registran tamaño y tipo MIME.
+- Se mejora la gestión documental del expediente.
+
+## Commit 0008
 - Se agregan scripts de arranque local para Windows.
-- Se agrega verificador de entorno.
-- Se documenta el procedimiento rápido para iniciar SIGD-ST.
-- Se reduce la dependencia de comandos manuales en VS Code.
 
 ## Commit 0007
-
 - Se agregan reglas de flujo administrativo.
-- Se bloquea la validación de expedientes con errores críticos.
-- Se bloquea la generación de disposición si falta OP.
-- Se bloquea la generación de disposición si el expediente no está validado.

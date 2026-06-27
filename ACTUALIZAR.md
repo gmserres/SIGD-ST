@@ -1,20 +1,36 @@
-# Commit 0008 - Arranque local simplificado
+# Sprint 0009-0011 - Gestión documental y lectura PDF
 
-1. Descomprimir `SIGD-ST_commit_0008.zip`.
+## Cómo actualizar
+
+1. Descomprimir `SIGD-ST_sprint_0009_0011.zip`.
 2. Copiar todo el contenido dentro del repositorio `SIGD-ST`.
 3. Reemplazar archivos cuando Windows lo pregunte.
-4. En GitHub Desktop:
+4. En GitHub Desktop usar este Summary:
 
-Commit 0008 - Arranque local simplificado
+Sprint 0009-0011 - Gestión documental y lectura PDF
 
 5. Commit to main.
 6. Push origin.
 
-## Resultado
+## Incluye
 
-Se agregan scripts para ejecutar el SIGD-ST en Windows:
+### Commit 0009 - Gestión documental avanzada
+- Metadatos de documentos.
+- Tamaño de archivo.
+- Tipo MIME.
+- Endpoint de vista previa.
+- Clasificación documental.
 
-- `scripts\verificar_entorno.bat`
-- `scripts\iniciar_backend.bat`
-- `scripts\iniciar_frontend.bat`
-- `scripts\iniciar_sigd_st.bat`
+### Commit 0010 - Visor documental
+- Apertura de documentos desde el navegador.
+- Mejoras para visualizar PDF sin descargar.
+- Búsqueda/filtro documental preparada.
+
+### Commit 0011 - Lectura inicial de PDF
+- Servicio de extracción de texto PDF.
+- Endpoint para leer texto de una OP/documento.
+- Preparación para reemplazar análisis simulado por análisis real.
+
+## Nota
+
+Después de actualizar, detener y reiniciar backend y frontend.

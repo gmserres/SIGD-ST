@@ -8,11 +8,13 @@ from app.schemas.analisis_op import AnalisisOPRead
 from app.schemas.documento import DocumentoCreate, DocumentoRead
 from app.schemas.expediente import ExpedienteCreate, ExpedienteRead, ExpedienteUpdate
 from app.schemas.historial import HistorialRead
+from app.schemas.texto_documento import TextoDocumentoRead
 from app.schemas.validacion import ValidacionExpedienteRead
 from app.services.analisis_op import analisis_op_service
 from app.services.documentos import documento_service
 from app.services.expedientes import expediente_service
 from app.services.historial import historial_service
+from app.services.texto_documento import texto_documento_service
 from app.services.validaciones import validacion_service
 
 router = APIRouter()
@@ -64,10 +66,17 @@ async def subir_documento(
     file: UploadFile = File(...),
 ):
     obtener_expediente(expediente_id)
-    nombre_original, ruta_relativa = await guardar_upload(expediente_id, file, tipo.lower())
+    nombre_original, ruta_relativa, tamano_bytes, mime_type = await guardar_upload(expediente_id, file, tipo.lower())
     documento = documento_service.agregar(
         expediente_id,
-        DocumentoCreate(tipo=tipo, nombre_archivo=nombre_original, ruta=ruta_relativa, observaciones=observaciones),
+        DocumentoCreate(
+            tipo=tipo,
+            nombre_archivo=nombre_original,
+            ruta=ruta_relativa,
+            observaciones=observaciones,
+            tamano_bytes=tamano_bytes,
+            mime_type=mime_type,
+        ),
     )
     historial_service.registrar(expediente_id, "DOCUMENTO_CARGADO", detalle=f"{tipo}: {nombre_original}")
     return documento
@@ -79,17 +88,38 @@ def listar_documentos(expediente_id: str):
     return documento_service.listar_por_expediente(expediente_id)
 
 
-@router.get("/{expediente_id}/documentos/{documento_id}/descargar")
-def descargar_documento(expediente_id: str, documento_id: str):
+def _obtener_documento_o_404(expediente_id: str, documento_id: str) -> DocumentoRead:
     obtener_expediente(expediente_id)
-    documentos = documento_service.listar_por_expediente(expediente_id)
-    documento = next((doc for doc in documentos if doc.id == documento_id), None)
+    documento = documento_service.obtener(expediente_id, documento_id)
     if documento is None:
         raise HTTPException(status_code=404, detail="Documento no encontrado")
+    return documento
+
+
+@router.get("/{expediente_id}/documentos/{documento_id}/descargar")
+def descargar_documento(expediente_id: str, documento_id: str):
+    documento = _obtener_documento_o_404(expediente_id, documento_id)
     ruta = Path(__file__).resolve().parents[3] / documento.ruta
     if not ruta.exists():
         raise HTTPException(status_code=404, detail="Archivo físico no encontrado")
     return FileResponse(path=ruta, filename=documento.nombre_archivo)
+
+
+@router.get("/{expediente_id}/documentos/{documento_id}/vista-previa")
+def vista_previa_documento(expediente_id: str, documento_id: str):
+    documento = _obtener_documento_o_404(expediente_id, documento_id)
+    ruta = Path(__file__).resolve().parents[3] / documento.ruta
+    if not ruta.exists():
+        raise HTTPException(status_code=404, detail="Archivo físico no encontrado")
+    return FileResponse(path=ruta, media_type=documento.mime_type or "application/octet-stream")
+
+
+@router.get("/{expediente_id}/documentos/{documento_id}/texto", response_model=TextoDocumentoRead)
+def extraer_texto_documento(expediente_id: str, documento_id: str):
+    _obtener_documento_o_404(expediente_id, documento_id)
+    texto = texto_documento_service.extraer(expediente_id, documento_id)
+    historial_service.registrar(expediente_id, "TEXTO_DOCUMENTO_EXTRAIDO", detalle=documento_id)
+    return texto
 
 
 @router.post("/{expediente_id}/documentos/op", response_model=DocumentoRead)
@@ -99,7 +129,7 @@ async def cargar_op(expediente_id: str, file: UploadFile = File(...)):
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="Expediente no encontrado") from exc
 
-    nombre_original, ruta_relativa = await guardar_upload(expediente_id, file, "op")
+    nombre_original, ruta_relativa, tamano_bytes, mime_type = await guardar_upload(expediente_id, file, "op")
     documento = documento_service.agregar(
         expediente_id,
         DocumentoCreate(
@@ -107,6 +137,8 @@ async def cargar_op(expediente_id: str, file: UploadFile = File(...)):
             nombre_archivo=nombre_original,
             ruta=ruta_relativa,
             observaciones="Orden de Pago cargada desde la ficha del expediente.",
+            tamano_bytes=tamano_bytes,
+            mime_type=mime_type,
         ),
     )
     historial_service.registrar(expediente_id, "OP_CARGADA", detalle=documento.nombre_archivo)
@@ -134,8 +166,7 @@ def validar_expediente(expediente_id: str):
     obtener_expediente(expediente_id)
     errores = validacion_service.errores_bloqueantes(expediente_id)
     if errores:
-        detalle = " | ".join(errores)
-        historial_service.registrar(expediente_id, "VALIDACION_BLOQUEADA", detalle=detalle)
+        historial_service.registrar(expediente_id, "VALIDACION_BLOQUEADA", detalle=" | ".join(errores))
         raise HTTPException(
             status_code=409,
             detail={"mensaje": "No se puede validar el expediente. Existen errores críticos.", "errores": errores},
@@ -150,8 +181,7 @@ def generar_disposicion(expediente_id: str):
     expediente = obtener_expediente(expediente_id)
     errores = validacion_service.errores_bloqueantes(expediente_id)
     if errores:
-        detalle = " | ".join(errores)
-        historial_service.registrar(expediente_id, "GENERACION_DISPOSICION_BLOQUEADA", detalle=detalle)
+        historial_service.registrar(expediente_id, "GENERACION_DISPOSICION_BLOQUEADA", detalle=" | ".join(errores))
         raise HTTPException(
             status_code=409,
             detail={"mensaje": "No se puede generar la disposición. Existen errores críticos.", "errores": errores},
