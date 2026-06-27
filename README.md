@@ -2,52 +2,28 @@
 
 Sistema Inteligente de Gestión Documental para la Secretaría Técnica del Consejo Escolar de General Alvarado.
 
-## Estado actual
+## Inicio rápido en Windows
 
-Versión Alfa 0.6.0.
+Desde la carpeta raíz del repositorio:
 
-El sistema permite:
-
-- Crear expedientes.
-- Cargar documentos.
-- Asociar documentación al expediente.
-- Consultar historial.
-- Analizar una Orden de Pago en modo Alfa.
-- Validar condiciones mínimas del expediente.
-- Preparar el flujo para generación documental.
-
-## Ejecutar backend
-
-```bash
-cd backend
-python -m venv .venv
-.venv\Scripts\activate
-pip install -r requirements.txt
-uvicorn app.main:app --reload
+```bat
+scripts\iniciar_sigd_st.bat
 ```
 
-Abrir:
+Luego abrir:
+
+```text
+http://localhost:5173
+```
+
+API:
 
 ```text
 http://localhost:8000/docs
 ```
 
-## Ejecutar frontend
+## Verificar entorno
 
-```bash
-cd frontend
-npm install
-npm run dev
+```bat
+scripts\verificar_entorno.bat
 ```
-
-Abrir la URL que indique Vite.
-
-## Flujo Alfa sugerido
-
-1. Crear expediente.
-2. Abrir ficha.
-3. Cargar OP PDF.
-4. Analizar OP.
-5. Ver validaciones.
-6. Validar expediente.
-7. Generar disposición.
