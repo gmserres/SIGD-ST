@@ -1,23 +1,24 @@
 # CHANGELOG
 
+## Sprint 0012-0015
+
+- Se redefine la experiencia de uso con entrada por bandeja de trabajo.
+- Se mantiene el expediente como unidad central.
+- Se mejora la pantalla de Inicio.
+- Se reorganiza la ficha del expediente.
+- Se incorpora panel de inteligencia del expediente.
+- Se mejora la visualización de acciones, documentos, validaciones e historial.
+
 ## Sprint 0009-0011
 
-### Commit 0011 - Lectura inicial de PDF
-- Se agrega servicio de extracción de texto desde PDF.
-- Se agrega endpoint para extraer texto de documentos.
-- Se prepara el terreno para lectura real de OP.
-
-### Commit 0010 - Visor documental
-- Se agrega endpoint de vista previa de documentos.
-- Se prepara apertura de PDF en navegador.
-
-### Commit 0009 - Gestión documental avanzada
-- Se amplían metadatos de documentos.
-- Se registran tamaño y tipo MIME.
-- Se mejora la gestión documental del expediente.
+- Gestión documental con metadatos.
+- Vista previa de documentos.
+- Lectura inicial de texto PDF.
 
 ## Commit 0008
-- Se agregan scripts de arranque local para Windows.
+
+- Scripts de arranque local.
 
 ## Commit 0007
-- Se agregan reglas de flujo administrativo.
+
+- Reglas de flujo administrativo.
