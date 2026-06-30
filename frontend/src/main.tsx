@@ -142,6 +142,85 @@ function diagnosticoIA(analisis: AnalisisOP | null) {
   return { color: 'rojo', etiqueta: 'Requiere revisión', riesgo: 'ALTO', porcentaje, resumen: 'No cuento con información suficiente para recomendar el avance del expediente.', recomendacion: 'Revisar la documentación cargada antes de continuar.', accion: 'Revisión documental' };
 }
 
+
+function sumarFacturas(analisis: AnalisisOP | null) {
+  if (!analisis) return null;
+  return analisis.documentos_comerciales.reduce((acc, doc) => acc + doc.importe, 0);
+}
+
+function comparacionDocumental(analisis: AnalisisOP | null) {
+  if (!analisis || !analisis.op_detectada || !analisis.importe_bruto) {
+    return {
+      estado: 'Sin datos',
+      color: 'rojo',
+      totalOp: null as number | null,
+      totalFacturas: null as number | null,
+      diferencia: null as number | null,
+      mensaje: 'No hay información suficiente para comparar OP y facturas.',
+    };
+  }
+
+  const totalFacturas = sumarFacturas(analisis);
+
+  if (!totalFacturas) {
+    return {
+      estado: 'Pendiente',
+      color: 'amarillo',
+      totalOp: analisis.importe_bruto,
+      totalFacturas: null as number | null,
+      diferencia: null as number | null,
+      mensaje: 'No se detectaron facturas liquidadas para comparar.',
+    };
+  }
+
+  const diferencia = Math.round((totalFacturas - analisis.importe_bruto) * 100) / 100;
+
+  if (Math.abs(diferencia) <= 1) {
+    return {
+      estado: 'Consistente',
+      color: 'verde',
+      totalOp: analisis.importe_bruto,
+      totalFacturas,
+      diferencia: 0,
+      mensaje: 'La suma de facturas coincide con el monto total de la OP.',
+    };
+  }
+
+  return {
+    estado: 'Inconsistente',
+    color: 'rojo',
+    totalOp: analisis.importe_bruto,
+    totalFacturas,
+    diferencia,
+    mensaje: 'La suma de facturas no coincide con el monto total de la OP.',
+  };
+}
+
+function confiabilidadIA(analisis: AnalisisOP | null) {
+  if (!analisis || !analisis.op_detectada) return { valor: 0, prioridad: 'ALTA' };
+
+  let puntaje = 0;
+  if (analisis.op_detectada) puntaje += 15;
+  if (analisis.proveedor) puntaje += 10;
+  if (analisis.cuit) puntaje += 10;
+  if (analisis.importe_bruto) puntaje += 10;
+  if (analisis.importe_neto) puntaje += 10;
+  if (analisis.documentos_comerciales.length > 0) puntaje += 15;
+
+  const comp = comparacionDocumental(analisis);
+  if (comp.estado === 'Consistente') puntaje += 20;
+  if (analisis.retenciones.length > 0) puntaje += 5;
+
+  puntaje = Math.max(0, Math.min(100, puntaje - Math.min(analisis.faltantes.length * 3, 15)));
+
+  let prioridad = 'BAJA';
+  if (comp.estado === 'Inconsistente' || puntaje < 45) prioridad = 'ALTA';
+  else if (analisis.faltantes.length >= 3 || puntaje < 80) prioridad = 'MEDIA';
+
+  return { valor: puntaje, prioridad };
+}
+
+
 async function obtenerMensajeError(res: Response) {
   try {
     const data = await res.json();
@@ -344,6 +423,8 @@ function App() {
   }, []);
 
   const diag = diagnosticoIA(analisis);
+  const comparacion = comparacionDocumental(analisis);
+  const confiabilidad = confiabilidadIA(analisis);
 
   return (
     <main className="app-shell">
@@ -365,7 +446,7 @@ function App() {
           <button className={pantalla === 'administracion' ? 'active' : ''} onClick={() => setPantalla('administracion')}>Administración</button>
         </nav>
 
-        <div className="version">Versión Alfa 0.20A</div>
+        <div className="version">Versión Alfa 0.20B</div>
       </aside>
 
       <section className="content">
@@ -416,6 +497,7 @@ function App() {
                   <p>✓ Diagnóstico automático del expediente.</p>
                   <p>✓ Semáforo documental inicial.</p>
                   <p>✓ Recomendaciones administrativas.</p>
+                  <p>✓ Comparador documental y confiabilidad.</p>
                 </div>
                 <button className="primary" onClick={() => setPantalla('nuevo')}>Crear expediente</button>
               </div>
@@ -583,6 +665,26 @@ function App() {
                             <div className="progress-track"><div style={{ width: `${diag.porcentaje}%` }} /></div>
                             <span>avance documental</span>
                             <div className="action-box">{diag.accion}</div>
+                          </div>
+                        </div>
+
+                        <div className="intelligence-grid">
+                          <div className={`intel-card ${comparacion.color}`}>
+                            <span className="eyebrow">Comparador documental</span>
+                            <h4>{comparacion.estado}</h4>
+                            <p>{comparacion.mensaje}</p>
+                            <dl>
+                              <dt>Total OP</dt><dd>{moneda(comparacion.totalOp)}</dd>
+                              <dt>Total facturas</dt><dd>{moneda(comparacion.totalFacturas)}</dd>
+                              <dt>Diferencia</dt><dd>{moneda(comparacion.diferencia)}</dd>
+                            </dl>
+                          </div>
+
+                          <div className="intel-card blue">
+                            <span className="eyebrow">Confiabilidad documental</span>
+                            <h4>{confiabilidad.valor}%</h4>
+                            <div className="progress-track"><div style={{ width: `${confiabilidad.valor}%` }} /></div>
+                            <p>Prioridad de revisión: <strong>{confiabilidad.prioridad}</strong></p>
                           </div>
                         </div>
 

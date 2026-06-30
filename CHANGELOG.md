@@ -1,16 +1,22 @@
 # CHANGELOG
 
+## Sprint 0020B
+
+- Se agrega comparador documental OP vs facturas.
+- Se agrega índice de confiabilidad documental.
+- Se agrega prioridad automática de revisión.
+- Se agregan controles inteligentes en la pestaña IA documental.
+- Se prepara la base para bloqueo inteligente de validación.
+
 ## Sprint 0020A
 
 - Se incorpora panel de Asistente Administrativo Inteligente.
 - Se agrega cálculo de riesgo administrativo.
 - Se agrega recomendación automática.
 - Se agrega resumen ejecutivo IA en lenguaje natural.
-- Se prepara un motor de reglas inicial para diagnósticos futuros.
 
 ## Sprint 0019
 
-- Se corrige extracción de proveedor.
-- Se agrega diagnóstico automático.
+- Se agrega diagnóstico automático del expediente.
 - Se agrega semáforo documental.
-- Se calcula porcentaje de avance documental.
+- Se agrega checklist inteligente.

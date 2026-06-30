@@ -93,7 +93,7 @@ th { color: #64748b; font-weight: 700; }
 @media (max-width: 1000px) {
   .app-shell { display: block; }
   .sidebar { width: 100%; }
-  .metrics, .dashboard-grid, .upload-grid, .expediente-layout, .analysis-grid, .admin-grid, .validation-columns, .checklist-grid { grid-template-columns: 1fr; }
+  .metrics, .dashboard-grid, .upload-grid, .expediente-layout, .analysis-grid, .admin-grid, .validation-columns, .checklist-grid, .intelligence-grid { grid-template-columns: 1fr; }
   .diagnostic-panel { display: block; }
   .assistant-panel { display: block; }
   .assistant-side { text-align: left; margin-top: 12px; }
@@ -116,3 +116,41 @@ th { color: #64748b; font-weight: 700; }
 .risk-pill.amarillo { background: #fef3c7; color: #92400e; }
 .risk-pill.rojo { background: #fee2e2; color: #991b1b; }
 .action-box { border-radius: 12px; padding: 10px; background: rgba(255,255,255,.65); font-weight: 800; }
+
+
+.intelligence-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+.intel-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 16px;
+  background: #f8fafc;
+}
+.intel-card.verde { background: #f0fdf4; border-color: #86efac; }
+.intel-card.amarillo { background: #fffbeb; border-color: #facc15; }
+.intel-card.rojo { background: #fef2f2; border-color: #fca5a5; }
+.intel-card.blue { background: #eff6ff; border-color: #bfdbfe; }
+.intel-card h4 {
+  margin: 6px 0 8px;
+  font-size: 22px;
+}
+.intel-card p {
+  color: #334155;
+}
+.intel-card dl {
+  display: grid;
+  grid-template-columns: 130px 1fr;
+  gap: 6px 10px;
+  margin: 12px 0 0;
+}
+.intel-card dt {
+  color: #64748b;
+}
+.intel-card dd {
+  margin: 0;
+  font-weight: 800;
+}

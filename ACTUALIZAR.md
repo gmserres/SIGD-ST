@@ -1,13 +1,13 @@
-# Sprint 0020A - Asistente Administrativo Inteligente
+# Sprint 0020B - Motor de Inteligencia Administrativa
 
 ## Cómo actualizar
 
-1. Descomprimir `SIGD-ST_sprint_0020A.zip`.
+1. Descomprimir `SIGD-ST_sprint_0020B.zip`.
 2. Copiar todo el contenido dentro del repositorio `SIGD-ST`.
 3. Reemplazar archivos cuando Windows lo pregunte.
 4. En GitHub Desktop usar este Summary:
 
-Sprint 0020A - Asistente Administrativo Inteligente
+Sprint 0020B - Motor de Inteligencia Administrativa
 
 5. Commit to main.
 6. Push origin.
@@ -15,12 +15,22 @@ Sprint 0020A - Asistente Administrativo Inteligente
 
 ## Resultado
 
-- Panel de Asistente IA en lenguaje natural.
-- Riesgo administrativo: BAJO, MEDIO o ALTO.
-- Recomendación automática.
-- Motor de reglas inicial separado.
-- Mejor lectura ejecutiva del estado documental.
+Este sprint agrega el primer motor de control administrativo:
+
+- Comparador documental OP vs facturas.
+- Índice de confiabilidad documental.
+- Prioridad de revisión.
+- Controles inteligentes en pantalla.
+- Mejor diagnóstico para decidir si el expediente puede avanzar.
 
 ## Prueba recomendada
 
-Usar la OP de MONKE WALTER ANDRES. El resultado esperado es riesgo MEDIO, porque la OP y las facturas son consistentes, pero faltan documentos obligatorios.
+1. Crear expediente.
+2. Cargar la OP de MONKE WALTER ANDRES.
+3. Ejecutar IA documental.
+4. Verificar que aparezca:
+   - Comparador documental.
+   - Total OP / Total Facturas.
+   - Resultado consistente.
+   - Confiabilidad documental.
+   - Prioridad de revisión.

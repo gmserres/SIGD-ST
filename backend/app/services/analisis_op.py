@@ -1,6 +1,8 @@
 from pathlib import Path
 
 from app.modules.documentos.extractor_datos import extraer_datos_op_desde_pdf
+from app.modules.inteligencia.comparador import comparar_total_facturas
+from app.modules.inteligencia.confiabilidad import calcular_confiabilidad, calcular_prioridad
 from app.modules.inteligencia.reglas import diagnosticar_expediente
 from app.modules.fondo_compensador.reglas import (
     NORMA_UC,
@@ -118,15 +120,39 @@ class AnalisisOPService:
             if cantidad_uc:
                 validaciones.append("UC calculadas desde el monto total detectado.")
 
-            economia_consistente = False
-            if datos.facturas and datos.monto_total_facturas:
-                suma_facturas = round(sum(f.importe for f in datos.facturas), 2)
-                diferencia = round(abs(suma_facturas - datos.monto_total_facturas), 2)
-                economia_consistente = diferencia <= 1
-                if economia_consistente:
-                    validaciones.append("Diagnóstico económico: la suma de facturas coincide con el monto total.")
-                else:
-                    validaciones.append("Diagnóstico económico: requiere revisión por diferencia de importes.")
+            comparacion = comparar_total_facturas(
+                total_op=datos.monto_total_facturas,
+                facturas=datos.facturas,
+            )
+            economia_consistente = comparacion.estado == "CONSISTENTE"
+
+            if comparacion.estado == "CONSISTENTE":
+                validaciones.append("Comparador documental: OP y facturas consistentes.")
+            elif comparacion.estado == "INCONSISTENTE":
+                validaciones.append(f"Comparador documental: diferencia detectada ${comparacion.diferencia:,.2f}.")
+                faltantes.append("Revisión contable por diferencia entre OP y facturas")
+            else:
+                validaciones.append(f"Comparador documental: {comparacion.mensaje}")
+
+            confiabilidad = calcular_confiabilidad(
+                op_detectada=True,
+                proveedor=datos.proveedor,
+                cuit=datos.cuit,
+                importe_bruto=importe_bruto,
+                importe_neto=importe_neto,
+                facturas_detectadas=len(datos.facturas),
+                economia_consistente=economia_consistente,
+                retenciones_detectadas=len(datos.retenciones),
+                faltantes=faltantes,
+            )
+            prioridad = calcular_prioridad(
+                confiabilidad=confiabilidad,
+                economia_consistente=economia_consistente,
+                faltantes=faltantes,
+            )
+
+            validaciones.append(f"Confiabilidad documental: {confiabilidad}%.")
+            validaciones.append(f"Prioridad de revisión: {prioridad}.")
 
             diagnostico = diagnosticar_expediente(
                 proveedor=datos.proveedor,
