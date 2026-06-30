@@ -74,7 +74,13 @@ class AnalisisOPService:
                 faltantes.append("Proveedor no detectado")
 
             if importe_bruto:
-                validaciones.append("Importe probable detectado.")
+                if datos.contexto_importe:
+                    validaciones.append(
+                        f"Importe detectado por contexto: {datos.contexto_importe} "
+                        f"(confianza {datos.confianza_importe}%)."
+                    )
+                else:
+                    validaciones.append(f"Importe probable detectado (confianza {datos.confianza_importe}%).")
             else:
                 faltantes.append("Importe no detectado")
 
@@ -86,7 +92,7 @@ class AnalisisOPService:
 
             return AnalisisOPRead(
                 expediente_id=expediente_id,
-                modo="ALFA_PDF_TEXTO",
+                modo="ALFA_PDF_TEXTO_V2",
                 op_detectada=True,
                 proveedor=datos.proveedor,
                 cuit=datos.cuit,
@@ -95,7 +101,7 @@ class AnalisisOPService:
                 liquidacion=None,
                 fecha_op=datos.fecha,
                 importe_bruto=importe_bruto,
-                importe_neto=None,
+                importe_neto=importe_bruto,
                 valor_uc=VALOR_UC_VIGENTE,
                 norma_uc=NORMA_UC,
                 cantidad_uc=cantidad_uc,
@@ -140,17 +146,6 @@ class AnalisisOPService:
             RetencionExtraida(concepto="Retención IVA a Inscriptos", importe=487243.93),
         ]
 
-        validaciones = [
-            "OP detectada y asociada al expediente.",
-            "Proveedor identificado.",
-            "CUIT identificado.",
-            "Fondo Compensador identificado.",
-            "Documentos comerciales detectados.",
-            "Retenciones detectadas.",
-            "UC calculadas.",
-            "Procedimiento determinado.",
-        ]
-
         advertencias = list(advertencias_pdf)
         advertencias.append("No se pudo extraer texto real suficiente. Se mantiene análisis Alfa simulado.")
 
@@ -173,7 +168,16 @@ class AnalisisOPService:
             encuadre_legal=encuadre_legal(procedimiento),
             documentos_comerciales=documentos_comerciales,
             retenciones=retenciones,
-            validaciones=validaciones,
+            validaciones=[
+                "OP detectada y asociada al expediente.",
+                "Proveedor identificado.",
+                "CUIT identificado.",
+                "Fondo Compensador identificado.",
+                "Documentos comerciales detectados.",
+                "Retenciones detectadas.",
+                "UC calculadas.",
+                "Procedimiento determinado.",
+            ],
             advertencias=advertencias,
             faltantes=[
                 "Remito o conformidad firmada",

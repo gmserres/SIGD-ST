@@ -1,13 +1,13 @@
-# Sprint 0016 - IA Documental Base
+# Sprint 0017 - IA Documental v2
 
 ## Cómo actualizar
 
-1. Descomprimir `SIGD-ST_sprint_0016.zip`.
+1. Descomprimir `SIGD-ST_sprint_0017.zip`.
 2. Copiar todo el contenido dentro del repositorio `SIGD-ST`.
 3. Reemplazar archivos cuando Windows lo pregunte.
 4. En GitHub Desktop usar este Summary:
 
-Sprint 0016 - IA Documental Base
+Sprint 0017 - IA Documental v2
 
 5. Commit to main.
 6. Push origin.
@@ -15,28 +15,26 @@ Sprint 0016 - IA Documental Base
 
 ## Resultado
 
-El análisis de OP deja de depender solamente de datos simulados.
+Se corrige el extractor documental para que no confunda el CBU con el importe.
 
-Ahora el backend:
+El sistema ahora:
 
-- busca la OP cargada en el expediente;
-- intenta extraer texto real del PDF;
-- identifica datos por patrones:
-  - CUIT;
-  - fecha;
-  - número de OP;
-  - importes;
-  - proveedor;
-- calcula UC;
-- determina procedimiento;
-- informa advertencias cuando el PDF no tiene texto extraíble.
+- busca importes por contexto;
+- prioriza etiquetas como `Monto Total de Facturas`, `Monto Neto a Pagar` e `Importe`;
+- ignora CBU, CUIT y códigos largos;
+- descarta importes absurdos;
+- informa el contexto usado y un porcentaje de confianza;
+- cambia el modo de análisis a `ALFA_PDF_TEXTO_V2`.
 
 ## Prueba recomendada
 
-1. Iniciar SIGD-ST.
-2. Crear expediente.
-3. Cargar una OP PDF que tenga texto seleccionable.
-4. Entrar a IA documental.
-5. Presionar Ejecutar análisis.
+Usar la OP de prueba que tenía:
 
-Si el PDF es escaneado, el sistema lo advertirá y seguirá usando modo Alfa.
+- CBU: `0140366203617650870232`
+- Importe correcto: `$884.000,00`
+
+Resultado esperado:
+
+- Importe bruto: `$884.000,00`
+- UC aproximadas: `527,13`
+- No debe tomar el CBU como importe.

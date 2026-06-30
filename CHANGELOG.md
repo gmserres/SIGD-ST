@@ -1,16 +1,16 @@
 # CHANGELOG
 
+## Sprint 0017
+
+- Se mejora la extracción de importes por contexto.
+- Se evita que el CBU sea interpretado como importe.
+- Se incorporan reglas de exclusión para CBU, CUIT, liquidación y códigos largos.
+- Se priorizan etiquetas documentales: `Monto Total de Facturas`, `Monto Neto a Pagar`, `Importe`, `Total`.
+- Se agrega confianza porcentual al importe detectado dentro de las validaciones de IA.
+- Se actualiza el modo de análisis a `ALFA_PDF_TEXTO_V2`.
+
 ## Sprint 0016
 
-- Se incorpora extracción de datos desde texto real de PDF.
-- Se agrega extractor documental base.
-- El análisis de OP intenta leer la OP cargada antes de usar datos Alfa.
-- Se detectan CUIT, fechas, importes y número de OP por patrones.
-- Se calculan UC y procedimiento desde el importe detectado.
-- Se agregan advertencias cuando el PDF no tiene texto extraíble.
-
-## Sprint 0012-0015
-
-- Bandeja de trabajo.
-- Expediente Inteligente.
-- Navegación interna por Resumen, Documentos, IA, Validación e Historial.
+- Se incorpora extracción inicial de texto real desde PDF.
+- Se detectan CUIT, fecha, número de OP, proveedor probable e importe probable.
+- Se calcula UC desde el importe detectado.
