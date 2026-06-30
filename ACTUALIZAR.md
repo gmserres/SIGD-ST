@@ -1,13 +1,13 @@
-# Sprint 0018 - Comparador OP y Facturas
+# Sprint 0019 - Asistente Inteligente del Expediente
 
 ## Cómo actualizar
 
-1. Descomprimir `SIGD-ST_sprint_0018.zip`.
+1. Descomprimir `SIGD-ST_sprint_0019.zip`.
 2. Copiar todo el contenido dentro del repositorio `SIGD-ST`.
 3. Reemplazar archivos cuando Windows lo pregunte.
 4. En GitHub Desktop usar este Summary:
 
-Sprint 0018 - Comparador OP y Facturas
+Sprint 0019 - Asistente Inteligente del Expediente
 
 5. Commit to main.
 6. Push origin.
@@ -15,27 +15,25 @@ Sprint 0018 - Comparador OP y Facturas
 
 ## Resultado
 
-El sistema ahora analiza OP más completas:
+Este sprint agrega la primera versión del asistente inteligente del expediente:
 
-- Detecta monto total de facturas.
-- Detecta monto neto a pagar.
-- Detecta importe de pago.
-- Detecta retenciones.
-- Detecta facturas liquidadas.
-- Compara suma de facturas contra monto total.
+- Corrige la extracción de proveedor para OP tipo MONKE.
+- Agrega diagnóstico automático del expediente en IA documental.
+- Agrega semáforo documental: Verde, Amarillo o Rojo.
+- Agrega porcentaje de avance documental.
+- Agrega checklist inteligente.
+- Mejora la recomendación administrativa del sistema.
 
 ## Prueba recomendada
 
-Usar la OP de MONKE WALTER ANDRES.
-
-Resultado esperado:
-
-- Proveedor: MONKE WALTER ANDRES.
-- CUIT: 20-16898364-7.
-- Liquidación: 2025-90.
-- OP: OP 1/2025.
-- Bruto: $840.000,00.
-- Neto: $706.140,03.
-- Facturas detectadas: 6.
-- Retenciones detectadas: 3.
-- Comparación de facturas: coincide.
+1. Crear expediente.
+2. Cargar la OP de MONKE WALTER ANDRES.
+3. Ejecutar IA documental.
+4. Verificar que detecte:
+   - Proveedor: MONKE WALTER ANDRES.
+   - CUIT: 20-16898364-7.
+   - Bruto: $840.000,00.
+   - Neto: $706.140,03.
+   - 6 facturas.
+   - 3 retenciones.
+5. Revisar el nuevo panel "Diagnóstico del expediente".

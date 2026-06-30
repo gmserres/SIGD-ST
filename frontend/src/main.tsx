@@ -1,4 +1,3 @@
-
 import React, { useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import './styles.css';
@@ -109,6 +108,65 @@ function claseValidacion(estado: string) {
   return 'badge red';
 }
 
+function diagnosticoIA(analisis: AnalisisOP | null) {
+  if (!analisis || !analisis.op_detectada) {
+    return {
+      color: 'rojo',
+      etiqueta: 'Sin análisis',
+      porcentaje: 0,
+      resumen: 'Todavía no hay datos suficientes para diagnosticar el expediente.',
+      recomendacion: 'Cargar una Orden de Pago y ejecutar el análisis documental.',
+    };
+  }
+
+  const checks = [
+    !!analisis.proveedor,
+    !!analisis.cuit,
+    !!analisis.importe_bruto,
+    !!analisis.importe_neto,
+    analisis.documentos_comerciales.length > 0,
+    analisis.retenciones.length > 0,
+    !analisis.faltantes.includes('Remito o conformidad firmada'),
+    !analisis.faltantes.includes('Validación CAE'),
+    !analisis.faltantes.includes('Certificado Fiscal ARBA'),
+    !analisis.faltantes.includes('Constancia ARCA'),
+  ];
+
+  const completados = checks.filter(Boolean).length;
+  const porcentaje = Math.round((completados / checks.length) * 100);
+
+  const tieneEconomia = analisis.documentos_comerciales.length > 0 && !!analisis.importe_bruto;
+  const faltantesCriticos = analisis.faltantes.length;
+
+  if (porcentaje >= 85 && faltantesCriticos <= 1) {
+    return {
+      color: 'verde',
+      etiqueta: 'Expediente encaminado',
+      porcentaje,
+      resumen: 'La documentación económica analizada resulta consistente.',
+      recomendacion: 'Puede avanzar a revisión final si la documentación obligatoria está completa.',
+    };
+  }
+
+  if (tieneEconomia) {
+    return {
+      color: 'amarillo',
+      etiqueta: 'Documentación incompleta',
+      porcentaje,
+      resumen: 'La OP fue interpretada y las facturas detectadas son consistentes, pero aún restan documentos.',
+      recomendacion: 'No se recomienda emitir disposición hasta completar los faltantes.',
+    };
+  }
+
+  return {
+    color: 'rojo',
+    etiqueta: 'Requiere revisión',
+    porcentaje,
+    resumen: 'El expediente no cuenta todavía con información suficiente para validar.',
+    recomendacion: 'Revisar documentación cargada antes de continuar.',
+  };
+}
+
 async function obtenerMensajeError(res: Response) {
   try {
     const data = await res.json();
@@ -172,6 +230,7 @@ function App() {
     setSeleccionado(expediente);
     setPantalla('detalle');
     setTabDetalle('resumen');
+    setAnalisis(null);
 
     const [docsRes, histRes] = await Promise.all([
       fetch(`${API_URL}/expedientes/${expediente.id}/documentos`),
@@ -259,7 +318,6 @@ function App() {
     setAnalisis(data);
     setTabDetalle('ia');
     avisar(data.op_detectada ? 'Orden de Pago analizada correctamente.' : 'No se encontró OP cargada para analizar.', data.op_detectada ? 'ok' : 'error');
-    await refrescarDetalleActual();
   }
 
   async function consultarValidacion() {
@@ -267,7 +325,6 @@ function App() {
     const res = await fetch(`${API_URL}/expedientes/${seleccionado.id}/validacion`);
     setValidacion(await res.json());
     setTabDetalle('validacion');
-    await refrescarDetalleActual();
   }
 
   async function validarExpediente() {
@@ -311,6 +368,8 @@ function App() {
     cargarExpedientes();
   }, []);
 
+  const diag = diagnosticoIA(analisis);
+
   return (
     <main className="app-shell">
       <aside className="sidebar">
@@ -331,7 +390,7 @@ function App() {
           <button className={pantalla === 'administracion' ? 'active' : ''} onClick={() => setPantalla('administracion')}>Administración</button>
         </nav>
 
-        <div className="version">Versión Alfa 0.12</div>
+        <div className="version">Versión Alfa 0.19</div>
       </aside>
 
       <section className="content">
@@ -378,10 +437,10 @@ function App() {
               <div className="card">
                 <h3>Asistente del Secretario Técnico</h3>
                 <div className="assistant-box">
-                  <p>✓ El expediente es ahora la unidad central del sistema.</p>
-                  <p>✓ La jornada comienza desde una bandeja de pendientes.</p>
-                  <p>✓ La ficha concentra documentos, IA, validación e historial.</p>
-                  <p>⚠ La lectura IA real seguirá mejorando en los próximos sprints.</p>
+                  <p>✓ IA documental con facturas y retenciones.</p>
+                  <p>✓ Diagnóstico automático del expediente.</p>
+                  <p>✓ Semáforo documental inicial.</p>
+                  <p>✓ Recomendaciones administrativas.</p>
                 </div>
                 <button className="primary" onClick={() => setPantalla('nuevo')}>Crear expediente</button>
               </div>
@@ -528,16 +587,83 @@ function App() {
                       <div className="warning-panel">No existe OP cargada para analizar.</div>
                     ) : (
                       <>
+                        <div className={`diagnostic-panel ${diag.color}`}>
+                          <div>
+                            <span className="eyebrow">Diagnóstico del expediente</span>
+                            <h3>{diag.etiqueta}</h3>
+                            <p>{diag.resumen}</p>
+                            <strong>{diag.recomendacion}</strong>
+                          </div>
+                          <div className="progress-box">
+                            <div className="progress-number">{diag.porcentaje}%</div>
+                            <div className="progress-track"><div style={{ width: `${diag.porcentaje}%` }} /></div>
+                            <span>avance documental</span>
+                          </div>
+                        </div>
+
                         <div className="analysis-grid">
                           <div><strong>Proveedor</strong><p>{analisis.proveedor}</p></div>
                           <div><strong>CUIT</strong><p>{analisis.cuit}</p></div>
                           <div><strong>Fondo</strong><p>{analisis.fondo}</p></div>
-                          <div><strong>Liquidación</strong><p>{analisis.liquidacion}</p></div>
+                          <div><strong>Liquidación</strong><p>{analisis.liquidacion || '-'}</p></div>
+                          <div><strong>OP</strong><p>{analisis.orden_pago || '-'}</p></div>
+                          <div><strong>Fecha OP</strong><p>{analisis.fecha_op || '-'}</p></div>
                           <div><strong>Importe bruto</strong><p>{moneda(analisis.importe_bruto)}</p></div>
                           <div><strong>Importe neto</strong><p>{moneda(analisis.importe_neto)}</p></div>
                           <div><strong>UC</strong><p>{analisis.cantidad_uc}</p></div>
                           <div><strong>Procedimiento</strong><p>{analisis.procedimiento}</p></div>
                         </div>
+
+                        <div className="subcard">
+                          <h4>Checklist inteligente</h4>
+                          <div className="checklist-grid">
+                            <p className={analisis.op_detectada ? 'ok' : 'warn'}>{analisis.op_detectada ? '✓' : '□'} OP cargada</p>
+                            <p className={analisis.proveedor ? 'ok' : 'warn'}>{analisis.proveedor ? '✓' : '□'} Proveedor</p>
+                            <p className={analisis.cuit ? 'ok' : 'warn'}>{analisis.cuit ? '✓' : '□'} CUIT</p>
+                            <p className={analisis.documentos_comerciales.length ? 'ok' : 'warn'}>{analisis.documentos_comerciales.length ? '✓' : '□'} Facturas liquidadas</p>
+                            <p className={!analisis.faltantes.includes('Remito o conformidad firmada') ? 'ok' : 'warn'}>{!analisis.faltantes.includes('Remito o conformidad firmada') ? '✓' : '□'} Remito / conformidad</p>
+                            <p className={!analisis.faltantes.includes('Validación CAE') ? 'ok' : 'warn'}>{!analisis.faltantes.includes('Validación CAE') ? '✓' : '□'} CAE</p>
+                            <p className={!analisis.faltantes.includes('Certificado Fiscal ARBA') ? 'ok' : 'warn'}>{!analisis.faltantes.includes('Certificado Fiscal ARBA') ? '✓' : '□'} ARBA</p>
+                            <p className={!analisis.faltantes.includes('Constancia ARCA') ? 'ok' : 'warn'}>{!analisis.faltantes.includes('Constancia ARCA') ? '✓' : '□'} ARCA</p>
+                          </div>
+                        </div>
+
+                        {analisis.documentos_comerciales.length > 0 && (
+                          <div className="subcard">
+                            <h4>Facturas liquidadas</h4>
+                            <table>
+                              <thead><tr><th>Tipo</th><th>Número</th><th>Fecha</th><th>Importe</th></tr></thead>
+                              <tbody>
+                                {analisis.documentos_comerciales.map((doc, i) => (
+                                  <tr key={i}>
+                                    <td>{doc.tipo} {doc.letra}</td>
+                                    <td>{doc.numero}</td>
+                                    <td>{doc.fecha}</td>
+                                    <td>{moneda(doc.importe)}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+
+                        {analisis.retenciones.length > 0 && (
+                          <div className="subcard">
+                            <h4>Retenciones detectadas</h4>
+                            <table>
+                              <thead><tr><th>Concepto</th><th>Importe</th></tr></thead>
+                              <tbody>
+                                {analisis.retenciones.map((ret, i) => (
+                                  <tr key={i}>
+                                    <td>{ret.concepto}</td>
+                                    <td>{moneda(ret.importe)}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+
                         <div className="validation-columns">
                           <div>
                             <h4>Validaciones</h4>

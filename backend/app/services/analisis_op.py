@@ -86,7 +86,7 @@ class AnalisisOPService:
                 faltantes.append("CUIT no detectado")
 
             if datos.proveedor:
-                validaciones.append("Proveedor probable detectado.")
+                validaciones.append("Proveedor detectado.")
             else:
                 faltantes.append("Proveedor no detectado")
 
@@ -116,6 +116,20 @@ class AnalisisOPService:
 
             if cantidad_uc:
                 validaciones.append("UC calculadas desde el monto total detectado.")
+
+            # Diagnóstico administrativo inicial.
+            if datos.facturas and datos.monto_total_facturas:
+                suma_facturas = round(sum(f.importe for f in datos.facturas), 2)
+                diferencia = round(abs(suma_facturas - datos.monto_total_facturas), 2)
+                if diferencia <= 1:
+                    validaciones.append("Diagnóstico: documentación económica consistente.")
+                else:
+                    validaciones.append("Diagnóstico: requiere revisión económica.")
+
+            if len(faltantes) >= 4:
+                validaciones.append("Recomendación: no validar hasta completar documentación obligatoria.")
+            else:
+                validaciones.append("Recomendación: expediente cercano a validación.")
 
             advertencias = list(datos.advertencias)
             advertencias.append("Extracción automática inicial. Requiere revisión humana.")

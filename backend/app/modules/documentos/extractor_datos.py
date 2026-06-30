@@ -145,23 +145,39 @@ def extraer_liquidacion(texto: str) -> str | None:
 
 
 def extraer_fondo(texto: str) -> str | None:
+    # Prioriza valores conocidos para evitar devolver solo ":" cuando el texto viene tabulado.
+    if re.search(r"Fondo\s+Compensador", texto, flags=re.IGNORECASE):
+        return "Fondo Compensador"
+
     match = re.search(r"Fondo\s*[:.\- ]*(.+)", texto, flags=re.IGNORECASE)
     if not match:
         return None
 
-    valor = re.sub(r"\s+", " ", match.group(1)).strip()
-    return valor[:80] if valor else None
+    valor = re.sub(r"\s+", " ", match.group(1)).strip(" :-")
+    return valor[:80] if len(valor) > 2 else None
 
 
 def limpiar_linea(linea: str) -> str:
     return re.sub(r"\s+", " ", linea).strip(" :-\t")
 
 
+def _linea_es_etiqueta(linea: str) -> bool:
+    etiquetas = [
+        "cuit", "razón social", "razon social", "iva", "fondo", "rubro",
+        "datos del proveedor", "detalle de liquidación", "datos del pago",
+        "monto", "retención", "retencion", "orden de pago", "forma de pago",
+        "número de cbu", "numero de cbu", "importe", "fecha emisión", "fecha emision"
+    ]
+    normal = linea.lower().strip(" :-")
+    return normal in etiquetas or any(normal.startswith(e + ":") and len(normal) <= len(e) + 3 for e in etiquetas)
+
+
 def extraer_proveedor(texto: str, cuit: str | None) -> str | None:
     lineas = [limpiar_linea(l) for l in texto.splitlines() if limpiar_linea(l)]
 
+    # Caso 1: etiqueta y valor en la misma línea.
     patrones = [
-        r"Raz[oó]n\s+Social\s*[:.\- ]*(.+)",
+        r"Raz[oó]n\s+Social\s*[:.\- ]+(.+)",
         r"(?:proveedor|beneficiario|contratista)\s*[:.\-]\s*(.+)",
         r"(?:señor(?:es)?|sr\.?|sres\.?)\s*[:\-]\s*(.+)",
     ]
@@ -171,18 +187,26 @@ def extraer_proveedor(texto: str, cuit: str | None) -> str | None:
             match = re.search(patron, linea, flags=re.IGNORECASE)
             if match:
                 candidato = limpiar_linea(match.group(1))
-                if candidato and len(candidato) > 3:
+                if candidato and len(candidato) > 3 and not _linea_es_etiqueta(candidato):
                     return candidato[:120]
 
+    # Caso 2: OCR/texto tabulado deja "Razón Social" en una línea y el valor cerca.
+    for idx, linea in enumerate(lineas):
+        if re.fullmatch(r"Raz[oó]n\s+Social", linea, flags=re.IGNORECASE) or re.fullmatch(r"Raz[oó]n\s+Social[:.\-]*", linea, flags=re.IGNORECASE):
+            for candidato in lineas[idx + 1:idx + 6]:
+                if len(candidato) > 4 and not _linea_es_etiqueta(candidato) and not re.search(r"responsable|inscripto|monotributo", candidato, re.I):
+                    return candidato[:120]
+
+    # Caso 3: valor suele estar inmediatamente después del CUIT en tablas.
     if cuit:
         cuit_sin_guiones = re.sub(r"\D", "", cuit)
         for idx, linea in enumerate(lineas):
             if cuit in linea or cuit_sin_guiones in re.sub(r"\D", "", linea):
-                for siguiente in lineas[idx + 1:idx + 5]:
-                    if len(siguiente) > 4 and not re.search(r"iva|fondo|rubro|cuit|cuil", siguiente, re.I):
+                for siguiente in lineas[idx + 1:idx + 7]:
+                    if len(siguiente) > 4 and not _linea_es_etiqueta(siguiente) and not re.search(r"responsable|inscripto|monotributo|ganancias|suss", siguiente, re.I):
                         return siguiente[:120]
                 for anterior in reversed(lineas[max(0, idx - 4):idx]):
-                    if len(anterior) > 4 and not re.search(r"cuit|cuil|fecha|expediente|orden", anterior, re.I):
+                    if len(anterior) > 4 and not _linea_es_etiqueta(anterior):
                         return anterior[:120]
 
     return None
