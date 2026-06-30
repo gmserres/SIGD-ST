@@ -46,9 +46,26 @@ class AnalisisOPService:
         datos = extraer_datos_op_desde_pdf(ruta)
 
         if datos.texto_extraido:
-            importe_bruto = datos.importe_probable
+            importe_bruto = datos.monto_total_facturas or datos.importe_pago or datos.importe_probable
+            importe_neto = datos.monto_neto_pagar or datos.importe_pago
             cantidad_uc = calcular_uc(importe_bruto) if importe_bruto else None
             procedimiento = determinar_procedimiento(cantidad_uc) if cantidad_uc else None
+
+            documentos_comerciales = [
+                DocumentoComercialExtraido(
+                    tipo=factura.tipo,
+                    letra=factura.letra,
+                    numero=factura.numero,
+                    fecha=factura.fecha,
+                    importe=factura.importe,
+                )
+                for factura in datos.facturas
+            ]
+
+            retenciones = [
+                RetencionExtraida(concepto=ret.concepto, importe=ret.importe)
+                for ret in datos.retenciones
+            ]
 
             validaciones = [
                 "OP cargada y asociada al expediente.",
@@ -73,42 +90,55 @@ class AnalisisOPService:
             else:
                 faltantes.append("Proveedor no detectado")
 
-            if importe_bruto:
-                if datos.contexto_importe:
-                    validaciones.append(
-                        f"Importe detectado por contexto: {datos.contexto_importe} "
-                        f"(confianza {datos.confianza_importe}%)."
-                    )
-                else:
-                    validaciones.append(f"Importe probable detectado (confianza {datos.confianza_importe}%).")
+            if datos.monto_total_facturas:
+                validaciones.append("Monto total de facturas detectado.")
+            elif datos.importe_pago:
+                validaciones.append("Importe de pago detectado.")
             else:
                 faltantes.append("Importe no detectado")
 
+            if datos.monto_neto_pagar:
+                validaciones.append("Monto neto a pagar detectado.")
+
+            if datos.facturas:
+                suma_facturas = round(sum(f.importe for f in datos.facturas), 2)
+                validaciones.append(f"{len(datos.facturas)} factura(s) liquidadas detectadas.")
+
+                if datos.monto_total_facturas is not None:
+                    diferencia = round(abs(suma_facturas - datos.monto_total_facturas), 2)
+                    if diferencia <= 1:
+                        validaciones.append("La suma de facturas coincide con el monto total.")
+                    else:
+                        faltantes.append(f"Revisar diferencia entre facturas y monto total: ${diferencia:,.2f}")
+
+            if datos.retenciones:
+                validaciones.append(f"{len(datos.retenciones)} retención(es) detectada(s).")
+
             if cantidad_uc:
-                validaciones.append("UC calculadas desde el importe detectado.")
+                validaciones.append("UC calculadas desde el monto total detectado.")
 
             advertencias = list(datos.advertencias)
             advertencias.append("Extracción automática inicial. Requiere revisión humana.")
 
             return AnalisisOPRead(
                 expediente_id=expediente_id,
-                modo="ALFA_PDF_TEXTO_V2",
+                modo="ALFA_PDF_TEXTO",
                 op_detectada=True,
                 proveedor=datos.proveedor,
                 cuit=datos.cuit,
-                fondo="Fondo Compensador",
+                fondo=datos.fondo or "Fondo Compensador",
                 orden_pago=datos.orden_pago,
-                liquidacion=None,
+                liquidacion=datos.liquidacion,
                 fecha_op=datos.fecha,
                 importe_bruto=importe_bruto,
-                importe_neto=importe_bruto,
+                importe_neto=importe_neto,
                 valor_uc=VALOR_UC_VIGENTE,
                 norma_uc=NORMA_UC,
                 cantidad_uc=cantidad_uc,
                 procedimiento=procedimiento,
                 encuadre_legal=encuadre_legal(procedimiento) if procedimiento else None,
-                documentos_comerciales=[],
-                retenciones=[],
+                documentos_comerciales=documentos_comerciales,
+                retenciones=retenciones,
                 validaciones=validaciones,
                 advertencias=advertencias,
                 faltantes=faltantes,
@@ -146,6 +176,17 @@ class AnalisisOPService:
             RetencionExtraida(concepto="Retención IVA a Inscriptos", importe=487243.93),
         ]
 
+        validaciones = [
+            "OP detectada y asociada al expediente.",
+            "Proveedor identificado.",
+            "CUIT identificado.",
+            "Fondo Compensador identificado.",
+            "Documentos comerciales detectados.",
+            "Retenciones detectadas.",
+            "UC calculadas.",
+            "Procedimiento determinado.",
+        ]
+
         advertencias = list(advertencias_pdf)
         advertencias.append("No se pudo extraer texto real suficiente. Se mantiene análisis Alfa simulado.")
 
@@ -168,16 +209,7 @@ class AnalisisOPService:
             encuadre_legal=encuadre_legal(procedimiento),
             documentos_comerciales=documentos_comerciales,
             retenciones=retenciones,
-            validaciones=[
-                "OP detectada y asociada al expediente.",
-                "Proveedor identificado.",
-                "CUIT identificado.",
-                "Fondo Compensador identificado.",
-                "Documentos comerciales detectados.",
-                "Retenciones detectadas.",
-                "UC calculadas.",
-                "Procedimiento determinado.",
-            ],
+            validaciones=validaciones,
             advertencias=advertencias,
             faltantes=[
                 "Remito o conformidad firmada",

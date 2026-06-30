@@ -1,13 +1,13 @@
-# Sprint 0017 - IA Documental v2
+# Sprint 0018 - Comparador OP y Facturas
 
 ## Cómo actualizar
 
-1. Descomprimir `SIGD-ST_sprint_0017.zip`.
+1. Descomprimir `SIGD-ST_sprint_0018.zip`.
 2. Copiar todo el contenido dentro del repositorio `SIGD-ST`.
 3. Reemplazar archivos cuando Windows lo pregunte.
 4. En GitHub Desktop usar este Summary:
 
-Sprint 0017 - IA Documental v2
+Sprint 0018 - Comparador OP y Facturas
 
 5. Commit to main.
 6. Push origin.
@@ -15,26 +15,27 @@ Sprint 0017 - IA Documental v2
 
 ## Resultado
 
-Se corrige el extractor documental para que no confunda el CBU con el importe.
+El sistema ahora analiza OP más completas:
 
-El sistema ahora:
-
-- busca importes por contexto;
-- prioriza etiquetas como `Monto Total de Facturas`, `Monto Neto a Pagar` e `Importe`;
-- ignora CBU, CUIT y códigos largos;
-- descarta importes absurdos;
-- informa el contexto usado y un porcentaje de confianza;
-- cambia el modo de análisis a `ALFA_PDF_TEXTO_V2`.
+- Detecta monto total de facturas.
+- Detecta monto neto a pagar.
+- Detecta importe de pago.
+- Detecta retenciones.
+- Detecta facturas liquidadas.
+- Compara suma de facturas contra monto total.
 
 ## Prueba recomendada
 
-Usar la OP de prueba que tenía:
-
-- CBU: `0140366203617650870232`
-- Importe correcto: `$884.000,00`
+Usar la OP de MONKE WALTER ANDRES.
 
 Resultado esperado:
 
-- Importe bruto: `$884.000,00`
-- UC aproximadas: `527,13`
-- No debe tomar el CBU como importe.
+- Proveedor: MONKE WALTER ANDRES.
+- CUIT: 20-16898364-7.
+- Liquidación: 2025-90.
+- OP: OP 1/2025.
+- Bruto: $840.000,00.
+- Neto: $706.140,03.
+- Facturas detectadas: 6.
+- Retenciones detectadas: 3.
+- Comparación de facturas: coincide.

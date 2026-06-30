@@ -5,14 +5,19 @@ from pathlib import Path
 import fitz
 
 
-IMPORTE_MAXIMO_RAZONABLE = 1_000_000_000
+@dataclass
+class FacturaExtraida:
+    tipo: str
+    letra: str
+    numero: str
+    fecha: str
+    importe: float
 
 
 @dataclass
-class DatoConConfianza:
-    valor: str | float | None
-    confianza: int
-    contexto: str | None = None
+class RetencionExtraidaDato:
+    concepto: str
+    importe: float
 
 
 @dataclass
@@ -22,10 +27,16 @@ class DatosOPExtraidos:
     cuit: str | None
     fecha: str | None
     orden_pago: str | None
+    liquidacion: str | None
     proveedor: str | None
+    fondo: str | None
+    monto_total_facturas: float | None
+    monto_neto_pagar: float | None
+    importe_pago: float | None
     importe_probable: float | None
-    confianza_importe: int
-    contexto_importe: str | None
+    importe_contexto: str | None
+    facturas: list[FacturaExtraida]
+    retenciones: list[RetencionExtraidaDato]
     advertencias: list[str]
 
 
@@ -62,7 +73,6 @@ def extraer_texto_pdf(ruta: Path) -> tuple[str, int, list[str]]:
 def normalizar_importe(valor: str) -> float | None:
     limpio = valor.replace("$", "").replace(" ", "").strip()
 
-    # Formato argentino: 884.000,00
     if "," in limpio:
         limpio = limpio.replace(".", "").replace(",", ".")
     else:
@@ -73,96 +83,21 @@ def normalizar_importe(valor: str) -> float | None:
     except ValueError:
         return None
 
-    if numero <= 0 or numero > IMPORTE_MAXIMO_RAZONABLE:
+    if numero <= 0 or numero > 1_000_000_000:
         return None
 
     return numero
 
 
-def es_identificador_no_importe(linea: str) -> bool:
-    texto = linea.lower()
-    palabras_bloqueadas = [
-        "cbu",
-        "cuit",
-        "cuil",
-        "dni",
-        "expediente",
-        "liquidación",
-        "liquidacion",
-        "nro",
-        "n°",
-        "nº",
-        "numero de cbu",
-        "número de cbu",
-        "orden de pago nro",
-    ]
-    return any(palabra in texto for palabra in palabras_bloqueadas)
-
-
-def extraer_importes_genericos(texto: str) -> list[float]:
-    candidatos = re.findall(r"\$\s*(\d{1,3}(?:[.]\d{3})*(?:,\d{2})|\d+(?:[.]\d{2})?)", texto)
-    importes: list[float] = []
-
-    for candidato in candidatos:
-        valor = normalizar_importe(candidato)
-        if valor is not None:
-            importes.append(valor)
-
-    return importes
-
-
-def extraer_importe_por_contexto(texto: str) -> tuple[float | None, int, str | None, list[str]]:
-    advertencias: list[str] = []
-    lineas = [linea.strip() for linea in texto.splitlines() if linea.strip()]
-
-    # Orden de prioridad. Mientras más específica la etiqueta, mayor confianza.
-    etiquetas_prioritarias: list[tuple[str, int]] = [
-        (r"monto\s+total\s+de\s+facturas", 99),
-        (r"monto\s+neto\s+a\s+pagar", 99),
-        (r"importe\s+total", 98),
-        (r"importe", 97),
-        (r"total\s+facturas", 95),
-        (r"total", 88),
-    ]
-
-    patron_importe = r"\$\s*(\d{1,3}(?:[.]\d{3})*(?:,\d{2})|\d+(?:[.]\d{2})?)"
-
-    for etiqueta, confianza in etiquetas_prioritarias:
-        for linea in lineas:
-            if not re.search(etiqueta, linea, flags=re.IGNORECASE):
-                continue
-
-            if es_identificador_no_importe(linea) and not re.search(r"importe|monto|total", linea, flags=re.IGNORECASE):
-                continue
-
-            match = re.search(patron_importe, linea)
-            if match:
-                valor = normalizar_importe(match.group(1))
-                if valor is not None:
-                    return valor, confianza, limpiar_linea(linea), advertencias
-
-        # Muchos PDFs extraen la etiqueta y el valor en líneas separadas.
-        for indice, linea in enumerate(lineas):
-            if not re.search(etiqueta, linea, flags=re.IGNORECASE):
-                continue
-
-            if "cbu" in linea.lower():
-                continue
-
-            siguientes = lineas[indice: indice + 4]
-            bloque = " ".join(siguientes)
-            match = re.search(patron_importe, bloque)
-            if match:
-                valor = normalizar_importe(match.group(1))
-                if valor is not None:
-                    return valor, confianza - 3, limpiar_linea(bloque), advertencias
-
-    importes = extraer_importes_genericos(texto)
-    if importes:
-        advertencias.append("No se encontró etiqueta clara de importe; se tomó el mayor valor monetario con símbolo $." )
-        return max(importes), 65, "importe monetario genérico", advertencias
-
-    return None, 0, None, advertencias
+def extraer_importe_por_etiqueta(texto: str, etiquetas: list[str]) -> tuple[float | None, str | None]:
+    for etiqueta in etiquetas:
+        patron = rf"{etiqueta}\s*[:.\- ]*(?:\.|\s)*\$?\s*([0-9]{{1,3}}(?:[.\s][0-9]{{3}})*(?:,[0-9]{{2}})|[0-9]+(?:\.[0-9]{{2}})?)"
+        match = re.search(patron, texto, flags=re.IGNORECASE)
+        if match:
+            valor = normalizar_importe(match.group(1))
+            if valor is not None:
+                return valor, etiqueta
+    return None, None
 
 
 def extraer_cuit(texto: str) -> str | None:
@@ -178,10 +113,9 @@ def extraer_cuit(texto: str) -> str | None:
 
 
 def extraer_fecha(texto: str) -> str | None:
-    # Prioriza Fecha Emisión si existe.
-    match_emision = re.search(r"fecha\s+emisi[oó]n\s*[:.]?\s*(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})", texto, flags=re.IGNORECASE)
-    if match_emision:
-        return match_emision.group(1)
+    match = re.search(r"Fecha\s+Emisi[oó]n\s*[:.\- ]*(?:\.|\s)*(\d{1,2}/\d{1,2}/\d{4})", texto, flags=re.IGNORECASE)
+    if match:
+        return match.group(1)
 
     patron = re.search(r"\b(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})\b", texto)
     return patron.group(1) if patron else None
@@ -189,31 +123,47 @@ def extraer_fecha(texto: str) -> str | None:
 
 def extraer_orden_pago(texto: str) -> str | None:
     patrones = [
-        r"orden\s+de\s+pago\s+nro\.?\s*[:.\-]*\s*(OP\s*\d+\s*/\s*\d+)",
-        r"orden\s+de\s+pago\s*(?:n[°ºro.]*|nro\.?|numero)?\s*[:.\-]*\s*(OP\s*\d+\s*/\s*\d+)",
-        r"\b(OP\s*\d+\s*/\s*\d+)\b",
+        r"Orden\s+de\s+Pago\s+Nro\.?\s*[:.\- ]*(?:\.|\s)*(OP\s*[A-Z0-9/\-.]+)",
+        r"(?:orden\s+de\s+pago|op)\s*(?:n[°ºro.]*|nro\.?|numero)?\s*[:\-]?\s*(OP\s*[A-Z0-9/\-.]+)",
+        r"\bOP\s*[:\-]?\s*([A-Z0-9/\-.]+)",
     ]
 
     for patron in patrones:
         match = re.search(patron, texto, flags=re.IGNORECASE)
         if match:
-            return re.sub(r"\s+", " ", match.group(1)).strip().upper()
+            valor = match.group(1).strip()
+            if not valor.upper().startswith("OP"):
+                valor = f"OP {valor}"
+            return re.sub(r"\s+", " ", valor)
 
     return None
 
 
+def extraer_liquidacion(texto: str) -> str | None:
+    match = re.search(r"Liquidaci[oó]n\s+de\s+Pago\s+Nro\.?\s*[:.\- ]*(\d{4}-\d+)", texto, flags=re.IGNORECASE)
+    return match.group(1) if match else None
+
+
+def extraer_fondo(texto: str) -> str | None:
+    match = re.search(r"Fondo\s*[:.\- ]*(.+)", texto, flags=re.IGNORECASE)
+    if not match:
+        return None
+
+    valor = re.sub(r"\s+", " ", match.group(1)).strip()
+    return valor[:80] if valor else None
+
+
 def limpiar_linea(linea: str) -> str:
-    return re.sub(r"\s+", " ", linea).strip(" :-\t.")
+    return re.sub(r"\s+", " ", linea).strip(" :-\t")
 
 
 def extraer_proveedor(texto: str, cuit: str | None) -> str | None:
     lineas = [limpiar_linea(l) for l in texto.splitlines() if limpiar_linea(l)]
 
     patrones = [
-        r"raz[oó]n\s+social\s*[:\-]\s*(.+)",
-        r"proveedor\s*[:\-]\s*(.+)",
-        r"beneficiario\s*[:\-]\s*(.+)",
-        r"contratista\s*[:\-]\s*(.+)",
+        r"Raz[oó]n\s+Social\s*[:.\- ]*(.+)",
+        r"(?:proveedor|beneficiario|contratista)\s*[:.\-]\s*(.+)",
+        r"(?:señor(?:es)?|sr\.?|sres\.?)\s*[:\-]\s*(.+)",
     ]
 
     for linea in lineas:
@@ -224,28 +174,69 @@ def extraer_proveedor(texto: str, cuit: str | None) -> str | None:
                 if candidato and len(candidato) > 3:
                     return candidato[:120]
 
-    # Caso típico del PDF: "Razón Social:" en una línea y el nombre en la siguiente.
-    # No se usa "Datos del Proveedor" como etiqueta, porque suele estar antes del CUIT.
-    for indice, linea in enumerate(lineas):
-        if re.search(r"^(raz[oó]n\s+social|beneficiario|contratista|proveedor)\s*:*$", linea, flags=re.IGNORECASE):
-            for siguiente in lineas[indice + 1: indice + 5]:
-                if re.fullmatch(r"[0-9\- ]+", siguiente):
-                    continue
-                if len(siguiente) > 3 and not re.search(r"iva|ganancias|suss|fondo|rubro|cuit|cuil", siguiente, re.I):
-                    return siguiente[:120]
-
     if cuit:
         cuit_sin_guiones = re.sub(r"\D", "", cuit)
         for idx, linea in enumerate(lineas):
             if cuit in linea or cuit_sin_guiones in re.sub(r"\D", "", linea):
-                for posterior in lineas[idx + 1: idx + 5]:
-                    if len(posterior) > 4 and not re.search(r"iva|ganancias|suss|fondo|rubro|cuit", posterior, re.I):
-                        return posterior[:120]
+                for siguiente in lineas[idx + 1:idx + 5]:
+                    if len(siguiente) > 4 and not re.search(r"iva|fondo|rubro|cuit|cuil", siguiente, re.I):
+                        return siguiente[:120]
                 for anterior in reversed(lineas[max(0, idx - 4):idx]):
                     if len(anterior) > 4 and not re.search(r"cuit|cuil|fecha|expediente|orden", anterior, re.I):
                         return anterior[:120]
 
     return None
+
+
+def extraer_retenciones(texto: str) -> list[RetencionExtraidaDato]:
+    retenciones: list[RetencionExtraidaDato] = []
+    patrones = [
+        (r"Retenci[oó]n\s+Ganancias\s*[:.\- ]*(?:\.|\s)*\$?\s*([0-9.]+,[0-9]{2})", "Retención Ganancias"),
+        (r"Retenci[oó]n\s+Ingresos\s+Brutos\s*[:.\- ]*(?:\.|\s)*\$?\s*([0-9.]+,[0-9]{2})", "Retención Ingresos Brutos"),
+        (r"Retenci[oó]n\s+Iva\s+a\s+Inscriptos\s*[:.\- ]*(?:\.|\s)*\$?\s*([0-9.]+,[0-9]{2})", "Retención IVA a Inscriptos"),
+        (r"Retenci[oó]n\s+IVA\s*[:.\- ]*(?:\.|\s)*\$?\s*([0-9.]+,[0-9]{2})", "Retención IVA"),
+        (r"Retenci[oó]n\s+SUSS.*?[:.\- ]*(?:\.|\s)*\$?\s*([0-9.]+,[0-9]{2})", "Retención SUSS"),
+    ]
+
+    for patron, concepto in patrones:
+        match = re.search(patron, texto, flags=re.IGNORECASE)
+        if match:
+            importe = normalizar_importe(match.group(1))
+            if importe is not None:
+                retenciones.append(RetencionExtraidaDato(concepto=concepto, importe=importe))
+
+    return retenciones
+
+
+def extraer_facturas_liquidadas(texto: str) -> list[FacturaExtraida]:
+    facturas: list[FacturaExtraida] = []
+
+    patron = re.compile(
+        r"(FAC\[[A-Z]\]\d{5}-\d{8})\s+(\d{1,2}/\d{1,2}/\d{4})\s+\$?\s*([0-9.]+,[0-9]{2})",
+        flags=re.IGNORECASE,
+    )
+
+    for match in patron.finditer(texto):
+        codigo = match.group(1)
+        fecha = match.group(2)
+        importe = normalizar_importe(match.group(3))
+        if importe is None:
+            continue
+
+        letra_match = re.search(r"FAC\[([A-Z])\]", codigo, flags=re.IGNORECASE)
+        numero_match = re.search(r"\](\d{5}-\d{8})", codigo)
+
+        facturas.append(
+            FacturaExtraida(
+                tipo="Factura",
+                letra=letra_match.group(1).upper() if letra_match else "",
+                numero=numero_match.group(1) if numero_match else codigo,
+                fecha=fecha,
+                importe=importe,
+            )
+        )
+
+    return facturas
 
 
 def extraer_datos_op_desde_pdf(ruta: Path) -> DatosOPExtraidos:
@@ -258,16 +249,26 @@ def extraer_datos_op_desde_pdf(ruta: Path) -> DatosOPExtraidos:
             cuit=None,
             fecha=None,
             orden_pago=None,
+            liquidacion=None,
             proveedor=None,
+            fondo=None,
+            monto_total_facturas=None,
+            monto_neto_pagar=None,
+            importe_pago=None,
             importe_probable=None,
-            confianza_importe=0,
-            contexto_importe=None,
+            importe_contexto=None,
+            facturas=[],
+            retenciones=[],
             advertencias=advertencias,
         )
 
     cuit = extraer_cuit(texto)
-    importe, confianza_importe, contexto_importe, advertencias_importe = extraer_importe_por_contexto(texto)
-    advertencias.extend(advertencias_importe)
+    monto_total, contexto_total = extraer_importe_por_etiqueta(texto, ["Monto Total de Facturas", "Monto Total"])
+    monto_neto, contexto_neto = extraer_importe_por_etiqueta(texto, ["Monto Neto a Pagar", "Neto a Pagar"])
+    importe_pago, contexto_pago = extraer_importe_por_etiqueta(texto, ["Importe"])
+
+    importe_probable = monto_total or importe_pago or monto_neto
+    contexto = contexto_total or contexto_pago or contexto_neto
 
     return DatosOPExtraidos(
         texto_extraido=texto,
@@ -275,9 +276,15 @@ def extraer_datos_op_desde_pdf(ruta: Path) -> DatosOPExtraidos:
         cuit=cuit,
         fecha=extraer_fecha(texto),
         orden_pago=extraer_orden_pago(texto),
+        liquidacion=extraer_liquidacion(texto),
         proveedor=extraer_proveedor(texto, cuit),
-        importe_probable=importe,
-        confianza_importe=confianza_importe,
-        contexto_importe=contexto_importe,
+        fondo=extraer_fondo(texto),
+        monto_total_facturas=monto_total,
+        monto_neto_pagar=monto_neto,
+        importe_pago=importe_pago,
+        importe_probable=importe_probable,
+        importe_contexto=contexto,
+        facturas=extraer_facturas_liquidadas(texto),
+        retenciones=extraer_retenciones(texto),
         advertencias=advertencias,
     )
