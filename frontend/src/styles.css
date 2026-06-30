@@ -154,3 +154,14 @@ th { color: #64748b; font-weight: 700; }
   margin: 0;
   font-weight: 800;
 }
+
+
+.flow-note {
+  margin-top: 14px;
+  padding: 12px;
+  border: 1px solid #bfdbfe;
+  background: #eff6ff;
+  color: #1e40af;
+  border-radius: 12px;
+  font-weight: 700;
+}

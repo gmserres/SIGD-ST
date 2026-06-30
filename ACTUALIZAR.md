@@ -1,13 +1,13 @@
-# Sprint 0020B - Motor de Inteligencia Administrativa
+# Sprint 0021 - Consolidación y Validación Inteligente
 
 ## Cómo actualizar
 
-1. Descomprimir `SIGD-ST_sprint_0020B.zip`.
+1. Descomprimir `SIGD-ST_sprint_0021.zip`.
 2. Copiar todo el contenido dentro del repositorio `SIGD-ST`.
 3. Reemplazar archivos cuando Windows lo pregunte.
 4. En GitHub Desktop usar este Summary:
 
-Sprint 0020B - Motor de Inteligencia Administrativa
+Sprint 0021 - Consolidación y Validación Inteligente
 
 5. Commit to main.
 6. Push origin.
@@ -15,22 +15,22 @@ Sprint 0020B - Motor de Inteligencia Administrativa
 
 ## Resultado
 
-Este sprint agrega el primer motor de control administrativo:
+Este sprint consolida el flujo del expediente e incorpora validación inteligente:
 
-- Comparador documental OP vs facturas.
-- Índice de confiabilidad documental.
-- Prioridad de revisión.
-- Controles inteligentes en pantalla.
-- Mejor diagnóstico para decidir si el expediente puede avanzar.
+- El backend aplica reglas más estrictas antes de validar.
+- Si falta documentación crítica, no permite validar.
+- Si hay inconsistencias económicas, no permite validar.
+- La validación administrativa queda alineada con la IA documental.
+- Se mejora la trazabilidad del intento de validación.
+- Se prepara el terreno para generación asistida de disposición.
 
 ## Prueba recomendada
 
 1. Crear expediente.
 2. Cargar la OP de MONKE WALTER ANDRES.
 3. Ejecutar IA documental.
-4. Verificar que aparezca:
-   - Comparador documental.
-   - Total OP / Total Facturas.
-   - Resultado consistente.
-   - Confiabilidad documental.
-   - Prioridad de revisión.
+4. Intentar validar.
+5. Resultado esperado:
+   - El sistema no debe validar si faltan documentos obligatorios.
+   - Debe informar qué falta.
+6. Cargar documentos complementarios y volver a validar.

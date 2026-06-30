@@ -1,22 +1,23 @@
 # CHANGELOG
 
+## Sprint 0021
+
+- Se consolida el flujo de validación del expediente.
+- Se agregan reglas inteligentes de bloqueo.
+- Se impide validar expedientes con faltantes críticos.
+- Se agrega revisión de consistencia económica en la validación.
+- Se mejora el historial de intentos bloqueados.
+- Se prepara la base para generación asistida de disposición.
+
 ## Sprint 0020B
 
-- Se agrega comparador documental OP vs facturas.
-- Se agrega índice de confiabilidad documental.
-- Se agrega prioridad automática de revisión.
-- Se agregan controles inteligentes en la pestaña IA documental.
-- Se prepara la base para bloqueo inteligente de validación.
+- Comparador OP vs facturas.
+- Confiabilidad documental.
+- Prioridad de revisión.
+- Controles inteligentes.
 
 ## Sprint 0020A
 
-- Se incorpora panel de Asistente Administrativo Inteligente.
-- Se agrega cálculo de riesgo administrativo.
-- Se agrega recomendación automática.
-- Se agrega resumen ejecutivo IA en lenguaje natural.
-
-## Sprint 0019
-
-- Se agrega diagnóstico automático del expediente.
-- Se agrega semáforo documental.
-- Se agrega checklist inteligente.
+- Asistente Administrativo Inteligente.
+- Riesgo administrativo.
+- Recomendación automática.

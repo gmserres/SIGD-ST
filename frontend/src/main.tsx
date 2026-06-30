@@ -446,7 +446,7 @@ function App() {
           <button className={pantalla === 'administracion' ? 'active' : ''} onClick={() => setPantalla('administracion')}>Administración</button>
         </nav>
 
-        <div className="version">Versión Alfa 0.20B</div>
+        <div className="version">Versión Alfa 0.21</div>
       </aside>
 
       <section className="content">
@@ -498,6 +498,7 @@ function App() {
                   <p>✓ Semáforo documental inicial.</p>
                   <p>✓ Recomendaciones administrativas.</p>
                   <p>✓ Comparador documental y confiabilidad.</p>
+                  <p>✓ Validación inteligente con bloqueos.</p>
                 </div>
                 <button className="primary" onClick={() => setPantalla('nuevo')}>Crear expediente</button>
               </div>
@@ -582,6 +583,9 @@ function App() {
                       <button className="primary" onClick={validarExpediente}>Validar expediente</button>
                       <button className="primary" onClick={generarDisposicion}>Generar disposición</button>
                     </div>
+                    <div className="flow-note">
+                      La validación ahora verifica documentación crítica antes de permitir avanzar.
+                    </div>
                   </div>
                 )}
 
@@ -600,6 +604,7 @@ function App() {
                           <option value="FACTURA">Factura</option>
                           <option value="REMITO">Remito</option>
                           <option value="CONFORMIDAD">Conformidad</option>
+                          <option value="CAE">CAE</option>
                           <option value="ARCA">ARCA</option>
                           <option value="ARBA">ARBA</option>
                           <option value="ACTA_RECEPCION">Acta de Recepción</option>
