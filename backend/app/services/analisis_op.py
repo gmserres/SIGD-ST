@@ -1,3 +1,6 @@
+from pathlib import Path
+
+from app.modules.documentos.extractor_datos import extraer_datos_op_desde_pdf
 from app.modules.fondo_compensador.reglas import (
     NORMA_UC,
     VALOR_UC_VIGENTE,
@@ -17,7 +20,7 @@ class AnalisisOPService:
         if op is None:
             return AnalisisOPRead(
                 expediente_id=expediente_id,
-                modo="ALFA_SIMULADO",
+                modo="ALFA_PDF_TEXTO",
                 op_detectada=False,
                 proveedor=None,
                 cuit=None,
@@ -39,6 +42,75 @@ class AnalisisOPService:
                 faltantes=["Orden de Pago"],
             )
 
+        ruta = Path(__file__).resolve().parents[3] / op.ruta
+        datos = extraer_datos_op_desde_pdf(ruta)
+
+        if datos.texto_extraido:
+            importe_bruto = datos.importe_probable
+            cantidad_uc = calcular_uc(importe_bruto) if importe_bruto else None
+            procedimiento = determinar_procedimiento(cantidad_uc) if cantidad_uc else None
+
+            validaciones = [
+                "OP cargada y asociada al expediente.",
+                f"Texto extraído del PDF ({datos.paginas} página/s).",
+            ]
+
+            faltantes = [
+                "Factura",
+                "Remito o conformidad firmada",
+                "Validación CAE",
+                "Certificado Fiscal ARBA",
+                "Constancia ARCA",
+            ]
+
+            if datos.cuit:
+                validaciones.append("CUIT detectado en la OP.")
+            else:
+                faltantes.append("CUIT no detectado")
+
+            if datos.proveedor:
+                validaciones.append("Proveedor probable detectado.")
+            else:
+                faltantes.append("Proveedor no detectado")
+
+            if importe_bruto:
+                validaciones.append("Importe probable detectado.")
+            else:
+                faltantes.append("Importe no detectado")
+
+            if cantidad_uc:
+                validaciones.append("UC calculadas desde el importe detectado.")
+
+            advertencias = list(datos.advertencias)
+            advertencias.append("Extracción automática inicial. Requiere revisión humana.")
+
+            return AnalisisOPRead(
+                expediente_id=expediente_id,
+                modo="ALFA_PDF_TEXTO",
+                op_detectada=True,
+                proveedor=datos.proveedor,
+                cuit=datos.cuit,
+                fondo="Fondo Compensador",
+                orden_pago=datos.orden_pago,
+                liquidacion=None,
+                fecha_op=datos.fecha,
+                importe_bruto=importe_bruto,
+                importe_neto=None,
+                valor_uc=VALOR_UC_VIGENTE,
+                norma_uc=NORMA_UC,
+                cantidad_uc=cantidad_uc,
+                procedimiento=procedimiento,
+                encuadre_legal=encuadre_legal(procedimiento) if procedimiento else None,
+                documentos_comerciales=[],
+                retenciones=[],
+                validaciones=validaciones,
+                advertencias=advertencias,
+                faltantes=faltantes,
+            )
+
+        return self._analisis_alfa_simulado(expediente_id, datos.advertencias)
+
+    def _analisis_alfa_simulado(self, expediente_id: str, advertencias_pdf: list[str]) -> AnalisisOPRead:
         importe_bruto = 3509316.41
         importe_neto = 2920686.82
         cantidad_uc = calcular_uc(importe_bruto)
@@ -68,9 +140,6 @@ class AnalisisOPService:
             RetencionExtraida(concepto="Retención IVA a Inscriptos", importe=487243.93),
         ]
 
-        suma_facturas = round(sum(doc.importe for doc in documentos_comerciales), 2)
-        total_retenciones = round(sum(ret.importe for ret in retenciones), 2)
-
         validaciones = [
             "OP detectada y asociada al expediente.",
             "Proveedor identificado.",
@@ -82,19 +151,8 @@ class AnalisisOPService:
             "Procedimiento determinado.",
         ]
 
-        advertencias = []
-        faltantes = [
-            "Remito o conformidad firmada",
-            "Validación CAE",
-            "Certificado Fiscal ARBA",
-            "Constancia ARCA",
-        ]
-
-        if suma_facturas != importe_bruto:
-            advertencias.append("La suma de documentos comerciales no coincide con el monto total de facturas.")
-
-        if round(importe_bruto - total_retenciones, 2) != importe_neto:
-            advertencias.append("El monto neto no coincide con bruto menos retenciones.")
+        advertencias = list(advertencias_pdf)
+        advertencias.append("No se pudo extraer texto real suficiente. Se mantiene análisis Alfa simulado.")
 
         return AnalisisOPRead(
             expediente_id=expediente_id,
@@ -117,7 +175,12 @@ class AnalisisOPService:
             retenciones=retenciones,
             validaciones=validaciones,
             advertencias=advertencias,
-            faltantes=faltantes,
+            faltantes=[
+                "Remito o conformidad firmada",
+                "Validación CAE",
+                "Certificado Fiscal ARBA",
+                "Constancia ARCA",
+            ],
         )
 
 
