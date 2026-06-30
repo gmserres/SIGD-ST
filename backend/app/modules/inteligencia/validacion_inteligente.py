@@ -32,14 +32,14 @@ def evaluar_validacion_inteligente(
         errores.append("No se detectó CUIT en la OP.")
     if not importe_bruto:
         errores.append("No se detectó importe bruto o monto total.")
-    if facturas_detectadas <= 0:
-        errores.append("No se detectaron facturas liquidadas en la OP.")
+    if facturas_detectadas <= 0 and "FACTURA" not in tipos and "CHECK_FACTURA" not in tipos:
+        errores.append("No se acreditaron facturas por OP, archivo o checklist.")
     if not economia_consistente:
         errores.append("La suma de facturas no coincide con el monto total de la OP.")
 
     # Documentos físicos o tipos documentales cargados.
-    if "FACTURA" not in tipos:
-        advertencias.append("No se cargó factura como documento complementario.")
+    if facturas_detectadas <= 0 and "FACTURA" not in tipos and "CHECK_FACTURA" not in tipos:
+        advertencias.append("No se acreditó factura por OP, archivo o checklist.")
     if "REMITO" not in tipos and "CONFORMIDAD" not in tipos and "ACTA_RECEPCION" not in tipos:
         errores.append("Falta remito, conformidad o acta de recepción.")
     if "ARCA" not in tipos:

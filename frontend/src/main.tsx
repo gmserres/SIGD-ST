@@ -446,7 +446,7 @@ function App() {
           <button className={pantalla === 'administracion' ? 'active' : ''} onClick={() => setPantalla('administracion')}>Administración</button>
         </nav>
 
-        <div className="version">Versión Alfa 0.21</div>
+        <div className="version">Versión Alfa 0.22</div>
       </aside>
 
       <section className="content">
@@ -499,6 +499,7 @@ function App() {
                   <p>✓ Recomendaciones administrativas.</p>
                   <p>✓ Comparador documental y confiabilidad.</p>
                   <p>✓ Validación inteligente con bloqueos.</p>
+                  <p>✓ Evidencias por archivo, checklist o dato automático.</p>
                 </div>
                 <button className="primary" onClick={() => setPantalla('nuevo')}>Crear expediente</button>
               </div>
@@ -608,6 +609,11 @@ function App() {
                           <option value="ARCA">ARCA</option>
                           <option value="ARBA">ARBA</option>
                           <option value="ACTA_RECEPCION">Acta de Recepción</option>
+                          <option value="CHECK_FACTURA">Checklist Facturas verificadas</option>
+                          <option value="CHECK_REMITO">Checklist Remito / Conformidad</option>
+                          <option value="CHECK_CAE">Checklist CAE</option>
+                          <option value="CHECK_ARCA">Checklist ARCA</option>
+                          <option value="CHECK_ARBA">Checklist ARBA</option>
                           <option value="OTRO">Otro</option>
                         </select>
                         <input type="file" onChange={(e) => setArchivoDoc(e.target.files?.[0] || null)} />
@@ -717,6 +723,27 @@ function App() {
                             <p className={!analisis.faltantes.includes('Validación CAE') ? 'ok' : 'warn'}>{!analisis.faltantes.includes('Validación CAE') ? '✓' : '□'} CAE</p>
                             <p className={!analisis.faltantes.includes('Certificado Fiscal ARBA') ? 'ok' : 'warn'}>{!analisis.faltantes.includes('Certificado Fiscal ARBA') ? '✓' : '□'} ARBA</p>
                             <p className={!analisis.faltantes.includes('Constancia ARCA') ? 'ok' : 'warn'}>{!analisis.faltantes.includes('Constancia ARCA') ? '✓' : '□'} ARCA</p>
+                          </div>
+                        </div>
+
+
+                        <div className="subcard evidence-card">
+                          <h4>Evidencias verificadas</h4>
+                          <p className="muted">
+                            El sistema controla si el requisito está acreditado: archivo, checklist o dato automático de la OP.
+                          </p>
+                          <div className="evidence-grid">
+                            <p className="ok">✓ OP <span>PDF cargado</span></p>
+                            <p className={analisis.proveedor ? 'ok' : 'warn'}>{analisis.proveedor ? '✓' : '□'} Proveedor <span>Dato OP</span></p>
+                            <p className={analisis.cuit ? 'ok' : 'warn'}>{analisis.cuit ? '✓' : '□'} CUIT <span>Dato OP</span></p>
+                            <p className={analisis.documentos_comerciales.length ? 'ok' : 'warn'}>{analisis.documentos_comerciales.length ? '✓' : '□'} Facturas <span>{analisis.documentos_comerciales.length ? 'Detectadas en OP' : 'Archivo o checklist'}</span></p>
+                            <p className={!analisis.faltantes.includes('Remito o conformidad firmada') ? 'ok' : 'warn'}>{!analisis.faltantes.includes('Remito o conformidad firmada') ? '✓' : '□'} Remito / conformidad <span>Archivo o checklist</span></p>
+                            <p className={!analisis.faltantes.includes('Validación CAE') ? 'ok' : 'warn'}>{!analisis.faltantes.includes('Validación CAE') ? '✓' : '□'} CAE <span>Consulta, archivo o checklist</span></p>
+                            <p className={!analisis.faltantes.includes('Certificado Fiscal ARBA') ? 'ok' : 'warn'}>{!analisis.faltantes.includes('Certificado Fiscal ARBA') ? '✓' : '□'} ARBA <span>Archivo o checklist</span></p>
+                            <p className={!analisis.faltantes.includes('Constancia ARCA') ? 'ok' : 'warn'}>{!analisis.faltantes.includes('Constancia ARCA') ? '✓' : '□'} ARCA <span>Archivo o checklist</span></p>
+                          </div>
+                          <div className="info-note">
+                            Las retenciones son informativas: las calcula el sistema que emite la OP y no requieren carga documental separada.
                           </div>
                         </div>
 

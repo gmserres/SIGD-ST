@@ -1,13 +1,13 @@
-# Sprint 0021 - Consolidación y Validación Inteligente
+# Sprint 0022 - Evidencias Verificadas
 
 ## Cómo actualizar
 
-1. Descomprimir `SIGD-ST_sprint_0021.zip`.
+1. Descomprimir `SIGD-ST_sprint_0022.zip`.
 2. Copiar todo el contenido dentro del repositorio `SIGD-ST`.
 3. Reemplazar archivos cuando Windows lo pregunte.
 4. En GitHub Desktop usar este Summary:
 
-Sprint 0021 - Consolidación y Validación Inteligente
+Sprint 0022 - Evidencias Verificadas
 
 5. Commit to main.
 6. Push origin.
@@ -15,22 +15,18 @@ Sprint 0021 - Consolidación y Validación Inteligente
 
 ## Resultado
 
-Este sprint consolida el flujo del expediente e incorpora validación inteligente:
+Este sprint cambia el enfoque del sistema:
 
-- El backend aplica reglas más estrictas antes de validar.
-- Si falta documentación crítica, no permite validar.
-- Si hay inconsistencias económicas, no permite validar.
-- La validación administrativa queda alineada con la IA documental.
-- Se mejora la trazabilidad del intento de validación.
-- Se prepara el terreno para generación asistida de disposición.
+- El sistema valida evidencias, no solamente archivos.
+- Factura, Remito/Conformidad, CAE, ARCA y ARBA pueden acreditarse por archivo o checklist.
+- Las facturas detectadas dentro de la OP cuentan como evidencia económica.
+- Las retenciones se muestran como información, no como requisito documental.
+- Se agrega un panel de evidencias verificadas en IA documental.
 
 ## Prueba recomendada
 
 1. Crear expediente.
-2. Cargar la OP de MONKE WALTER ANDRES.
+2. Cargar OP MONKE.
 3. Ejecutar IA documental.
-4. Intentar validar.
-5. Resultado esperado:
-   - El sistema no debe validar si faltan documentos obligatorios.
-   - Debe informar qué falta.
-6. Cargar documentos complementarios y volver a validar.
+4. Revisar el panel "Evidencias verificadas".
+5. Confirmar que las retenciones no aparecen como faltante.
