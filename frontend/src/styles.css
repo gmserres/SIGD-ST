@@ -95,5 +95,24 @@ th { color: #64748b; font-weight: 700; }
   .sidebar { width: 100%; }
   .metrics, .dashboard-grid, .upload-grid, .expediente-layout, .analysis-grid, .admin-grid, .validation-columns, .checklist-grid { grid-template-columns: 1fr; }
   .diagnostic-panel { display: block; }
+  .assistant-panel { display: block; }
+  .assistant-side { text-align: left; margin-top: 12px; }
+  .assistant-summary { grid-template-columns: 1fr; }
   .progress-box { text-align: left; margin-top: 12px; }
 }
+
+
+.assistant-panel { display: flex; justify-content: space-between; gap: 20px; border-radius: 18px; padding: 20px; margin-bottom: 16px; border: 1px solid #e2e8f0; }
+.assistant-panel.verde { background: #f0fdf4; border-color: #86efac; }
+.assistant-panel.amarillo { background: #fffbeb; border-color: #facc15; }
+.assistant-panel.rojo { background: #fef2f2; border-color: #fca5a5; }
+.assistant-main h3 { margin: 6px 0; font-size: 22px; }
+.assistant-main p { color: #334155; }
+.assistant-summary { display: grid; grid-template-columns: repeat(2, minmax(220px, 1fr)); gap: 4px 16px; margin: 12px 0; }
+.assistant-summary p { margin: 0; }
+.assistant-side { min-width: 230px; text-align: right; display: grid; align-content: start; gap: 8px; }
+.risk-pill { display: inline-block; justify-self: end; border-radius: 999px; padding: 7px 12px; font-weight: 800; text-transform: uppercase; }
+.risk-pill.verde { background: #dcfce7; color: #166534; }
+.risk-pill.amarillo { background: #fef3c7; color: #92400e; }
+.risk-pill.rojo { background: #fee2e2; color: #991b1b; }
+.action-box { border-radius: 12px; padding: 10px; background: rgba(255,255,255,.65); font-weight: 800; }

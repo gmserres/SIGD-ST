@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from app.modules.documentos.extractor_datos import extraer_datos_op_desde_pdf
+from app.modules.inteligencia.reglas import diagnosticar_expediente
 from app.modules.fondo_compensador.reglas import (
     NORMA_UC,
     VALOR_UC_VIGENTE,
@@ -117,19 +118,30 @@ class AnalisisOPService:
             if cantidad_uc:
                 validaciones.append("UC calculadas desde el monto total detectado.")
 
-            # Diagnóstico administrativo inicial.
+            economia_consistente = False
             if datos.facturas and datos.monto_total_facturas:
                 suma_facturas = round(sum(f.importe for f in datos.facturas), 2)
                 diferencia = round(abs(suma_facturas - datos.monto_total_facturas), 2)
-                if diferencia <= 1:
-                    validaciones.append("Diagnóstico: documentación económica consistente.")
+                economia_consistente = diferencia <= 1
+                if economia_consistente:
+                    validaciones.append("Diagnóstico económico: la suma de facturas coincide con el monto total.")
                 else:
-                    validaciones.append("Diagnóstico: requiere revisión económica.")
+                    validaciones.append("Diagnóstico económico: requiere revisión por diferencia de importes.")
 
-            if len(faltantes) >= 4:
-                validaciones.append("Recomendación: no validar hasta completar documentación obligatoria.")
-            else:
-                validaciones.append("Recomendación: expediente cercano a validación.")
+            diagnostico = diagnosticar_expediente(
+                proveedor=datos.proveedor,
+                cuit=datos.cuit,
+                importe_bruto=importe_bruto,
+                importe_neto=importe_neto,
+                facturas_detectadas=len(datos.facturas),
+                retenciones_detectadas=len(datos.retenciones),
+                faltantes=faltantes,
+                economia_consistente=economia_consistente,
+            )
+
+            validaciones.append(f"Riesgo administrativo: {diagnostico.riesgo}.")
+            validaciones.append(f"Acción sugerida: {diagnostico.accion_sugerida}.")
+            validaciones.append(f"Recomendación IA: {diagnostico.recomendacion}")
 
             advertencias = list(datos.advertencias)
             advertencias.append("Extracción automática inicial. Requiere revisión humana.")

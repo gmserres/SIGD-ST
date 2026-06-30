@@ -110,13 +110,7 @@ function claseValidacion(estado: string) {
 
 function diagnosticoIA(analisis: AnalisisOP | null) {
   if (!analisis || !analisis.op_detectada) {
-    return {
-      color: 'rojo',
-      etiqueta: 'Sin análisis',
-      porcentaje: 0,
-      resumen: 'Todavía no hay datos suficientes para diagnosticar el expediente.',
-      recomendacion: 'Cargar una Orden de Pago y ejecutar el análisis documental.',
-    };
+    return { color: 'rojo', etiqueta: 'Sin análisis documental', riesgo: 'ALTO', porcentaje: 0, resumen: 'Todavía no hay datos suficientes para emitir un diagnóstico.', recomendacion: 'Cargar una Orden de Pago y ejecutar el análisis documental.', accion: 'Analizar documentación' };
   }
 
   const checks = [
@@ -134,37 +128,18 @@ function diagnosticoIA(analisis: AnalisisOP | null) {
 
   const completados = checks.filter(Boolean).length;
   const porcentaje = Math.round((completados / checks.length) * 100);
-
   const tieneEconomia = analisis.documentos_comerciales.length > 0 && !!analisis.importe_bruto;
   const faltantesCriticos = analisis.faltantes.length;
 
   if (porcentaje >= 85 && faltantesCriticos <= 1) {
-    return {
-      color: 'verde',
-      etiqueta: 'Expediente encaminado',
-      porcentaje,
-      resumen: 'La documentación económica analizada resulta consistente.',
-      recomendacion: 'Puede avanzar a revisión final si la documentación obligatoria está completa.',
-    };
+    return { color: 'verde', etiqueta: 'Puede continuar', riesgo: 'BAJO', porcentaje, resumen: `He analizado la OP ${analisis.orden_pago || ''} y no observo inconsistencias económicas relevantes.`, recomendacion: 'Puede avanzar a revisión final si la documentación respaldatoria está completa.', accion: 'Continuar trámite' };
   }
 
   if (tieneEconomia) {
-    return {
-      color: 'amarillo',
-      etiqueta: 'Documentación incompleta',
-      porcentaje,
-      resumen: 'La OP fue interpretada y las facturas detectadas son consistentes, pero aún restan documentos.',
-      recomendacion: 'No se recomienda emitir disposición hasta completar los faltantes.',
-    };
+    return { color: 'amarillo', etiqueta: 'Completar documentación', riesgo: 'MEDIO', porcentaje, resumen: `He interpretado la OP ${analisis.orden_pago || ''}. Las facturas detectadas son consistentes con el monto total, pero todavía hay documentación pendiente.`, recomendacion: 'Solicitar o cargar los faltantes antes de emitir disposición.', accion: 'Completar documentación' };
   }
 
-  return {
-    color: 'rojo',
-    etiqueta: 'Requiere revisión',
-    porcentaje,
-    resumen: 'El expediente no cuenta todavía con información suficiente para validar.',
-    recomendacion: 'Revisar documentación cargada antes de continuar.',
-  };
+  return { color: 'rojo', etiqueta: 'Requiere revisión', riesgo: 'ALTO', porcentaje, resumen: 'No cuento con información suficiente para recomendar el avance del expediente.', recomendacion: 'Revisar la documentación cargada antes de continuar.', accion: 'Revisión documental' };
 }
 
 async function obtenerMensajeError(res: Response) {
@@ -390,7 +365,7 @@ function App() {
           <button className={pantalla === 'administracion' ? 'active' : ''} onClick={() => setPantalla('administracion')}>Administración</button>
         </nav>
 
-        <div className="version">Versión Alfa 0.19</div>
+        <div className="version">Versión Alfa 0.20A</div>
       </aside>
 
       <section className="content">
@@ -587,17 +562,27 @@ function App() {
                       <div className="warning-panel">No existe OP cargada para analizar.</div>
                     ) : (
                       <>
-                        <div className={`diagnostic-panel ${diag.color}`}>
-                          <div>
-                            <span className="eyebrow">Diagnóstico del expediente</span>
+                        <div className={`assistant-panel ${diag.color}`}>
+                          <div className="assistant-main">
+                            <span className="eyebrow">Asistente Administrativo Inteligente</span>
                             <h3>{diag.etiqueta}</h3>
                             <p>{diag.resumen}</p>
-                            <strong>{diag.recomendacion}</strong>
+                            <div className="assistant-summary">
+                              <p>✓ Proveedor: {analisis.proveedor || 'No detectado'}</p>
+                              <p>✓ CUIT: {analisis.cuit || 'No detectado'}</p>
+                              <p>✓ Facturas detectadas: {analisis.documentos_comerciales.length}</p>
+                              <p>✓ Retenciones detectadas: {analisis.retenciones.length}</p>
+                              <p>⚠ Faltantes: {analisis.faltantes.length}</p>
+                            </div>
+                            <strong>Recomendación: {diag.recomendacion}</strong>
                           </div>
-                          <div className="progress-box">
+
+                          <div className="assistant-side">
+                            <div className={`risk-pill ${diag.color}`}>Riesgo {diag.riesgo}</div>
                             <div className="progress-number">{diag.porcentaje}%</div>
                             <div className="progress-track"><div style={{ width: `${diag.porcentaje}%` }} /></div>
                             <span>avance documental</span>
+                            <div className="action-box">{diag.accion}</div>
                           </div>
                         </div>
 

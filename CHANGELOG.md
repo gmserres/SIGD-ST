@@ -1,23 +1,16 @@
 # CHANGELOG
 
+## Sprint 0020A
+
+- Se incorpora panel de Asistente Administrativo Inteligente.
+- Se agrega cálculo de riesgo administrativo.
+- Se agrega recomendación automática.
+- Se agrega resumen ejecutivo IA en lenguaje natural.
+- Se prepara un motor de reglas inicial para diagnósticos futuros.
+
 ## Sprint 0019
 
-- Se corrige extracción de proveedor cuando el campo aparece como etiqueta separada.
-- Se agrega diagnóstico automático del expediente.
+- Se corrige extracción de proveedor.
+- Se agrega diagnóstico automático.
 - Se agrega semáforo documental.
 - Se calcula porcentaje de avance documental.
-- Se agrega checklist inteligente de documentación.
-- Se mejora la presentación de recomendaciones administrativas.
-
-## Sprint 0018
-
-- Se extraen facturas liquidadas.
-- Se extraen retenciones.
-- Se separa importe bruto de importe neto.
-- Se compara la suma de facturas contra el monto total.
-
-## Sprint 0017
-
-- IA Documental v2.
-- Extracción contextual de importes.
-- Corrección para no confundir CBU con importe.
