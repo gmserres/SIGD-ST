@@ -200,3 +200,34 @@ th { color: #64748b; font-weight: 700; }
   padding: 11px;
   font-weight: 700;
 }
+
+
+.validation-action-panel {
+  margin-top: 16px;
+  border-radius: 14px;
+  padding: 16px;
+  border: 1px solid #e2e8f0;
+}
+.validation-action-panel h4 {
+  margin: 0 0 6px;
+}
+.validation-action-panel p {
+  margin: 0 0 10px;
+  color: #334155;
+}
+.validation-action-panel textarea {
+  min-height: 92px;
+  margin-top: 8px;
+}
+.green-panel {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}
+.yellow-panel {
+  background: #fffbeb;
+  border-color: #fde68a;
+}
+.red-panel {
+  background: #fef2f2;
+  border-color: #fecaca;
+}

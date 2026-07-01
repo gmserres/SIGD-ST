@@ -227,7 +227,8 @@ async function obtenerMensajeError(res: Response) {
     if (typeof data.detail === 'string') return data.detail;
     if (data.detail?.mensaje) {
       const errores = data.detail.errores?.length ? ` ${data.detail.errores.join(' ')}` : '';
-      return `${data.detail.mensaje}${errores}`;
+      const advertencias = data.detail.advertencias?.length ? ` ${data.detail.advertencias.join(' ')}` : '';
+      return `${data.detail.mensaje}${errores}${advertencias}`;
     }
     return 'Ocurrió un error.';
   } catch {
@@ -255,6 +256,7 @@ function App() {
   const [archivoOP, setArchivoOP] = useState<File | null>(null);
   const [archivoDoc, setArchivoDoc] = useState<File | null>(null);
   const [tipoDoc, setTipoDoc] = useState('FACTURA');
+  const [motivoObservacion, setMotivoObservacion] = useState('');
 
   const metricas = useMemo(() => {
     const pendientes = expedientes.filter(e => ['BORRADOR', 'DOCUMENTACION_EN_CARGA', 'PENDIENTE_VALIDACION'].includes(e.estado));
@@ -397,6 +399,33 @@ function App() {
     await cargarDetalle(actualizado);
   }
 
+  async function validarConObservaciones() {
+    if (!seleccionado) return;
+
+    if (motivoObservacion.trim().length < 10) {
+      avisar('Ingresá un motivo administrativo de al menos 10 caracteres.', 'error');
+      return;
+    }
+
+    const res = await fetch(`${API_URL}/expedientes/${seleccionado.id}/validar-con-observaciones`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ motivo: motivoObservacion, usuario: 'Secretario Técnico' }),
+    });
+
+    if (!res.ok) {
+      avisar(await obtenerMensajeError(res), 'error');
+      await consultarValidacion();
+      return;
+    }
+
+    const actualizado = await res.json();
+    setMotivoObservacion('');
+    avisar('Expediente validado con observaciones. La decisión quedó registrada en historial.', 'ok');
+    await cargarExpedientes();
+    await cargarDetalle(actualizado);
+  }
+
   async function generarDisposicion() {
     if (!seleccionado) return;
     const res = await fetch(`${API_URL}/expedientes/${seleccionado.id}/generar-disposicion`, { method: 'POST' });
@@ -446,7 +475,7 @@ function App() {
           <button className={pantalla === 'administracion' ? 'active' : ''} onClick={() => setPantalla('administracion')}>Administración</button>
         </nav>
 
-        <div className="version">Versión Alfa 0.22</div>
+        <div className="version">Versión Alfa 0.23</div>
       </aside>
 
       <section className="content">
@@ -807,18 +836,48 @@ function App() {
                     {!validacion ? (
                       <p className="empty">Presioná “Ver validación” para ejecutar los controles.</p>
                     ) : (
-                      <table>
-                        <thead><tr><th>Control</th><th>Estado</th><th>Observación</th></tr></thead>
-                        <tbody>
-                          {validacion.controles.map((c, i) => (
-                            <tr key={i}>
-                              <td>{c.control}</td>
-                              <td><span className={claseValidacion(c.estado)}>{c.estado}</span></td>
-                              <td>{c.observacion || '-'}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                      <>
+                        <table>
+                          <thead><tr><th>Control</th><th>Estado</th><th>Observación</th></tr></thead>
+                          <tbody>
+                            {validacion.controles.map((c, i) => (
+                              <tr key={i}>
+                                <td>{c.control}</td>
+                                <td><span className={claseValidacion(c.estado)}>{c.estado}</span></td>
+                                <td>{c.observacion || '-'}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+
+                        {validacion.estado_general === 'VERDE' && (
+                          <div className="validation-action-panel green-panel">
+                            <h4>Expediente apto para validar</h4>
+                            <p>No se detectan errores ni observaciones relevantes.</p>
+                            <button className="primary" onClick={validarExpediente}>Validar expediente</button>
+                          </div>
+                        )}
+
+                        {validacion.estado_general === 'AMARILLO' && (
+                          <div className="validation-action-panel yellow-panel">
+                            <h4>Validación con observaciones</h4>
+                            <p>El expediente puede continuar bajo responsabilidad administrativa. Ingresá el motivo para dejar trazabilidad.</p>
+                            <textarea
+                              value={motivoObservacion}
+                              onChange={(e) => setMotivoObservacion(e.target.value)}
+                              placeholder="Ejemplo: Se continúa con observaciones porque la documentación será incorporada posteriormente."
+                            />
+                            <button className="primary" onClick={validarConObservaciones}>Validar con observaciones</button>
+                          </div>
+                        )}
+
+                        {validacion.estado_general === 'ROJO' && (
+                          <div className="validation-action-panel red-panel">
+                            <h4>Validación bloqueada</h4>
+                            <p>Existen errores críticos que deben corregirse antes de continuar.</p>
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
                 )}

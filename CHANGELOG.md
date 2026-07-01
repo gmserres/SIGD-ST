@@ -1,16 +1,20 @@
 # CHANGELOG
 
+## Sprint 0023
+
+- Se agrega endpoint de validación con observaciones.
+- Se exige motivo administrativo para validar con observaciones.
+- Se registra la decisión en historial.
+- Se separan errores críticos de advertencias no críticas.
+- Se actualiza la pestaña Validación con acciones específicas para VERDE, AMARILLO y ROJO.
+
 ## Sprint 0022
 
-- Se introduce el concepto de evidencias verificadas.
-- Se diferencia archivo físico, checklist y dato automático.
-- Se agrega panel de evidencias en IA documental.
-- Se elimina retenciones como requisito documental.
-- Se mantiene retenciones como información extraída de la OP.
-- Se agregan opciones de checklist para CAE, ARCA, ARBA y Remito/Conformidad.
+- Evidencias verificadas.
+- Checklist por archivo, dato automático o verificación manual.
+- Retenciones como dato informativo, no requisito documental.
 
 ## Sprint 0021
 
 - Validación inteligente.
-- Bloqueos por documentación crítica faltante.
-- Nuevos controles CAE, ARCA, ARBA y remito/conformidad.
+- Controles documentales.

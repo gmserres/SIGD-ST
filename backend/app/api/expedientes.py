@@ -10,6 +10,7 @@ from app.schemas.expediente import ExpedienteCreate, ExpedienteRead, ExpedienteU
 from app.schemas.historial import HistorialRead
 from app.schemas.texto_documento import TextoDocumentoRead
 from app.schemas.validacion import ValidacionExpedienteRead
+from app.schemas.validacion_observada import ValidacionObservadaCreate
 from app.services.analisis_op import analisis_op_service
 from app.services.documentos import documento_service
 from app.services.expedientes import expediente_service
@@ -164,15 +165,59 @@ def validar_controles_expediente(expediente_id: str):
 @router.post("/{expediente_id}/validar", response_model=ExpedienteRead)
 def validar_expediente(expediente_id: str):
     obtener_expediente(expediente_id)
-    errores = validacion_service.errores_bloqueantes(expediente_id)
-    if errores:
-        historial_service.registrar(expediente_id, "VALIDACION_BLOQUEADA", detalle=" | ".join(errores))
+    resultado = validacion_service.validar(expediente_id, registrar_historial=False)
+
+    if resultado.errores:
+        historial_service.registrar(expediente_id, "VALIDACION_BLOQUEADA", detalle=" | ".join(resultado.errores))
         raise HTTPException(
             status_code=409,
-            detail={"mensaje": "No se puede validar el expediente. Existen errores críticos.", "errores": errores},
+            detail={"mensaje": "No se puede validar el expediente. Existen errores críticos.", "errores": resultado.errores},
         )
+
+    if resultado.advertencias:
+        historial_service.registrar(expediente_id, "VALIDACION_REQUIERE_OBSERVACIONES", detalle=" | ".join(resultado.advertencias))
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "mensaje": "El expediente tiene observaciones. Para continuar use Validar con observaciones.",
+                "advertencias": resultado.advertencias,
+            },
+        )
+
     expediente = expediente_service.cambiar_estado(expediente_id, EstadoExpediente.VALIDADO)
     historial_service.registrar(expediente_id, "EXPEDIENTE_VALIDADO")
+    return expediente
+
+
+@router.post("/{expediente_id}/validar-con-observaciones", response_model=ExpedienteRead)
+def validar_expediente_con_observaciones(expediente_id: str, data: ValidacionObservadaCreate):
+    obtener_expediente(expediente_id)
+    resultado = validacion_service.validar(expediente_id, registrar_historial=False)
+
+    if resultado.errores:
+        historial_service.registrar(expediente_id, "VALIDACION_OBSERVADA_BLOQUEADA", detalle=" | ".join(resultado.errores))
+        raise HTTPException(
+            status_code=409,
+            detail={"mensaje": "No se puede validar ni siquiera con observaciones. Existen errores críticos.", "errores": resultado.errores},
+        )
+
+    if len(data.motivo.strip()) < 10:
+        raise HTTPException(
+            status_code=422,
+            detail={"mensaje": "Debe ingresar un motivo administrativo suficiente para validar con observaciones."},
+        )
+
+    detalle = f"Motivo: {data.motivo.strip()}"
+    if resultado.advertencias:
+        detalle += " | Observaciones: " + " | ".join(resultado.advertencias)
+
+    expediente = expediente_service.cambiar_estado(expediente_id, EstadoExpediente.VALIDADO)
+    historial_service.registrar(
+        expediente_id,
+        "EXPEDIENTE_VALIDADO_CON_OBSERVACIONES",
+        usuario=data.usuario,
+        detalle=detalle,
+    )
     return expediente
 
 

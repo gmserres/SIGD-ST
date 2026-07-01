@@ -29,14 +29,48 @@ class ValidacionService:
         agregar("Establecimiento", bool(expediente.establecimiento), "Establecimiento informado.", "Falta establecimiento.")
         agregar("Objeto", bool(expediente.objeto), "Objeto informado.", "Falta objeto de la contratación.")
 
-        tiene_op = any(doc.tipo == "OP" for doc in documentos)
+        tipos = {doc.tipo.upper() for doc in documentos}
+        tiene_op = "OP" in tipos
         agregar("Orden de Pago", tiene_op, "OP cargada.", "Falta cargar la Orden de Pago.")
 
+        factura_acreditada = "FACTURA" in tipos or "CHECK_FACTURA" in tipos
         agregar(
-            "Documentos complementarios",
-            len(documentos) > 1,
-            "Existen documentos complementarios.",
-            "No se cargaron documentos complementarios. Revisión humana requerida.",
+            "Facturas",
+            factura_acreditada or tiene_op,
+            "Facturas acreditadas por archivo, checklist o facturas liquidadas en OP.",
+            "Falta acreditar facturas por archivo o checklist.",
+            severidad="ADVERTENCIA",
+        )
+
+        agregar(
+            "Remito o conformidad",
+            bool({"REMITO", "CONFORMIDAD", "ACTA_RECEPCION", "CHECK_REMITO"} & tipos),
+            "Remito, conformidad o acta acreditada.",
+            "Falta acreditar remito, conformidad o acta de recepción.",
+            severidad="ADVERTENCIA",
+        )
+
+        agregar(
+            "Validación CAE",
+            "CAE" in tipos or "VALIDACION_CAE" in tipos or "CHECK_CAE" in tipos,
+            "CAE acreditado.",
+            "Falta acreditar validación CAE.",
+            severidad="ADVERTENCIA",
+        )
+
+        agregar(
+            "Constancia ARCA",
+            "ARCA" in tipos or "CHECK_ARCA" in tipos,
+            "Constancia ARCA acreditada.",
+            "Falta acreditar constancia ARCA.",
+            severidad="ADVERTENCIA",
+        )
+
+        agregar(
+            "Certificado ARBA",
+            "ARBA" in tipos or "CHECK_ARBA" in tipos,
+            "Certificado ARBA acreditado.",
+            "Falta acreditar certificado fiscal ARBA.",
             severidad="ADVERTENCIA",
         )
 
@@ -63,6 +97,17 @@ class ValidacionService:
 
     def errores_bloqueantes(self, expediente_id: str) -> list[str]:
         return self.validar(expediente_id, registrar_historial=False).errores
+
+    def advertencias_validacion(self, expediente_id: str) -> list[str]:
+        return self.validar(expediente_id, registrar_historial=False).advertencias
+
+    def puede_validar_normal(self, expediente_id: str) -> bool:
+        resultado = self.validar(expediente_id, registrar_historial=False)
+        return not resultado.errores and not resultado.advertencias
+
+    def puede_validar_con_observaciones(self, expediente_id: str) -> bool:
+        resultado = self.validar(expediente_id, registrar_historial=False)
+        return not resultado.errores and bool(resultado.advertencias)
 
     def tiene_op(self, expediente_id: str) -> bool:
         documentos = documento_service.listar_por_expediente(expediente_id)
