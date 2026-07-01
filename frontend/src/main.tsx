@@ -591,7 +591,7 @@ function App() {
           <button className={pantalla === 'administracion' ? 'active' : ''} onClick={() => setPantalla('administracion')}>Administración</button>
         </nav>
 
-        <div className="version">Versión Alfa 0.26</div>
+        <div className="version">Versión Alfa 0.27</div>
       </aside>
 
       <section className="content">
@@ -647,6 +647,7 @@ function App() {
                   <p>✓ Evidencias por archivo, checklist o dato automático.</p>
                   <p>✓ Checklist físico en etapa de validación.</p>
                   <p>✓ Borrador de disposición exportable a texto.</p>
+                  <p>✓ Plantilla institucional de Disposición.</p>
                 </div>
                 <button className="primary" onClick={() => setPantalla('nuevo')}>Crear expediente</button>
               </div>
@@ -1040,7 +1041,7 @@ function App() {
                           <label>CONSIDERANDO</label>
                           <textarea value={disposicionBorrador.considerando} onChange={(e) => setDisposicionBorrador({ ...disposicionBorrador, considerando: e.target.value })} />
 
-                          <label>EL CUERPO DE CONSEJEROS ESCOLARES DEL DISTRITO DE GENERAL ALVARADO DISPONE</label>
+                          <label>POR ELLO / DISPONE</label>
                           <textarea value={disposicionBorrador.dispone} onChange={(e) => setDisposicionBorrador({ ...disposicionBorrador, dispone: e.target.value })} />
 
                           <div className="actions">
@@ -1057,7 +1058,7 @@ function App() {
                           {fueValidadoConObservaciones(historial) && (
                             <div className="info-note">Este expediente fue validado con observaciones. Revisá el historial antes de emitir.</div>
                           )}
-                          <div className="info-note">La exportación a Word/PDF queda preparada para el próximo sprint.</div>
+                          <div className="info-note">Plantilla institucional aplicada. La exportación Word/PDF formal queda preparada para el próximo sprint.</div>
                         </aside>
                       </div>
                     )}

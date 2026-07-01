@@ -18,9 +18,10 @@ class DisposicionService:
         analisis = analisis_op_service.analizar(expediente_id)
         historial = historial_service.listar_por_expediente(expediente_id)
         validado_observado = any(h.accion == "EXPEDIENTE_VALIDADO_CON_OBSERVACIONES" for h in historial)
+        checklist_fisico = any(h.accion == "CHECKLIST_FISICO_REGISTRADO" for h in historial)
 
         numero = expediente.numero_disposicion or "____/____"
-        proveedor = analisis.proveedor or "el proveedor identificado en las actuaciones"
+        proveedor = analisis.proveedor or "el proveedor individualizado en las actuaciones"
         cuit = analisis.cuit or "CUIT pendiente de verificación"
         objeto = expediente.objeto or "el objeto indicado en las actuaciones"
         expediente_numero = expediente.numero_interno
@@ -28,52 +29,71 @@ class DisposicionService:
         importe = self._formatear_moneda(analisis.importe_bruto)
         op = analisis.orden_pago or "la Orden de Pago agregada"
         procedimiento = analisis.procedimiento or "el procedimiento administrativo correspondiente"
+        facturas = len(analisis.documentos_comerciales)
 
         visto = (
-            f"VISTO el Expediente Nº {expediente_numero}, mediante el cual se tramita {objeto}, "
-            f"correspondiente a {establecimiento};"
+            f"VISTO: el Expediente Nº {expediente_numero}, mediante el cual se tramita la contratación "
+            f"correspondiente a {objeto}, con destino a {establecimiento};"
         )
 
         considerando_partes = [
-            f"Que obra agregada la Orden de Pago {op}, vinculada al proveedor {proveedor}, CUIT {cuit};",
-            f"Que del análisis documental surge un importe total de {importe}, encuadrado preliminarmente como {procedimiento};",
-            "Que la documentación incorporada al expediente fue evaluada mediante el sistema SIGD-ST, sin perjuicio de la revisión administrativa que corresponda;",
+            f"Que en las presentes actuaciones obra la documentación respaldatoria vinculada a la contratación mencionada;",
+            f"Que obra agregada {op}, emitida a favor de {proveedor}, CUIT {cuit}, por la suma de {importe};",
+            f"Que de acuerdo con el análisis efectuado, el trámite se encuadra preliminarmente en {procedimiento};",
         ]
 
-        if analisis.documentos_comerciales:
+        if facturas:
             considerando_partes.append(
-                f"Que se detectaron {len(analisis.documentos_comerciales)} factura(s) liquidadas asociadas a la Orden de Pago, resultando consistente la información económica analizada;"
+                f"Que se verificaron {facturas} factura(s) liquidadas asociadas a la Orden de Pago, resultando consistente la información económica obrante en las actuaciones;"
+            )
+
+        if checklist_fisico:
+            considerando_partes.append(
+                "Que la existencia física de la documentación respaldatoria fue acreditada mediante checklist de validación incorporado al sistema;"
             )
 
         if validado_observado:
             considerando_partes.append(
                 "Que el expediente fue validado con observaciones, constando la justificación correspondiente en el historial de actuaciones;"
             )
+        else:
+            considerando_partes.append(
+                "Que el expediente cuenta con validación documental suficiente para la prosecución del trámite;"
+            )
 
-        considerando_partes.append(
-            "Que corresponde dictar el presente acto administrativo en el marco de las competencias del Consejo Escolar;"
+        considerando_partes.extend(
+            [
+                "Que corresponde dictar el presente acto administrativo, en ejercicio de las competencias propias del Consejo Escolar;",
+                "Que por ello corresponde aprobar lo actuado y autorizar la prosecución administrativa pertinente;",
+            ]
         )
 
         considerando = "\n\n".join(considerando_partes)
 
         dispone = (
-            "EL CUERPO DE CONSEJEROS ESCOLARES DEL DISTRITO DE GENERAL ALVARADO DISPONE\n\n"
+            "POR ELLO,\n\n"
+            "EL CUERPO DE CONSEJEROS ESCOLARES DEL DISTRITO DE GENERAL ALVARADO\n\n"
+            "DISPONE\n\n"
             f"ARTÍCULO 1°: Aprobar la tramitación correspondiente al Expediente Nº {expediente_numero}, "
             f"por el objeto: {objeto}.\n\n"
-            f"ARTÍCULO 2°: Autorizar la prosecución del trámite administrativo vinculado a la Orden de Pago {op}, "
+            f"ARTÍCULO 2°: Autorizar la prosecución del trámite administrativo vinculado a {op}, "
             f"por el importe de {importe}, a favor de {proveedor}.\n\n"
-            "ARTÍCULO 3°: Registrar, comunicar a las áreas intervinientes y archivar oportunamente."
+            "ARTÍCULO 3°: Registrar la presente Disposición, comunicar a las áreas intervinientes y archivar oportunamente.\n\n"
+            "REGÍSTRESE. COMUNÍQUESE. ARCHÍVESE."
         )
 
         observaciones = [
-            "Borrador generado automáticamente por SIGD-ST.",
-            "Revisar datos de expediente, proveedor, importe y objeto antes de emitir.",
+            "Borrador generado automáticamente por SIGD-ST con plantilla institucional.",
+            "Revisar numeración, fecha, proveedor, importe y objeto antes de emitir.",
         ]
+
+        if checklist_fisico:
+            observaciones.append("La documentación física fue acreditada mediante checklist de validación.")
 
         if validado_observado:
             observaciones.append("El expediente fue validado con observaciones. Revisar el historial antes de emitir.")
 
-        if analisis.faltantes:
+        if analisis.faltantes and not checklist_fisico:
             observaciones.append("Existen evidencias o documentos pendientes de acreditación según el análisis IA.")
 
         ahora = datetime.now()
@@ -89,7 +109,7 @@ class DisposicionService:
             actualizado=ahora,
         )
         self._borradores[expediente_id] = borrador
-        historial_service.registrar(expediente_id, "BORRADOR_DISPOSICION_GENERADO", detalle=f"Disposición {numero}")
+        historial_service.registrar(expediente_id, "BORRADOR_DISPOSICION_GENERADO", detalle=f"Borrador de Disposición Nº {numero}")
         return borrador
 
     def actualizar_borrador(self, expediente_id: str, data: DisposicionUpdate) -> DisposicionRead:

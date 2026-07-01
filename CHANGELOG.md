@@ -1,19 +1,19 @@
 # CHANGELOG
 
+## Sprint 0027
+
+- Se mejora la plantilla de Disposición.
+- Se incorporan fórmulas institucionales.
+- Se agrega POR ELLO y cierre REGÍSTRESE / COMUNÍQUESE / ARCHÍVESE.
+- Se integra checklist físico al considerando.
+- Se integra validación con observaciones al considerando.
+- Se ajustan observaciones IA.
+
 ## Sprint 0026
 
-- Se elimina el control redundante "Estado para generar disposición" de Validación.
-- Se mejora el panel VERDE de validación.
-- Se ajusta la fórmula institucional del cuerpo dispositivo.
-- Se agrega endpoint de exportación del borrador a texto.
-- Se agrega botón "Exportar texto" en el editor de disposición.
+- Consolidación de validación.
+- Exportación simple a texto.
 
 ## Sprint 0025
 
-- Checklist físico en etapa de validación.
-- Recalculo de validación con evidencias físicas.
-- Registro en historial.
-
-## Sprint 0024
-
-- Generación asistida de disposición.
+- Checklist físico en validación.

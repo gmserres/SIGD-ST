@@ -273,8 +273,8 @@ def exportar_borrador_disposicion_texto(expediente_id: str):
     borrador = disposicion_service.obtener(expediente_id)
     contenido = (
         f"DISPOSICIÓN Nº {borrador.numero_disposicion or '____/____'}\n\n"
-        f"VISTO\n{borrador.visto}\n\n"
-        f"CONSIDERANDO\n{borrador.considerando}\n\n"
+        f"VISTO:\n{borrador.visto}\n\n"
+        f"CONSIDERANDO:\n{borrador.considerando}\n\n"
         f"{borrador.dispone}\n\n"
         "OBSERVACIONES IA\n"
         + "\n".join(f"- {obs}" for obs in borrador.observaciones_ia)

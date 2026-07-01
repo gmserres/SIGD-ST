@@ -305,3 +305,15 @@ th { color: #64748b; font-weight: 700; }
 .check-row input {
   width: auto;
 }
+
+
+.disposition-main {
+  background: #ffffff;
+}
+.disposition-main textarea {
+  background: #fffdf8;
+  border-color: #94a3b8;
+}
+.disposition-main label {
+  letter-spacing: .03em;
+}
