@@ -1,20 +1,20 @@
 # CHANGELOG
 
+## Sprint 0024
+
+- Se agrega generación asistida de disposición.
+- Se agrega editor de borrador de disposición.
+- Se incorpora fórmula institucional: EL CUERPO DE CONSEJEROS ESCOLARES DE GRAL. ALVARADO DISPONE.
+- Se agregan observaciones IA al borrador.
+- Se mejora visualización del estado Validado con observaciones.
+- Se ocultan acciones no correspondientes según el estado.
+
 ## Sprint 0023
 
-- Se agrega endpoint de validación con observaciones.
-- Se exige motivo administrativo para validar con observaciones.
-- Se registra la decisión en historial.
-- Se separan errores críticos de advertencias no críticas.
-- Se actualiza la pestaña Validación con acciones específicas para VERDE, AMARILLO y ROJO.
+- Validación con observaciones.
+- Motivo obligatorio.
+- Registro en historial.
 
 ## Sprint 0022
 
 - Evidencias verificadas.
-- Checklist por archivo, dato automático o verificación manual.
-- Retenciones como dato informativo, no requisito documental.
-
-## Sprint 0021
-
-- Validación inteligente.
-- Controles documentales.

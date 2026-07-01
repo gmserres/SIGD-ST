@@ -1,13 +1,13 @@
-# Sprint 0023 - Validación con Observaciones
+# Sprint 0024 - Generación Asistida de Disposición
 
 ## Cómo actualizar
 
-1. Descomprimir `SIGD-ST_sprint_0023.zip`.
+1. Descomprimir `SIGD-ST_sprint_0024.zip`.
 2. Copiar todo el contenido dentro del repositorio `SIGD-ST`.
 3. Reemplazar archivos cuando Windows lo pregunte.
 4. En GitHub Desktop usar este Summary:
 
-Sprint 0023 - Validación con Observaciones
+Sprint 0024 - Generación Asistida de Disposición
 
 5. Commit to main.
 6. Push origin.
@@ -15,19 +15,20 @@ Sprint 0023 - Validación con Observaciones
 
 ## Resultado
 
-Este sprint incorpora el flujo realista de validación administrativa:
+Este sprint incorpora el editor inteligente de disposiciones:
 
-- Validación normal cuando el expediente está completo.
-- Validación con observaciones cuando hay advertencias no críticas.
-- Motivo obligatorio para validar con observaciones.
-- Registro del motivo en historial.
-- Bloqueo solo ante errores críticos.
+- Genera un borrador editable.
+- Usa estructura: VISTO, CONSIDERANDO y “EL CUERPO DE CONSEJEROS ESCOLARES DE GRAL. ALVARADO DISPONE”.
+- Completa datos desde el expediente y la OP.
+- Agrega observaciones IA.
+- Diferencia visualmente Validado y Validado con observaciones.
+- Oculta acciones que ya no corresponden según el estado del expediente.
 
-## Cómo probar
+## Prueba recomendada
 
-1. Crear expediente.
-2. Cargar OP.
-3. Ejecutar IA documental.
-4. Ir a Validación.
-5. Si el estado es AMARILLO, ingresar motivo y usar "Validar con observaciones".
-6. Revisar Historial.
+1. Validar un expediente o validarlo con observaciones.
+2. Ir a Resumen.
+3. Presionar “Generar borrador de disposición”.
+4. Revisar y editar el borrador.
+5. Guardar borrador.
+6. Emitir disposición.

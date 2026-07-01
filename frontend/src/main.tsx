@@ -5,7 +5,7 @@ import './styles.css';
 const API_URL = 'http://localhost:8000';
 
 type Pantalla = 'inicio' | 'nuevo' | 'expedientes' | 'detalle' | 'administracion';
-type TabDetalle = 'resumen' | 'documentos' | 'ia' | 'validacion' | 'historial';
+type TabDetalle = 'resumen' | 'documentos' | 'ia' | 'validacion' | 'disposicion' | 'historial';
 
 type Expediente = {
   id: string;
@@ -45,6 +45,18 @@ type Validacion = {
   errores: string[];
   advertencias: string[];
   controles: { control: string; estado: string; observacion?: string | null }[];
+};
+
+type Disposicion = {
+  expediente_id: string;
+  numero_disposicion: string | null;
+  estado: string;
+  visto: string;
+  considerando: string;
+  dispone: string;
+  observaciones_ia: string[];
+  creado: string;
+  actualizado: string;
 };
 
 type AnalisisOP = {
@@ -100,6 +112,19 @@ function claseEstado(estado: string) {
   if (['VALIDADO', 'DISPOSICION_EMITIDA', 'FIRMADO', 'ARCHIVADO'].includes(estado)) return 'badge green';
   if (['DOCUMENTACION_EN_CARGA', 'PENDIENTE_VALIDACION', 'BORRADOR'].includes(estado)) return 'badge yellow';
   return 'badge blue';
+}
+
+function fueValidadoConObservaciones(historial: Historial[]) {
+  return historial.some(h => h.accion === 'EXPEDIENTE_VALIDADO_CON_OBSERVACIONES');
+}
+
+function estadoAdministrativo(exp: Expediente, historial: Historial[]) {
+  if (exp.estado === 'VALIDADO' && fueValidadoConObservaciones(historial)) {
+    return { texto: 'Validado con observaciones', clase: 'badge yellow' };
+  }
+  if (exp.estado === 'VALIDADO') return { texto: 'Validado', clase: 'badge green' };
+  if (exp.estado === 'DISPOSICION_EMITIDA') return { texto: 'Disposición emitida', clase: 'badge green' };
+  return { texto: etiquetaEstado(exp.estado), clase: claseEstado(exp.estado) };
 }
 
 function claseValidacion(estado: string) {
@@ -245,6 +270,7 @@ function App() {
   const [historial, setHistorial] = useState<Historial[]>([]);
   const [analisis, setAnalisis] = useState<AnalisisOP | null>(null);
   const [validacion, setValidacion] = useState<Validacion | null>(null);
+  const [disposicionBorrador, setDisposicionBorrador] = useState<Disposicion | null>(null);
   const [mensaje, setMensaje] = useState('');
   const [mensajeTipo, setMensajeTipo] = useState<'ok' | 'error' | 'info'>('info');
 
@@ -426,7 +452,44 @@ function App() {
     await cargarDetalle(actualizado);
   }
 
-  async function generarDisposicion() {
+  async function prepararDisposicion(regenerar = false) {
+    if (!seleccionado) return;
+    const res = await fetch(`${API_URL}/expedientes/${seleccionado.id}/disposicion/borrador?regenerar=${regenerar}`, { method: 'POST' });
+
+    if (!res.ok) {
+      avisar(await obtenerMensajeError(res), 'error');
+      return;
+    }
+
+    const data = await res.json();
+    setDisposicionBorrador(data);
+    setTabDetalle('disposicion');
+    avisar('Borrador de disposición generado correctamente.', 'ok');
+  }
+
+  async function guardarBorradorDisposicion() {
+    if (!seleccionado || !disposicionBorrador) return;
+    const res = await fetch(`${API_URL}/expedientes/${seleccionado.id}/disposicion/borrador`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        visto: disposicionBorrador.visto,
+        considerando: disposicionBorrador.considerando,
+        dispone: disposicionBorrador.dispone,
+      }),
+    });
+
+    if (!res.ok) {
+      avisar(await obtenerMensajeError(res), 'error');
+      return;
+    }
+
+    const data = await res.json();
+    setDisposicionBorrador(data);
+    avisar('Borrador guardado correctamente.', 'ok');
+  }
+
+
     if (!seleccionado) return;
     const res = await fetch(`${API_URL}/expedientes/${seleccionado.id}/generar-disposicion`, { method: 'POST' });
 
@@ -475,7 +538,7 @@ function App() {
           <button className={pantalla === 'administracion' ? 'active' : ''} onClick={() => setPantalla('administracion')}>Administración</button>
         </nav>
 
-        <div className="version">Versión Alfa 0.23</div>
+        <div className="version">Versión Alfa 0.24</div>
       </aside>
 
       <section className="content">
@@ -582,7 +645,7 @@ function App() {
                 <h2>{seleccionado.numero_interno}</h2>
                 <p>{seleccionado.establecimiento || '-'} · {seleccionado.objeto || '-'}</p>
               </div>
-              <span className={claseEstado(seleccionado.estado)}>{etiquetaEstado(seleccionado.estado)}</span>
+              <span className={estadoAdministrativo(seleccionado, historial).clase}>{estadoAdministrativo(seleccionado, historial).texto}</span>
             </div>
 
             <div className="expediente-layout">
@@ -591,6 +654,7 @@ function App() {
                 <button className={tabDetalle === 'documentos' ? 'active' : ''} onClick={() => setTabDetalle('documentos')}>Documentos</button>
                 <button className={tabDetalle === 'ia' ? 'active' : ''} onClick={() => setTabDetalle('ia')}>IA documental</button>
                 <button className={tabDetalle === 'validacion' ? 'active' : ''} onClick={consultarValidacion}>Validación</button>
+                <button className={tabDetalle === 'disposicion' ? 'active' : ''} onClick={() => setTabDetalle('disposicion')}>Disposición</button>
                 <button className={tabDetalle === 'historial' ? 'active' : ''} onClick={() => setTabDetalle('historial')}>Historial</button>
               </aside>
 
@@ -610,8 +674,15 @@ function App() {
                     <div className="actions">
                       <button className="primary" onClick={analizarOP}>Analizar OP</button>
                       <button className="secondary" onClick={consultarValidacion}>Ver validación</button>
-                      <button className="primary" onClick={validarExpediente}>Validar expediente</button>
-                      <button className="primary" onClick={generarDisposicion}>Generar disposición</button>
+                      {!['VALIDADO', 'DISPOSICION_EMITIDA'].includes(seleccionado.estado) && (
+                        <button className="primary" onClick={validarExpediente}>Validar expediente</button>
+                      )}
+                      {seleccionado.estado === 'VALIDADO' && (
+                        <button className="primary" onClick={() => prepararDisposicion(false)}>Generar borrador de disposición</button>
+                      )}
+                      {seleccionado.estado === 'DISPOSICION_EMITIDA' && (
+                        <button className="secondary" onClick={() => setTabDetalle('disposicion')}>Ver disposición</button>
+                      )}
                     </div>
                     <div className="flow-note">
                       La validación ahora verifica documentación crítica antes de permitir avanzar.
@@ -878,6 +949,56 @@ function App() {
                           </div>
                         )}
                       </>
+                    )}
+                  </div>
+                )}
+
+                {tabDetalle === 'disposicion' && (
+                  <div className="card">
+                    <div className="card-title">
+                      <h3>Editor de disposición</h3>
+                      <span className="badge yellow">{disposicionBorrador?.estado || 'BORRADOR IA'}</span>
+                    </div>
+
+                    {!disposicionBorrador ? (
+                      <div className="empty-disposition">
+                        <p className="empty">Todavía no hay borrador generado para este expediente.</p>
+                        {seleccionado.estado === 'VALIDADO' ? (
+                          <button className="primary" onClick={() => prepararDisposicion(false)}>Generar borrador</button>
+                        ) : (
+                          <p className="warn">El expediente debe estar validado antes de generar la disposición.</p>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="disposition-editor">
+                        <div className="disposition-main">
+                          <h4>DISPOSICIÓN Nº {disposicionBorrador.numero_disposicion || '____/____'}</h4>
+
+                          <label>VISTO</label>
+                          <textarea value={disposicionBorrador.visto} onChange={(e) => setDisposicionBorrador({ ...disposicionBorrador, visto: e.target.value })} />
+
+                          <label>CONSIDERANDO</label>
+                          <textarea value={disposicionBorrador.considerando} onChange={(e) => setDisposicionBorrador({ ...disposicionBorrador, considerando: e.target.value })} />
+
+                          <label>EL CUERPO DE CONSEJEROS ESCOLARES DE GRAL. ALVARADO DISPONE</label>
+                          <textarea value={disposicionBorrador.dispone} onChange={(e) => setDisposicionBorrador({ ...disposicionBorrador, dispone: e.target.value })} />
+
+                          <div className="actions">
+                            <button className="secondary" onClick={() => prepararDisposicion(true)}>Regenerar borrador</button>
+                            <button className="primary" onClick={guardarBorradorDisposicion}>Guardar borrador</button>
+                            {seleccionado.estado === 'VALIDADO' && <button className="primary" onClick={generarDisposicion}>Emitir disposición</button>}
+                          </div>
+                        </div>
+
+                        <aside className="disposition-aside">
+                          <h4>Observaciones IA</h4>
+                          {disposicionBorrador.observaciones_ia.map((obs, i) => <p key={i} className="warn">⚠ {obs}</p>)}
+                          {fueValidadoConObservaciones(historial) && (
+                            <div className="info-note">Este expediente fue validado con observaciones. Revisá el historial antes de emitir.</div>
+                          )}
+                          <div className="info-note">La exportación a Word/PDF queda preparada para el próximo sprint.</div>
+                        </aside>
+                      </div>
                     )}
                   </div>
                 )}

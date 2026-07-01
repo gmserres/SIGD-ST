@@ -93,7 +93,7 @@ th { color: #64748b; font-weight: 700; }
 @media (max-width: 1000px) {
   .app-shell { display: block; }
   .sidebar { width: 100%; }
-  .metrics, .dashboard-grid, .upload-grid, .expediente-layout, .analysis-grid, .admin-grid, .validation-columns, .checklist-grid, .intelligence-grid, .evidence-grid { grid-template-columns: 1fr; }
+  .metrics, .dashboard-grid, .upload-grid, .expediente-layout, .analysis-grid, .admin-grid, .validation-columns, .checklist-grid, .intelligence-grid, .evidence-grid, .disposition-editor { grid-template-columns: 1fr; }
   .diagnostic-panel { display: block; }
   .assistant-panel { display: block; }
   .assistant-side { text-align: left; margin-top: 12px; }
@@ -230,4 +230,38 @@ th { color: #64748b; font-weight: 700; }
 .red-panel {
   background: #fef2f2;
   border-color: #fecaca;
+}
+
+
+.disposition-editor {
+  display: grid;
+  grid-template-columns: 1.5fr .8fr;
+  gap: 18px;
+}
+.disposition-main textarea {
+  min-height: 150px;
+  font-family: Georgia, 'Times New Roman', serif;
+  line-height: 1.5;
+}
+.disposition-main label {
+  font-weight: 800;
+  color: #0f172a;
+  margin-top: 16px;
+}
+.disposition-main h4 {
+  font-size: 22px;
+  margin: 0 0 14px;
+}
+.disposition-aside {
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  border-radius: 14px;
+  padding: 14px;
+  height: fit-content;
+}
+.empty-disposition {
+  border: 1px dashed #cbd5e1;
+  border-radius: 14px;
+  padding: 18px;
+  background: #f8fafc;
 }

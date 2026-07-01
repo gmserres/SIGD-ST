@@ -6,6 +6,7 @@ from app.core.storage import guardar_upload
 from app.domain.estados import EstadoExpediente
 from app.schemas.analisis_op import AnalisisOPRead
 from app.schemas.documento import DocumentoCreate, DocumentoRead
+from app.schemas.disposicion import DisposicionRead, DisposicionUpdate
 from app.schemas.expediente import ExpedienteCreate, ExpedienteRead, ExpedienteUpdate
 from app.schemas.historial import HistorialRead
 from app.schemas.texto_documento import TextoDocumentoRead
@@ -13,6 +14,7 @@ from app.schemas.validacion import ValidacionExpedienteRead
 from app.schemas.validacion_observada import ValidacionObservadaCreate
 from app.services.analisis_op import analisis_op_service
 from app.services.documentos import documento_service
+from app.services.disposiciones import disposicion_service
 from app.services.expedientes import expediente_service
 from app.services.historial import historial_service
 from app.services.texto_documento import texto_documento_service
@@ -219,6 +221,33 @@ def validar_expediente_con_observaciones(expediente_id: str, data: ValidacionObs
         detalle=detalle,
     )
     return expediente
+
+
+@router.post("/{expediente_id}/disposicion/borrador", response_model=DisposicionRead)
+def generar_borrador_disposicion(expediente_id: str, regenerar: bool = False):
+    expediente = obtener_expediente(expediente_id)
+    if expediente.estado != EstadoExpediente.VALIDADO:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "mensaje": "Para generar el borrador de disposición, el expediente debe estar validado o validado con observaciones.",
+                "errores": ["El expediente debe estar VALIDADO."],
+            },
+        )
+    return disposicion_service.generar_borrador(expediente_id, regenerar=regenerar)
+
+
+@router.get("/{expediente_id}/disposicion/borrador", response_model=DisposicionRead)
+def obtener_borrador_disposicion(expediente_id: str):
+    obtener_expediente(expediente_id)
+    return disposicion_service.obtener(expediente_id)
+
+
+@router.put("/{expediente_id}/disposicion/borrador", response_model=DisposicionRead)
+def actualizar_borrador_disposicion(expediente_id: str, data: DisposicionUpdate):
+    obtener_expediente(expediente_id)
+    return disposicion_service.actualizar_borrador(expediente_id, data)
+
 
 
 @router.post("/{expediente_id}/generar-disposicion", response_model=ExpedienteRead)
