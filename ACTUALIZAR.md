@@ -1,13 +1,13 @@
-# Sprint 0025 - Checklist Físico en Validación
+# Sprint 0026 - Consolidación de Validación y Disposición
 
 ## Cómo actualizar
 
-1. Descomprimir `SIGD-ST_sprint_0025.zip`.
+1. Descomprimir `SIGD-ST_sprint_0026.zip`.
 2. Copiar todo el contenido dentro del repositorio `SIGD-ST`.
 3. Reemplazar archivos cuando Windows lo pregunte.
 4. En GitHub Desktop usar este Summary:
 
-Sprint 0025 - Checklist Físico en Validación
+Sprint 0026 - Consolidación de Validación y Disposición
 
 5. Commit to main.
 6. Push origin.
@@ -15,15 +15,14 @@ Sprint 0025 - Checklist Físico en Validación
 
 ## Resultado
 
-Este sprint incorpora el checklist físico dentro de la etapa de validación:
+Este sprint consolida lo probado en el Sprint 0025:
 
-- La validación muestra los faltantes.
-- Desde Validación se puede abrir "Acreditar documentación física".
-- El operador marca qué documentación obra físicamente en el expediente.
-- El checklist queda registrado en historial.
-- La validación se recalcula y puede pasar de AMARILLO a VERDE.
-- Si el checklist completa las evidencias, el expediente puede salir validado sin observaciones.
-- Se corrige el mensaje persistente al cambiar de expediente/estado.
+- Se elimina el control redundante "Estado para generar disposición" de la tabla de Validación.
+- Cuando el checklist físico completa las evidencias, la validación queda VERDE sin advertencias innecesarias.
+- Se mejora el mensaje del panel verde: "Validación documental completa".
+- Se ajusta la fórmula institucional de la disposición.
+- Se agrega exportación simple del borrador de disposición a texto.
+- Se mantiene preparado el camino para exportación Word/PDF institucional.
 
 ## Prueba recomendada
 
@@ -31,7 +30,8 @@ Este sprint incorpora el checklist físico dentro de la etapa de validación:
 2. Cargar OP.
 3. Ejecutar IA documental.
 4. Ir a Validación.
-5. Presionar "Acreditar documentación física".
-6. Marcar Remito/Conformidad, CAE, ARCA y ARBA.
-7. Guardar checklist.
-8. Volver a validar: debería quedar VERDE si no hay otros faltantes.
+5. Acreditar documentación física.
+6. Confirmar que la tabla queda VERDE sin advertencia redundante.
+7. Validar expediente.
+8. Generar borrador de disposición.
+9. Probar "Exportar texto".

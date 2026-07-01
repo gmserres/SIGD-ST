@@ -57,7 +57,7 @@ class DisposicionService:
         considerando = "\n\n".join(considerando_partes)
 
         dispone = (
-            "EL CUERPO DE CONSEJEROS ESCOLARES DE GRAL. ALVARADO DISPONE\n\n"
+            "EL CUERPO DE CONSEJEROS ESCOLARES DEL DISTRITO DE GENERAL ALVARADO DISPONE\n\n"
             f"ARTÍCULO 1°: Aprobar la tramitación correspondiente al Expediente Nº {expediente_numero}, "
             f"por el objeto: {objeto}.\n\n"
             f"ARTÍCULO 2°: Autorizar la prosecución del trámite administrativo vinculado a la Orden de Pago {op}, "

@@ -1,20 +1,19 @@
 # CHANGELOG
 
+## Sprint 0026
+
+- Se elimina el control redundante "Estado para generar disposición" de Validación.
+- Se mejora el panel VERDE de validación.
+- Se ajusta la fórmula institucional del cuerpo dispositivo.
+- Se agrega endpoint de exportación del borrador a texto.
+- Se agrega botón "Exportar texto" en el editor de disposición.
+
 ## Sprint 0025
 
-- Se agrega checklist físico en la etapa de validación.
-- Se agregan endpoints para guardar y consultar checklist físico.
-- La validación toma el checklist físico como evidencia acreditada.
-- Se registra CHECKLIST_FISICO_REGISTRADO en historial.
-- Se permite que un expediente pase a validación normal si el checklist completa las evidencias.
-- Se corrige limpieza de mensajes al cambiar de expediente.
+- Checklist físico en etapa de validación.
+- Recalculo de validación con evidencias físicas.
+- Registro en historial.
 
 ## Sprint 0024
 
 - Generación asistida de disposición.
-- Editor de borrador.
-- Observaciones IA.
-
-## Sprint 0023
-
-- Validación con observaciones.

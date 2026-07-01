@@ -1,5 +1,5 @@
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, PlainTextResponse
 from pathlib import Path
 
 from app.core.storage import guardar_upload
@@ -263,6 +263,23 @@ def actualizar_borrador_disposicion(expediente_id: str, data: DisposicionUpdate)
     obtener_expediente(expediente_id)
     return disposicion_service.actualizar_borrador(expediente_id, data)
 
+
+
+
+
+@router.get("/{expediente_id}/disposicion/borrador/texto")
+def exportar_borrador_disposicion_texto(expediente_id: str):
+    obtener_expediente(expediente_id)
+    borrador = disposicion_service.obtener(expediente_id)
+    contenido = (
+        f"DISPOSICIÓN Nº {borrador.numero_disposicion or '____/____'}\n\n"
+        f"VISTO\n{borrador.visto}\n\n"
+        f"CONSIDERANDO\n{borrador.considerando}\n\n"
+        f"{borrador.dispone}\n\n"
+        "OBSERVACIONES IA\n"
+        + "\n".join(f"- {obs}" for obs in borrador.observaciones_ia)
+    )
+    return PlainTextResponse(contenido, media_type="text/plain; charset=utf-8")
 
 
 @router.post("/{expediente_id}/generar-disposicion", response_model=ExpedienteRead)

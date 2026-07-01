@@ -553,6 +553,11 @@ function App() {
     await cargarDetalle(actualizado);
   }
 
+  function descargarBorradorTexto() {
+    if (!seleccionado) return;
+    window.open(`${API_URL}/expedientes/${seleccionado.id}/disposicion/borrador/texto`, '_blank');
+  }
+
   function abrirVistaPrevia(doc: Documento) {
     if (!seleccionado) return;
     window.open(`${API_URL}/expedientes/${seleccionado.id}/documentos/${doc.id}/vista-previa`, '_blank');
@@ -586,7 +591,7 @@ function App() {
           <button className={pantalla === 'administracion' ? 'active' : ''} onClick={() => setPantalla('administracion')}>Administración</button>
         </nav>
 
-        <div className="version">Versión Alfa 0.25</div>
+        <div className="version">Versión Alfa 0.26</div>
       </aside>
 
       <section className="content">
@@ -641,6 +646,7 @@ function App() {
                   <p>✓ Validación inteligente con bloqueos.</p>
                   <p>✓ Evidencias por archivo, checklist o dato automático.</p>
                   <p>✓ Checklist físico en etapa de validación.</p>
+                  <p>✓ Borrador de disposición exportable a texto.</p>
                 </div>
                 <button className="primary" onClick={() => setPantalla('nuevo')}>Crear expediente</button>
               </div>
@@ -972,8 +978,8 @@ function App() {
 
                         {validacion.estado_general === 'VERDE' && (
                           <div className="validation-action-panel green-panel">
-                            <h4>Expediente apto para validar</h4>
-                            <p>No se detectan errores ni observaciones relevantes.</p>
+                            <h4>Validación documental completa</h4>
+                            <p>Todas las evidencias requeridas fueron acreditadas. El expediente puede ser validado para continuar con la generación de la Disposición.</p>
                             <button className="primary" onClick={validarExpediente}>Validar expediente</button>
                           </div>
                         )}
@@ -1034,12 +1040,13 @@ function App() {
                           <label>CONSIDERANDO</label>
                           <textarea value={disposicionBorrador.considerando} onChange={(e) => setDisposicionBorrador({ ...disposicionBorrador, considerando: e.target.value })} />
 
-                          <label>EL CUERPO DE CONSEJEROS ESCOLARES DE GRAL. ALVARADO DISPONE</label>
+                          <label>EL CUERPO DE CONSEJEROS ESCOLARES DEL DISTRITO DE GENERAL ALVARADO DISPONE</label>
                           <textarea value={disposicionBorrador.dispone} onChange={(e) => setDisposicionBorrador({ ...disposicionBorrador, dispone: e.target.value })} />
 
                           <div className="actions">
                             <button className="secondary" onClick={() => prepararDisposicion(true)}>Regenerar borrador</button>
                             <button className="primary" onClick={guardarBorradorDisposicion}>Guardar borrador</button>
+                            <button className="secondary" onClick={descargarBorradorTexto}>Exportar texto</button>
                             {seleccionado.estado === 'VALIDADO' && <button className="primary" onClick={generarDisposicion}>Emitir disposición</button>}
                           </div>
                         </div>

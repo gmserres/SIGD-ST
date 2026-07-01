@@ -76,14 +76,6 @@ class ValidacionService:
             severidad="ADVERTENCIA",
         )
 
-        controles.append(
-            ControlValidacion(
-                control="Estado para generar disposición",
-                estado="OK" if expediente.estado == EstadoExpediente.VALIDADO else "ADVERTENCIA",
-                observacion="El expediente está validado." if expediente.estado == EstadoExpediente.VALIDADO else "El expediente será validable si no existen errores ni advertencias documentales.",
-            )
-        )
-
         estado_general = "ROJO" if errores else ("AMARILLO" if advertencias else "VERDE")
 
         if registrar_historial:
