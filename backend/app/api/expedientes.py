@@ -7,6 +7,7 @@ from app.domain.estados import EstadoExpediente
 from app.schemas.analisis_op import AnalisisOPRead
 from app.schemas.documento import DocumentoCreate, DocumentoRead
 from app.schemas.disposicion import DisposicionRead, DisposicionUpdate
+from app.schemas.checklist_fisico import ChecklistFisicoCreate, ChecklistFisicoRead
 from app.schemas.expediente import ExpedienteCreate, ExpedienteRead, ExpedienteUpdate
 from app.schemas.historial import HistorialRead
 from app.schemas.texto_documento import TextoDocumentoRead
@@ -15,6 +16,7 @@ from app.schemas.validacion_observada import ValidacionObservadaCreate
 from app.services.analisis_op import analisis_op_service
 from app.services.documentos import documento_service
 from app.services.disposiciones import disposicion_service
+from app.services.checklist_fisico import checklist_fisico_service
 from app.services.expedientes import expediente_service
 from app.services.historial import historial_service
 from app.services.texto_documento import texto_documento_service
@@ -156,6 +158,19 @@ def analizar_op(expediente_id: str):
     analisis = analisis_op_service.analizar(expediente_id)
     historial_service.registrar(expediente_id, "OP_ANALIZADA_IA", detalle=f"Modo {analisis.modo}")
     return analisis
+
+
+@router.get("/{expediente_id}/checklist-fisico", response_model=ChecklistFisicoRead | None)
+def obtener_checklist_fisico(expediente_id: str):
+    obtener_expediente(expediente_id)
+    return checklist_fisico_service.obtener(expediente_id)
+
+
+@router.post("/{expediente_id}/checklist-fisico", response_model=ChecklistFisicoRead)
+def guardar_checklist_fisico(expediente_id: str, data: ChecklistFisicoCreate):
+    obtener_expediente(expediente_id)
+    checklist = checklist_fisico_service.guardar(expediente_id, data)
+    return checklist
 
 
 @router.get("/{expediente_id}/validacion", response_model=ValidacionExpedienteRead)

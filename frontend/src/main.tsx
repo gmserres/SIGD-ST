@@ -59,6 +59,18 @@ type Disposicion = {
   actualizado: string;
 };
 
+type ChecklistFisico = {
+  expediente_id?: string;
+  factura: boolean;
+  remito_conformidad: boolean;
+  cae: boolean;
+  arca: boolean;
+  arba: boolean;
+  observaciones?: string | null;
+  usuario?: string;
+  fecha?: string;
+};
+
 type AnalisisOP = {
   expediente_id: string;
   modo: string;
@@ -271,6 +283,8 @@ function App() {
   const [analisis, setAnalisis] = useState<AnalisisOP | null>(null);
   const [validacion, setValidacion] = useState<Validacion | null>(null);
   const [disposicionBorrador, setDisposicionBorrador] = useState<Disposicion | null>(null);
+  const [checklistFisico, setChecklistFisico] = useState<ChecklistFisico>({ factura: false, remito_conformidad: false, cae: false, arca: false, arba: false, observaciones: '' });
+  const [mostrarChecklistFisico, setMostrarChecklistFisico] = useState(false);
   const [mensaje, setMensaje] = useState('');
   const [mensajeTipo, setMensajeTipo] = useState<'ok' | 'error' | 'info'>('info');
 
@@ -313,6 +327,7 @@ function App() {
     setPantalla('detalle');
     setTabDetalle('resumen');
     setAnalisis(null);
+    setMensaje('');
 
     const [docsRes, histRes] = await Promise.all([
       fetch(`${API_URL}/expedientes/${expediente.id}/documentos`),
@@ -407,6 +422,38 @@ function App() {
     const res = await fetch(`${API_URL}/expedientes/${seleccionado.id}/validacion`);
     setValidacion(await res.json());
     setTabDetalle('validacion');
+  }
+
+  async function cargarChecklistFisico() {
+    if (!seleccionado) return;
+    const res = await fetch(`${API_URL}/expedientes/${seleccionado.id}/checklist-fisico`);
+    if (res.ok) {
+      const data = await res.json();
+      if (data) setChecklistFisico(data);
+    }
+    setMostrarChecklistFisico(true);
+  }
+
+  async function guardarChecklistFisico() {
+    if (!seleccionado) return;
+
+    const res = await fetch(`${API_URL}/expedientes/${seleccionado.id}/checklist-fisico`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...checklistFisico, usuario: 'Secretario Técnico' }),
+    });
+
+    if (!res.ok) {
+      avisar(await obtenerMensajeError(res), 'error');
+      return;
+    }
+
+    const data = await res.json();
+    setChecklistFisico(data);
+    setMostrarChecklistFisico(false);
+    avisar('Checklist físico registrado. La validación fue actualizada.', 'ok');
+    await consultarValidacion();
+    await cargarExpedientes();
   }
 
   async function validarExpediente() {
@@ -539,7 +586,7 @@ function App() {
           <button className={pantalla === 'administracion' ? 'active' : ''} onClick={() => setPantalla('administracion')}>Administración</button>
         </nav>
 
-        <div className="version">Versión Alfa 0.24</div>
+        <div className="version">Versión Alfa 0.25</div>
       </aside>
 
       <section className="content">
@@ -593,6 +640,7 @@ function App() {
                   <p>✓ Comparador documental y confiabilidad.</p>
                   <p>✓ Validación inteligente con bloqueos.</p>
                   <p>✓ Evidencias por archivo, checklist o dato automático.</p>
+                  <p>✓ Checklist físico en etapa de validación.</p>
                 </div>
                 <button className="primary" onClick={() => setPantalla('nuevo')}>Crear expediente</button>
               </div>
@@ -933,13 +981,18 @@ function App() {
                         {validacion.estado_general === 'AMARILLO' && (
                           <div className="validation-action-panel yellow-panel">
                             <h4>Validación con observaciones</h4>
-                            <p>El expediente puede continuar bajo responsabilidad administrativa. Ingresá el motivo para dejar trazabilidad.</p>
-                            <textarea
-                              value={motivoObservacion}
-                              onChange={(e) => setMotivoObservacion(e.target.value)}
-                              placeholder="Ejemplo: Se continúa con observaciones porque la documentación será incorporada posteriormente."
-                            />
-                            <button className="primary" onClick={validarConObservaciones}>Validar con observaciones</button>
+                            <p>Existen evidencias pendientes. Si la documentación existe en el expediente físico, podés acreditarla mediante checklist y volver a consultar la validación.</p>
+                            <button className="secondary" onClick={cargarChecklistFisico}>Acreditar documentación física</button>
+
+                            <div className="observation-box">
+                              <p>Si aun así corresponde avanzar con observaciones, ingresá el motivo administrativo.</p>
+                              <textarea
+                                value={motivoObservacion}
+                                onChange={(e) => setMotivoObservacion(e.target.value)}
+                                placeholder="Ejemplo: Se continúa con observaciones porque la documentación será incorporada posteriormente."
+                              />
+                              <button className="primary" onClick={validarConObservaciones}>Validar con observaciones</button>
+                            </div>
                           </div>
                         )}
 
@@ -1036,6 +1089,46 @@ function App() {
           </section>
         )}
       </section>
+      {mostrarChecklistFisico && (
+        <div className="modal-backdrop">
+          <div className="modal-card">
+            <div className="card-title">
+              <h3>Checklist de existencia física</h3>
+              <button className="small-button" onClick={() => setMostrarChecklistFisico(false)}>Cerrar</button>
+            </div>
+            <p className="muted">Marcá los documentos que obran físicamente en el expediente papel. Esto acredita la evidencia sin cargar el PDF.</p>
+
+            <label className="check-row">
+              <input type="checkbox" checked={checklistFisico.factura} onChange={(e) => setChecklistFisico({ ...checklistFisico, factura: e.target.checked })} />
+              Facturas verificadas en expediente físico
+            </label>
+            <label className="check-row">
+              <input type="checkbox" checked={checklistFisico.remito_conformidad} onChange={(e) => setChecklistFisico({ ...checklistFisico, remito_conformidad: e.target.checked })} />
+              Remito / conformidad / acta de recepción obrante
+            </label>
+            <label className="check-row">
+              <input type="checkbox" checked={checklistFisico.cae} onChange={(e) => setChecklistFisico({ ...checklistFisico, cae: e.target.checked })} />
+              CAE verificado
+            </label>
+            <label className="check-row">
+              <input type="checkbox" checked={checklistFisico.arca} onChange={(e) => setChecklistFisico({ ...checklistFisico, arca: e.target.checked })} />
+              Constancia ARCA obrante
+            </label>
+            <label className="check-row">
+              <input type="checkbox" checked={checklistFisico.arba} onChange={(e) => setChecklistFisico({ ...checklistFisico, arba: e.target.checked })} />
+              Certificado Fiscal ARBA obrante
+            </label>
+
+            <label>Observaciones del operador</label>
+            <textarea value={checklistFisico.observaciones || ''} onChange={(e) => setChecklistFisico({ ...checklistFisico, observaciones: e.target.value })} placeholder="Detalle cómo fue verificada la documentación física." />
+
+            <div className="actions">
+              <button className="secondary" onClick={() => setMostrarChecklistFisico(false)}>Cancelar</button>
+              <button className="primary" onClick={guardarChecklistFisico}>Guardar checklist</button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

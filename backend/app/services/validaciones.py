@@ -3,12 +3,14 @@ from app.schemas.validacion import ControlValidacion, ValidacionExpedienteRead
 from app.services.documentos import documento_service
 from app.services.expedientes import expediente_service
 from app.services.historial import historial_service
+from app.services.checklist_fisico import checklist_fisico_service
 
 
 class ValidacionService:
     def validar(self, expediente_id: str, registrar_historial: bool = True) -> ValidacionExpedienteRead:
         expediente = expediente_service.obtener(expediente_id)
         documentos = documento_service.listar_por_expediente(expediente_id)
+        checklist = checklist_fisico_service.obtener(expediente_id)
 
         errores: list[str] = []
         advertencias: list[str] = []
@@ -33,7 +35,7 @@ class ValidacionService:
         tiene_op = "OP" in tipos
         agregar("Orden de Pago", tiene_op, "OP cargada.", "Falta cargar la Orden de Pago.")
 
-        factura_acreditada = "FACTURA" in tipos or "CHECK_FACTURA" in tipos
+        factura_acreditada = "FACTURA" in tipos or "CHECK_FACTURA" in tipos or bool(checklist and checklist.factura)
         agregar(
             "Facturas",
             factura_acreditada or tiene_op,
@@ -44,7 +46,7 @@ class ValidacionService:
 
         agregar(
             "Remito o conformidad",
-            bool({"REMITO", "CONFORMIDAD", "ACTA_RECEPCION", "CHECK_REMITO"} & tipos),
+            bool({"REMITO", "CONFORMIDAD", "ACTA_RECEPCION", "CHECK_REMITO"} & tipos) or bool(checklist and checklist.remito_conformidad),
             "Remito, conformidad o acta acreditada.",
             "Falta acreditar remito, conformidad o acta de recepción.",
             severidad="ADVERTENCIA",
@@ -52,7 +54,7 @@ class ValidacionService:
 
         agregar(
             "Validación CAE",
-            "CAE" in tipos or "VALIDACION_CAE" in tipos or "CHECK_CAE" in tipos,
+            "CAE" in tipos or "VALIDACION_CAE" in tipos or "CHECK_CAE" in tipos or bool(checklist and checklist.cae),
             "CAE acreditado.",
             "Falta acreditar validación CAE.",
             severidad="ADVERTENCIA",
@@ -60,7 +62,7 @@ class ValidacionService:
 
         agregar(
             "Constancia ARCA",
-            "ARCA" in tipos or "CHECK_ARCA" in tipos,
+            "ARCA" in tipos or "CHECK_ARCA" in tipos or bool(checklist and checklist.arca),
             "Constancia ARCA acreditada.",
             "Falta acreditar constancia ARCA.",
             severidad="ADVERTENCIA",
@@ -68,18 +70,18 @@ class ValidacionService:
 
         agregar(
             "Certificado ARBA",
-            "ARBA" in tipos or "CHECK_ARBA" in tipos,
+            "ARBA" in tipos or "CHECK_ARBA" in tipos or bool(checklist and checklist.arba),
             "Certificado ARBA acreditado.",
             "Falta acreditar certificado fiscal ARBA.",
             severidad="ADVERTENCIA",
         )
 
-        agregar(
-            "Estado para generar disposición",
-            expediente.estado == EstadoExpediente.VALIDADO,
-            "El expediente está validado.",
-            "El expediente aún no está validado.",
-            severidad="ADVERTENCIA",
+        controles.append(
+            ControlValidacion(
+                control="Estado para generar disposición",
+                estado="OK" if expediente.estado == EstadoExpediente.VALIDADO else "ADVERTENCIA",
+                observacion="El expediente está validado." if expediente.estado == EstadoExpediente.VALIDADO else "El expediente será validable si no existen errores ni advertencias documentales.",
+            )
         )
 
         estado_general = "ROJO" if errores else ("AMARILLO" if advertencias else "VERDE")
