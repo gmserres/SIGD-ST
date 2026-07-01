@@ -490,6 +490,7 @@ function App() {
   }
 
 
+  async function generarDisposicion() {
     if (!seleccionado) return;
     const res = await fetch(`${API_URL}/expedientes/${seleccionado.id}/generar-disposicion`, { method: 'POST' });
 
