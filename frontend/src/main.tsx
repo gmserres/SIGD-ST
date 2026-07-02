@@ -591,7 +591,7 @@ function App() {
           <button className={pantalla === 'administracion' ? 'active' : ''} onClick={() => setPantalla('administracion')}>Administración</button>
         </nav>
 
-        <div className="version">Versión Alfa 0.27</div>
+        <div className="version">Versión Alfa 0.28A</div>
       </aside>
 
       <section className="content">
@@ -647,7 +647,7 @@ function App() {
                   <p>✓ Evidencias por archivo, checklist o dato automático.</p>
                   <p>✓ Checklist físico en etapa de validación.</p>
                   <p>✓ Borrador de disposición exportable a texto.</p>
-                  <p>✓ Plantilla institucional de Disposición.</p>
+                  <p>✓ Motor de plantillas institucionales.</p>
                 </div>
                 <button className="primary" onClick={() => setPantalla('nuevo')}>Crear expediente</button>
               </div>
@@ -1018,7 +1018,7 @@ function App() {
                   <div className="card">
                     <div className="card-title">
                       <h3>Editor de disposición</h3>
-                      <span className="badge yellow">{disposicionBorrador?.estado || 'BORRADOR IA'}</span>
+                      <span className="badge yellow">{disposicionBorrador?.estado || 'BORRADOR PLANTILLA'}</span>
                     </div>
 
                     {!disposicionBorrador ? (

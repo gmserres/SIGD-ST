@@ -1,19 +1,21 @@
 # CHANGELOG
 
+## Sprint 0028A
+
+- Se incorpora motor de plantillas institucionales.
+- Se agrega plantilla oficial FC 2026 parametrizada.
+- Se separa contenido de plantilla y datos del expediente.
+- Se agregan variables institucionales.
+- Se genera tabla dinámica de facturas.
+- Se genera tabla del Artículo 2°.
+- Se agrega cálculo de importe en letras.
+- Se conserva plantilla Word oficial como base documental.
+
 ## Sprint 0027
 
-- Se mejora la plantilla de Disposición.
-- Se incorporan fórmulas institucionales.
-- Se agrega POR ELLO y cierre REGÍSTRESE / COMUNÍQUESE / ARCHÍVESE.
-- Se integra checklist físico al considerando.
-- Se integra validación con observaciones al considerando.
-- Se ajustan observaciones IA.
+- Disposición oficial inteligente.
+- Fórmulas institucionales.
 
 ## Sprint 0026
 
-- Consolidación de validación.
-- Exportación simple a texto.
-
-## Sprint 0025
-
-- Checklist físico en validación.
+- Consolidación de validación y disposición.
