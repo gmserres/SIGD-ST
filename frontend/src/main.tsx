@@ -591,7 +591,7 @@ function App() {
           <button className={pantalla === 'administracion' ? 'active' : ''} onClick={() => setPantalla('administracion')}>Administración</button>
         </nav>
 
-        <div className="version">Versión Alfa 0.28A</div>
+        <div className="version">Versión Alfa 0.28BB</div>
       </aside>
 
       <section className="content">
@@ -1058,7 +1058,11 @@ function App() {
                           {fueValidadoConObservaciones(historial) && (
                             <div className="info-note">Este expediente fue validado con observaciones. Revisá el historial antes de emitir.</div>
                           )}
-                          <div className="info-note">Plantilla institucional aplicada. La exportación Word/PDF formal queda preparada para el próximo sprint.</div>
+                          <div className="info-note">Plantilla institucional 2026.2 aplicada. La exportación Word/PDF formal queda preparada para el próximo sprint.</div>
+                          <div className="template-status">
+                            <strong>Vista documento institucional</strong>
+                            <span>Tablas dinámicas · Negritas controladas · Variables oficiales</span>
+                          </div>
                         </aside>
                       </div>
                     )}

@@ -22,6 +22,7 @@ class DisposicionService:
     def __init__(self) -> None:
         self._borradores: dict[str, DisposicionRead] = {}
         self._plantilla_fc = Path(__file__).resolve().parents[3] / "storage" / "templates" / "disposicion_fc_v2026.md"
+        self._plantilla_version = "Disposición FC 2026.2"
 
     def generar_borrador(self, expediente_id: str, regenerar: bool = False) -> DisposicionRead:
         if expediente_id in self._borradores and not regenerar:
@@ -42,7 +43,7 @@ class DisposicionService:
         numero = expediente.numero_disposicion or "____/____"
         observaciones = [
             "Borrador generado con motor de plantillas institucionales.",
-            "Plantilla: disposicion_fc_v2026.md.",
+            f"Plantilla: {self._plantilla_version}.",
             f"Variables reemplazadas: {len(render.variables_usadas) - len(render.variables_faltantes)} de {len(render.variables_usadas)}.",
         ]
         if render.variables_faltantes:
@@ -68,7 +69,7 @@ class DisposicionService:
         historial_service.registrar(
             expediente_id,
             "PLANTILLA_APLICADA",
-            detalle=f"Disposición FC 2026 | variables: {len(render.variables_usadas) - len(render.variables_faltantes)}/{len(render.variables_usadas)}",
+            detalle=f"{self._plantilla_version} | variables: {len(render.variables_usadas) - len(render.variables_faltantes)}/{len(render.variables_usadas)}",
         )
         historial_service.registrar(expediente_id, "BORRADOR_DISPOSICION_GENERADO", detalle=f"Borrador de Disposición Nº {numero}")
         return borrador
@@ -133,21 +134,21 @@ class DisposicionService:
 
     def _tabla_facturas(self, facturas) -> str:
         if not facturas:
-            return "Factura | Fecha | Importe\n--- | --- | ---\nFactura pendiente | Fecha pendiente | Importe pendiente"
-        filas = ["Factura | Fecha | Importe", "--- | --- | ---"]
+            return "| Factura | Fecha | Importe |\n| --- | --- | ---: |\n| Factura pendiente | Fecha pendiente | Importe pendiente |"
+        filas = ["| Factura | Fecha | Importe |", "| --- | --- | ---: |"]
         for factura in facturas:
             codigo = self._codigo_factura(factura)
-            filas.append(f"{codigo} | {factura.fecha} | {formatear_moneda(factura.importe)}")
+            filas.append(f"| {codigo} | {factura.fecha} | {formatear_moneda(factura.importe)} |")
         return "\n".join(filas)
 
     def _tabla_detalle_op(self, importe_bruto, retenciones, importe_neto, forma_pago: str, cbu: str) -> str:
-        filas = ["Concepto | Detalle", "--- | ---"]
-        filas.append(f"Monto Total de Facturas | {formatear_moneda(importe_bruto)}")
+        filas = ["| Concepto | Detalle |", "| --- | ---: |"]
+        filas.append(f"| Monto Total de Facturas | {formatear_moneda(importe_bruto)} |")
         for retencion in retenciones:
-            filas.append(f"{retencion.concepto} | {formatear_moneda(retencion.importe)}")
-        filas.append(f"**Monto Neto a Pagar** | **{formatear_moneda(importe_neto)}**")
-        filas.append(f"Forma de Pago | {forma_pago}")
-        filas.append(f"Número de CBU | {cbu}")
+            filas.append(f"| {retencion.concepto} | {formatear_moneda(retencion.importe)} |")
+        filas.append(f"| **Monto Neto a Pagar** | **{formatear_moneda(importe_neto)}** |")
+        filas.append(f"| Forma de Pago | {forma_pago} |")
+        filas.append(f"| Número de CBU | {cbu} |")
         return "\n".join(filas)
 
     def _codigo_factura(self, factura) -> str:
@@ -159,7 +160,13 @@ class DisposicionService:
 
     def _fecha_larga(self, fecha: str | None) -> str:
         if not fecha:
-            return datetime.now().strftime("%d de %m de %Y")
+            
+            hoy = datetime.now()
+            meses = [
+                "", "enero", "febrero", "marzo", "abril", "mayo", "junio",
+                "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+            ]
+            return f"{hoy.day} de {meses[hoy.month]} de {hoy.year}"
         partes = re.split(r"[/-]", fecha)
         if len(partes) != 3:
             return fecha

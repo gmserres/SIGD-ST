@@ -49,7 +49,7 @@ def formatear_moneda(valor: float | None) -> str:
     while entero:
         partes.insert(0, entero[-3:])
         entero = entero[:-3]
-    return "$" + ".".join(partes) + "," + decimales
+    return "$ " + ".".join(partes) + "," + decimales
 
 
 def formatear_numero(valor: float | None, decimales: int = 2) -> str:
@@ -134,14 +134,18 @@ def numero_a_letras(valor: float | None) -> str:
 def dividir_disposicion(contenido: str) -> tuple[str, str, str]:
     """Divide el documento renderizado para mantener compatibilidad con el editor actual."""
     considerando_idx = contenido.find("CONSIDERANDO:")
-    dispone_idx = contenido.find("DISPONE")
+    por_ello_idx = contenido.find("Por ello,")
 
-    if considerando_idx == -1 or dispone_idx == -1:
+    if considerando_idx == -1:
         return contenido, "", ""
 
+    if por_ello_idx == -1:
+        dispone_idx = contenido.find("DISPONE")
+        por_ello_idx = dispone_idx if dispone_idx != -1 else len(contenido)
+
     visto = contenido[:considerando_idx].strip()
-    considerando = contenido[considerando_idx:dispone_idx].strip()
-    dispone = contenido[dispone_idx:].strip()
+    considerando = contenido[considerando_idx:por_ello_idx].strip()
+    dispone = contenido[por_ello_idx:].strip()
     return visto, considerando, dispone
 
 

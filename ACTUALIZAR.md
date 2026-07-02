@@ -1,13 +1,13 @@
-# Sprint 0028A - Motor de Plantillas Institucionales
+# Sprint 0028B - Plantilla Institucional Definitiva
 
 ## Cómo actualizar
 
-1. Descomprimir `SIGD-ST_sprint_0028A.zip`.
+1. Descomprimir `SIGD-ST_sprint_0028B.zip`.
 2. Copiar todo el contenido dentro del repositorio `SIGD-ST`.
 3. Reemplazar archivos cuando Windows lo pregunte.
 4. En GitHub Desktop usar este Summary:
 
-Sprint 0028A - Motor de Plantillas Institucionales
+Sprint 0028B - Plantilla Institucional Definitiva
 
 5. Commit to main.
 6. Push origin.
@@ -15,25 +15,29 @@ Sprint 0028A - Motor de Plantillas Institucionales
 
 ## Resultado
 
-Este sprint reemplaza la disposición hardcodeada por un motor inicial de plantillas:
+Este sprint consolida el motor documental iniciado en 0028A:
 
-- Nuevo servicio `template_engine`.
-- Plantilla parametrizada `storage/templates/disposicion_fc_v2026.md`.
-- Se conserva el Word oficial corregido como base en `storage/templates/DISPOSICION_OFICIAL_FC_2026_BASE.docx`.
-- Reemplazo automático de variables principales.
-- Tabla dinámica de facturas.
-- Tabla alineada del detalle económico del Artículo 2°.
-- Cálculo de importe en letras.
-- Cálculo de UC desde la OP y parámetros actuales.
-- Integración con el editor de disposición existente.
+- Usa la plantilla oficial corregida como base institucional.
+- Ajusta la estructura al modelo real de Disposición Fondo Compensador.
+- Mejora la tabla dinámica de facturas.
+- Mejora la tabla económica del Artículo 2°.
+- Destaca el Monto Neto a Pagar.
+- Mejora el formato monetario.
+- Mantiene el documento oficial base en `storage/templates`.
+- Identifica la plantilla como `Disposición FC 2026.2`.
+- Prepara el camino para exportación DOCX/PDF.
 
 ## Prueba recomendada
 
-1. Crear expediente.
-2. Cargar OP MONKE.
-3. Ejecutar IA documental.
-4. Completar checklist físico.
-5. Validar expediente.
-6. Generar borrador de disposición.
-7. Verificar que el texto siga el modelo oficial y que se completen variables.
-8. Exportar texto.
+1. Crear expediente con la OP MONKE.
+2. Ejecutar IA documental.
+3. Acreditar checklist físico.
+4. Validar expediente.
+5. Generar borrador de Disposición.
+6. Revisar:
+   - VISTO.
+   - CONSIDERANDO.
+   - tabla de facturas.
+   - Artículo 2°.
+   - monto neto destacado.
+   - Artículos 3° a 5°.

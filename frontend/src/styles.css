@@ -317,3 +317,26 @@ th { color: #64748b; font-weight: 700; }
 .disposition-main label {
   letter-spacing: .03em;
 }
+
+
+.template-status {
+  margin-top: 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  padding: 12px;
+  background: #ffffff;
+}
+.template-status strong {
+  display: block;
+  color: #0f172a;
+  margin-bottom: 4px;
+}
+.template-status span {
+  color: #64748b;
+  font-size: 13px;
+}
+.disposition-main textarea {
+  font-family: "Times New Roman", Georgia, serif;
+  font-size: 14px;
+  line-height: 1.45;
+}
