@@ -16,6 +16,7 @@ from app.schemas.validacion_observada import ValidacionObservadaCreate
 from app.services.analisis_op import analisis_op_service
 from app.services.documentos import documento_service
 from app.services.disposiciones import disposicion_service
+from app.services.disposicion_docx import disposicion_docx_service
 from app.services.checklist_fisico import checklist_fisico_service
 from app.services.expedientes import expediente_service
 from app.services.historial import historial_service
@@ -265,6 +266,19 @@ def actualizar_borrador_disposicion(expediente_id: str, data: DisposicionUpdate)
 
 
 
+
+
+
+
+@router.get("/{expediente_id}/disposicion/borrador/docx")
+def descargar_borrador_disposicion_docx(expediente_id: str):
+    obtener_expediente(expediente_id)
+    ruta = disposicion_docx_service.generar_docx(expediente_id)
+    return FileResponse(
+        path=ruta,
+        filename=ruta.name,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    )
 
 
 @router.get("/{expediente_id}/disposicion/borrador/texto")

@@ -558,6 +558,11 @@ function App() {
     window.open(`${API_URL}/expedientes/${seleccionado.id}/disposicion/borrador/texto`, '_blank');
   }
 
+  function descargarBorradorWord() {
+    if (!seleccionado) return;
+    window.open(`${API_URL}/expedientes/${seleccionado.id}/disposicion/borrador/docx`, '_blank');
+  }
+
   function abrirVistaPrevia(doc: Documento) {
     if (!seleccionado) return;
     window.open(`${API_URL}/expedientes/${seleccionado.id}/documentos/${doc.id}/vista-previa`, '_blank');
@@ -591,7 +596,7 @@ function App() {
           <button className={pantalla === 'administracion' ? 'active' : ''} onClick={() => setPantalla('administracion')}>Administración</button>
         </nav>
 
-        <div className="version">Versión Alfa 0.28BB</div>
+        <div className="version">Versión Alfa 0.29B</div>
       </aside>
 
       <section className="content">
@@ -1048,6 +1053,7 @@ function App() {
                             <button className="secondary" onClick={() => prepararDisposicion(true)}>Regenerar borrador</button>
                             <button className="primary" onClick={guardarBorradorDisposicion}>Guardar borrador</button>
                             <button className="secondary" onClick={descargarBorradorTexto}>Exportar texto</button>
+                            <button className="primary" onClick={descargarBorradorWord}>Descargar Word</button>
                             {seleccionado.estado === 'VALIDADO' && <button className="primary" onClick={generarDisposicion}>Emitir disposición</button>}
                           </div>
                         </div>
@@ -1058,7 +1064,7 @@ function App() {
                           {fueValidadoConObservaciones(historial) && (
                             <div className="info-note">Este expediente fue validado con observaciones. Revisá el historial antes de emitir.</div>
                           )}
-                          <div className="info-note">Plantilla institucional 2026.2 aplicada. La exportación Word/PDF formal queda preparada para el próximo sprint.</div>
+                          <div className="info-note">Plantilla institucional 2026.2 aplicada. La exportación Word está disponible. La exportación PDF queda preparada para el próximo sprint.</div>
                           <div className="template-status">
                             <strong>Vista documento institucional</strong>
                             <span>Tablas dinámicas · Negritas controladas · Variables oficiales</span>
