@@ -10,6 +10,7 @@ from app.schemas.disposicion import DisposicionRead, DisposicionUpdate
 from app.schemas.checklist_fisico import ChecklistFisicoCreate, ChecklistFisicoRead
 from app.schemas.expediente import ExpedienteCreate, ExpedienteRead, ExpedienteUpdate
 from app.schemas.historial import HistorialRead
+from app.schemas.parametros import ParametrosInstitucionalesRead, ParametrosInstitucionalesUpdate
 from app.schemas.texto_documento import TextoDocumentoRead
 from app.schemas.validacion import ValidacionExpedienteRead
 from app.schemas.validacion_observada import ValidacionObservadaCreate
@@ -20,10 +21,22 @@ from app.services.disposicion_docx import disposicion_docx_service
 from app.services.checklist_fisico import checklist_fisico_service
 from app.services.expedientes import expediente_service
 from app.services.historial import historial_service
+from app.services.parametros import parametros_institucionales_service
 from app.services.texto_documento import texto_documento_service
 from app.services.validaciones import validacion_service
 
 router = APIRouter()
+
+
+@router.get("/administracion/parametros", response_model=ParametrosInstitucionalesRead)
+def obtener_parametros_institucionales():
+    return parametros_institucionales_service.obtener()
+
+
+@router.put("/administracion/parametros", response_model=ParametrosInstitucionalesRead)
+def actualizar_parametros_institucionales(data: ParametrosInstitucionalesUpdate):
+    return parametros_institucionales_service.actualizar(data)
+
 
 
 @router.post("", response_model=ExpedienteRead)

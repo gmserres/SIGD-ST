@@ -1097,13 +1097,56 @@ function App() {
 
         {pantalla === 'administracion' && (
           <section className="card">
-            <h3>Administración</h3>
-            <div className="admin-grid">
-              <div><strong>Usuarios</strong><p>Administrador, Secretario Técnico, Operador, Consulta.</p></div>
-              <div><strong>Unidad de Contratación</strong><p>$1.677 · Resolución OPC Nº 54/2025.</p></div>
-              <div><strong>Plantillas</strong><p>Disposición FC, Checklist, Actas.</p></div>
-              <div><strong>Catálogos</strong><p>Proveedores y establecimientos.</p></div>
+            <div className="card-title">
+              <h3>Administración institucional</h3>
+              <span className="badge blue">Parámetros del sistema</span>
             </div>
+
+            {parametrosInstitucionales ? (
+              <>
+                <div className="admin-grid">
+                  <div>
+                    <strong>Unidad de Contratación</strong>
+                    <label>Valor UC</label>
+                    <input type="number" value={parametrosInstitucionales.valor_uc} onChange={(e) => setParametrosInstitucionales({ ...parametrosInstitucionales, valor_uc: Number(e.target.value) })} />
+                    <label>Norma UC vigente</label>
+                    <input value={parametrosInstitucionales.norma_uc} onChange={(e) => setParametrosInstitucionales({ ...parametrosInstitucionales, norma_uc: e.target.value })} />
+                    <label>Fecha de vigencia</label>
+                    <input value={parametrosInstitucionales.fecha_vigencia_uc} onChange={(e) => setParametrosInstitucionales({ ...parametrosInstitucionales, fecha_vigencia_uc: e.target.value })} />
+                  </div>
+
+                  <div>
+                    <strong>Ejercicio y numeración</strong>
+                    <label>Ejercicio</label>
+                    <input type="number" value={parametrosInstitucionales.ejercicio} onChange={(e) => setParametrosInstitucionales({ ...parametrosInstitucionales, ejercicio: Number(e.target.value) })} />
+                    <label>Próxima disposición</label>
+                    <input type="number" value={parametrosInstitucionales.proxima_disposicion} onChange={(e) => setParametrosInstitucionales({ ...parametrosInstitucionales, proxima_disposicion: Number(e.target.value) })} />
+                  </div>
+
+                  <div>
+                    <strong>Datos institucionales</strong>
+                    <label>Organismo</label>
+                    <input value={parametrosInstitucionales.organismo} onChange={(e) => setParametrosInstitucionales({ ...parametrosInstitucionales, organismo: e.target.value })} />
+                    <label>Distrito</label>
+                    <input value={parametrosInstitucionales.distrito} onChange={(e) => setParametrosInstitucionales({ ...parametrosInstitucionales, distrito: e.target.value })} />
+                    <label>Localidad</label>
+                    <input value={parametrosInstitucionales.localidad} onChange={(e) => setParametrosInstitucionales({ ...parametrosInstitucionales, localidad: e.target.value })} />
+                  </div>
+
+                  <div>
+                    <strong>Plantillas</strong>
+                    <p>Disposición FC 2026.2 activa.</p>
+                    <p className="muted">El versionado y la carga de nuevas plantillas quedan preparados para próximos sprints.</p>
+                  </div>
+                </div>
+
+                <div className="actions">
+                  <button className="primary" onClick={guardarParametrosInstitucionales}>Guardar parámetros</button>
+                </div>
+              </>
+            ) : (
+              <p className="empty">Cargando parámetros institucionales...</p>
+            )}
           </section>
         )}
       </section>

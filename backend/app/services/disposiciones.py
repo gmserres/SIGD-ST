@@ -9,6 +9,7 @@ from app.services.analisis_op import analisis_op_service
 from app.services.documentos import documento_service
 from app.services.expedientes import expediente_service
 from app.services.historial import historial_service
+from app.services.parametros import parametros_institucionales_service
 from app.services.template_engine import (
     dividir_disposicion,
     formatear_moneda,
@@ -100,9 +101,10 @@ class DisposicionService:
         return extraer_datos_op_desde_pdf(ruta)
 
     def _construir_variables(self, expediente, analisis, datos_op) -> dict[str, str]:
+        parametros = parametros_institucionales_service.obtener()
         importe_bruto = analisis.importe_bruto
         fecha = self._fecha_larga(analisis.fecha_op)
-        ejercicio = self._ejercicio(analisis.fecha_op)
+        ejercicio = str(parametros.ejercicio)
         facturas = datos_op.facturas if datos_op else analisis.documentos_comerciales
         retenciones = datos_op.retenciones if datos_op else analisis.retenciones
         texto_op = datos_op.texto_extraido if datos_op else ""
@@ -120,8 +122,8 @@ class DisposicionService:
             "CUIT": analisis.cuit or "CUIT PENDIENTE",
             "IMPORTE": formatear_moneda(importe_bruto),
             "IMPORTE_LETRAS": numero_a_letras(importe_bruto),
-            "UC": formatear_numero(analisis.cantidad_uc, 2),
-            "NORMA_UC": analisis.norma_uc,
+            "UC": formatear_numero((importe_bruto / parametros.valor_uc) if importe_bruto else analisis.cantidad_uc, 2),
+            "NORMA_UC": parametros.norma_uc,
             "TABLA_FACTURAS": self._tabla_facturas(facturas),
             "CONCEPTO_PAGO": expediente.objeto or "concepto pendiente de completar",
             "ESTABLECIMIENTOS": expediente.establecimiento or "establecimientos pendientes de completar",

@@ -1,49 +1,37 @@
-# Sprint 0029 - Exportación Word Institucional
+# Sprint 0030 - Administración Institucional
 
 ## Cómo actualizar
 
-1. Descomprimir `SIGD-ST_sprint_0029.zip`.
+1. Descomprimir `SIGD-ST_sprint_0030.zip`.
 2. Copiar todo el contenido dentro del repositorio `SIGD-ST`.
 3. Reemplazar archivos cuando Windows lo pregunte.
-4. IMPORTANTE: actualizar dependencias del backend:
+4. En GitHub Desktop usar este Summary:
 
-   cd backend
-   .\.venv\Scripts\activate
-   pip install -r requirements.txt
+Sprint 0030 - Administración Institucional
 
-5. En GitHub Desktop usar este Summary:
-
-Sprint 0029 - Exportación Word Institucional
-
-6. Commit to main.
-7. Push origin.
-8. Reiniciar backend y frontend.
+5. Commit to main.
+6. Push origin.
+7. Reiniciar backend y frontend.
 
 ## Resultado
 
-Este sprint agrega la salida DOCX institucional:
+Este sprint incorpora la primera capa de parametrización institucional:
 
-- Nuevo servicio `disposicion_docx.py`.
-- Endpoint para descargar Word.
-- Botón "Descargar Word" en el editor de disposición.
-- Tablas Word para facturas y detalle económico.
-- Fuente Times New Roman.
-- Márgenes institucionales.
-- Monto Neto a Pagar destacado.
-- Registro en historial `DISPOSICION_DOCX_GENERADA`.
+- Parámetros institucionales administrables desde la pantalla Administración.
+- Valor UC configurable.
+- Norma UC configurable.
+- Fecha de vigencia UC.
+- Ejercicio.
+- Próximo número de disposición.
+- Datos institucionales: organismo, distrito y localidad.
+- El generador de disposiciones toma la norma UC y el valor UC desde Administración.
+- La cantidad de UC se recalcula desde el importe y el valor UC vigente.
 
 ## Prueba recomendada
 
-1. Crear expediente con la OP MONKE.
-2. Ejecutar IA documental.
-3. Completar checklist físico.
-4. Validar expediente.
-5. Generar borrador de disposición.
-6. Presionar "Descargar Word".
-7. Abrir el DOCX descargado y revisar:
-   - VISTO.
-   - CONSIDERANDO.
-   - tabla de facturas.
-   - Artículo 2°.
-   - Monto Neto a Pagar destacado.
-   - DISPOSICION N° y EXPEDIENTE.
+1. Entrar a Administración.
+2. Modificar Valor UC o Norma UC.
+3. Guardar parámetros.
+4. Crear expediente con OP MONKE.
+5. Generar disposición.
+6. Verificar que la UC y la norma provengan de Administración.

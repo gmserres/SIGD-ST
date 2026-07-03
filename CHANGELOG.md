@@ -1,22 +1,18 @@
 # CHANGELOG
 
+## Sprint 0030
+
+- Se agrega servicio de parámetros institucionales.
+- Se agregan schemas de parámetros.
+- Se agregan endpoints de administración.
+- Se actualiza la pantalla Administración.
+- El motor de disposición usa Valor UC y Norma UC desde Administración.
+- Se prepara base para numeración automática y versionado de plantillas.
+
 ## Sprint 0029
 
-- Se agrega generación DOCX institucional.
-- Se agrega servicio `DisposicionDocxService`.
-- Se agrega endpoint `/disposicion/borrador/docx`.
-- Se agrega botón "Descargar Word" en el editor de disposición.
-- Se generan tablas Word para facturas y Artículo 2°.
-- Se agrega dependencia `python-docx`.
-- Se registra la generación DOCX en historial.
+- Exportación Word institucional.
 
 ## Sprint 0028B
 
 - Plantilla institucional definitiva.
-- Tabla dinámica de facturas.
-- Tabla económica del Artículo 2°.
-- Monto Neto a Pagar destacado.
-
-## Sprint 0028A
-
-- Motor de plantillas institucionales.
