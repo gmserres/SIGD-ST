@@ -14,6 +14,7 @@ class ExpedienteService:
         expediente = ExpedienteRead(
             id=expediente_id,
             numero_interno=data.numero_interno,
+            id_suna=data.id_suna,
             tipo_tramite=data.tipo_tramite,
             estado=EstadoExpediente.BORRADOR,
             establecimiento=data.establecimiento,

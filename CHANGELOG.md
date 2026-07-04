@@ -16,3 +16,11 @@
 ## Sprint 0028B
 
 - Plantilla institucional definitiva.
+
+## Ajuste PMD-001 - ID SUNA en Disposición FC
+
+- Se agregó `id_suna` al esquema de Expediente para conservar la referencia de origen SUNA.
+- Se expone y carga el ID SUNA desde el frontend.
+- El Motor de Disposiciones incorpora la variable `{{ID_SUNA}}`.
+- La plantilla Fondo Compensador agrega el ID SUNA en el VISTO.
+- Se actualizó el esquema SQL con el campo `id_suna`.

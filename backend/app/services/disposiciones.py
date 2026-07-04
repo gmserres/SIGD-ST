@@ -116,6 +116,7 @@ class DisposicionService:
 
         return {
             "FECHA": fecha,
+            "ID_SUNA": expediente.id_suna or "ID SUNA pendiente",
             "EXPEDIENTE": expediente.numero_interno,
             "DISPOSICION": expediente.numero_disposicion or "____/____",
             "PROVEEDOR": analisis.proveedor or "PROVEEDOR PENDIENTE",

@@ -8,6 +8,7 @@ from app.domain.estados import EstadoExpediente
 
 class ExpedienteCreate(BaseModel):
     numero_interno: str = Field(..., examples=["033-188/2025"])
+    id_suna: Optional[str] = Field(default=None, examples=["45872"])
     tipo_tramite: str = Field(default="FONDO_COMPENSADOR")
     establecimiento: Optional[str] = Field(default=None, examples=["EP N° 2"])
     objeto: Optional[str] = Field(default=None, examples=["Recambio total de cañerías de agua fría"])
@@ -15,6 +16,7 @@ class ExpedienteCreate(BaseModel):
 
 
 class ExpedienteUpdate(BaseModel):
+    id_suna: Optional[str] = None
     establecimiento: Optional[str] = None
     objeto: Optional[str] = None
     numero_disposicion: Optional[str] = None
@@ -23,6 +25,7 @@ class ExpedienteUpdate(BaseModel):
 class ExpedienteRead(BaseModel):
     id: str
     numero_interno: str
+    id_suna: Optional[str]
     tipo_tramite: str
     estado: EstadoExpediente
     establecimiento: Optional[str]

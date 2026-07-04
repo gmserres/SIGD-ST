@@ -26,6 +26,7 @@ CREATE TABLE establecimientos (
 CREATE TABLE expedientes (
     id UUID PRIMARY KEY,
     numero_interno TEXT NOT NULL,
+    id_suna TEXT,
     tipo_tramite TEXT NOT NULL,
     estado TEXT NOT NULL,
     establecimiento TEXT,

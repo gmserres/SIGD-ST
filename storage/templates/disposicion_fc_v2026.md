@@ -1,5 +1,5 @@
 Miramar, General Alvarado, {{FECHA}}
-VISTO el presente expediente {{EXPEDIENTE}} y
+VISTO la Solicitud de Intervención identificada con ID SUNA N° {{ID_SUNA}}, el presente expediente {{EXPEDIENTE}} y
 CONSIDERANDO:
 Que por estas actuaciones se gestiona la aprobación del gasto de la suma de
 PESOS: **{{IMPORTE_LETRAS}} ({{IMPORTE}})**, equivalentes a **{{UC}}** Unidades de Contratación,
