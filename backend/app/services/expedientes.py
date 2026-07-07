@@ -4,7 +4,6 @@ from uuid import uuid4
 from app.domain.estados import EstadoExpediente
 from app.schemas.expediente import ExpedienteCreate, ExpedienteRead, ExpedienteUpdate
 
-
 class ExpedienteService:
     def __init__(self) -> None:
         self._expedientes: dict[str, ExpedienteRead] = {}
