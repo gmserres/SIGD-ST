@@ -10,6 +10,7 @@ type TabDetalle = 'resumen' | 'documentos' | 'ia' | 'validacion' | 'disposicion'
 type Expediente = {
   id: string;
   numero_interno: string;
+  numero_gdeba?: string | null;
   id_suna?: string | null;
   tipo_tramite: string;
   estado: string;
@@ -290,6 +291,7 @@ function App() {
   const [mensajeTipo, setMensajeTipo] = useState<'ok' | 'error' | 'info'>('info');
 
   const [numeroInterno, setNumeroInterno] = useState('033-188/2025');
+  const [numeroGdeba, setNumeroGdeba] = useState('');
   const [idSuna, setIdSuna] = useState('45872');
   const [establecimiento, setEstablecimiento] = useState('EP N° 2');
   const [objeto, setObjeto] = useState('Recambio total de cañerías de agua fría');
@@ -353,7 +355,7 @@ function App() {
     const res = await fetch(`${API_URL}/expedientes`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ numero_interno: numeroInterno, id_suna: idSuna, establecimiento, objeto, numero_disposicion: disposicion }),
+      body: JSON.stringify({ numero_interno: numeroInterno, numero_gdeba: numeroGdeba || null, id_suna: idSuna, establecimiento, objeto, numero_disposicion: disposicion }),
     });
 
     if (!res.ok) {
@@ -680,6 +682,9 @@ function App() {
             <label>Expediente interno</label>
             <input value={numeroInterno} onChange={(e) => setNumeroInterno(e.target.value)} />
 
+            <label>Expediente GDEBA</label>
+            <input value={numeroGdeba} onChange={(e) => setNumeroGdeba(e.target.value)} />
+
             <label>ID SUNA</label>
             <input value={idSuna} onChange={(e) => setIdSuna(e.target.value)} />
 
@@ -733,6 +738,7 @@ function App() {
                     </div>
                     <dl className="data-list">
                       <dt>ID interno</dt><dd>{seleccionado.id}</dd>
+                      <dt>Expediente GDEBA</dt><dd>{seleccionado.numero_gdeba || '-'}</dd>
                       <dt>ID SUNA</dt><dd>{seleccionado.id_suna || '-'}</dd>
                       <dt>Disposición</dt><dd>{seleccionado.numero_disposicion || '-'}</dd>
                       <dt>Documentos</dt><dd>{documentos.length}</dd>
@@ -1204,11 +1210,12 @@ function ExpedientesTabla({ expedientes, abrir }: { expedientes: Expediente[], a
   if (expedientes.length === 0) return <p className="empty">Todavía no hay expedientes cargados.</p>;
   return (
     <table>
-      <thead><tr><th>Expediente</th><th>ID SUNA</th><th>Área</th><th>Estado</th><th>Establecimiento</th><th></th></tr></thead>
+      <thead><tr><th>Expediente</th><th>Expediente GDEBA</th><th>ID SUNA</th><th>Área</th><th>Estado</th><th>Establecimiento</th><th></th></tr></thead>
       <tbody>
         {expedientes.map((exp) => (
           <tr key={exp.id}>
             <td>{exp.numero_interno}</td>
+            <td>{exp.numero_gdeba || '-'}</td>
             <td>{exp.id_suna || '-'}</td>
             <td>Fondo Comp.</td>
             <td><span className={claseEstado(exp.estado)}>{etiquetaEstado(exp.estado)}</span></td>
