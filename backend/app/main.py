@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.api.catalogos import router as catalogos_router
+from app.api.decisiones import router as decisiones_router
 from app.api.evaluaciones import router as evaluaciones_router
 from app.api.expedientes import router as expedientes_router
 from app.api.solicitudes import router as solicitudes_router
@@ -33,6 +34,7 @@ app.mount("/storage", StaticFiles(directory=STORAGE_DIR), name="storage")
 
 app.include_router(sistema_router, prefix="/sistema", tags=["Sistema"])
 app.include_router(expedientes_router, prefix="/expedientes", tags=["Expedientes"])
+app.include_router(decisiones_router, prefix="/decisiones", tags=["Decisiones"])
 app.include_router(evaluaciones_router, prefix="/evaluaciones", tags=["Evaluaciones"])
 app.include_router(solicitudes_router, prefix="/solicitudes", tags=["Solicitudes"])
 app.include_router(catalogos_router, prefix="/catalogos", tags=["Catálogos"])
