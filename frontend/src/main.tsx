@@ -4,7 +4,7 @@ import './styles.css';
 
 const API_URL = 'http://localhost:8000';
 
-type Pantalla = 'inicio' | 'nuevo' | 'expedientes' | 'detalle' | 'administracion';
+type Pantalla = 'inicio' | 'nuevo' | 'expedientes' | 'detalle' | 'solicitudes' | 'administracion';
 type TabDetalle = 'resumen' | 'documentos' | 'ia' | 'validacion' | 'disposicion' | 'historial';
 
 type Expediente = {
@@ -18,6 +18,19 @@ type Expediente = {
   objeto?: string | null;
   numero_disposicion?: string | null;
   creado: string;
+};
+
+type SolicitudIntervencion = {
+  id_solicitud: string;
+  numero_solicitud: string;
+  procedencia: string;
+  id_suna: string | null;
+  fecha_ingreso: string;
+  establecimiento: string;
+  solicitante: string;
+  motivo: string;
+  prioridad: string;
+  estado: string;
 };
 
 type Documento = {
@@ -264,6 +277,10 @@ async function obtenerMensajeError(res: Response) {
   try {
     const data = await res.json();
     if (typeof data.detail === 'string') return data.detail;
+    if (Array.isArray(data.detail)) {
+      const mensajes = data.detail.map((item: { msg?: string }) => item.msg).filter(Boolean);
+      if (mensajes.length) return mensajes.join(' ');
+    }
     if (data.detail?.mensaje) {
       const errores = data.detail.errores?.length ? ` ${data.detail.errores.join(' ')}` : '';
       const advertencias = data.detail.advertencias?.length ? ` ${data.detail.advertencias.join(' ')}` : '';
@@ -289,6 +306,20 @@ function App() {
   const [mostrarChecklistFisico, setMostrarChecklistFisico] = useState(false);
   const [mensaje, setMensaje] = useState('');
   const [mensajeTipo, setMensajeTipo] = useState<'ok' | 'error' | 'info'>('info');
+  const [solicitudes, setSolicitudes] = useState<SolicitudIntervencion[]>([]);
+  const [solicitudSeleccionada, setSolicitudSeleccionada] = useState<SolicitudIntervencion | null>(null);
+  const [cargandoSolicitudes, setCargandoSolicitudes] = useState(false);
+  const [guardandoSolicitud, setGuardandoSolicitud] = useState(false);
+  const [errorSolicitudes, setErrorSolicitudes] = useState('');
+
+  const [solicitudNumero, setSolicitudNumero] = useState('');
+  const [solicitudProcedencia, setSolicitudProcedencia] = useState('');
+  const [solicitudIdSuna, setSolicitudIdSuna] = useState('');
+  const [solicitudFechaIngreso, setSolicitudFechaIngreso] = useState('');
+  const [solicitudEstablecimiento, setSolicitudEstablecimiento] = useState('');
+  const [solicitudSolicitante, setSolicitudSolicitante] = useState('');
+  const [solicitudMotivo, setSolicitudMotivo] = useState('');
+  const [solicitudPrioridad, setSolicitudPrioridad] = useState('');
 
   const [numeroInterno, setNumeroInterno] = useState('033-188/2025');
   const [numeroGdeba, setNumeroGdeba] = useState('');
@@ -324,6 +355,76 @@ function App() {
   async function cargarExpedientes() {
     const res = await fetch(`${API_URL}/expedientes`);
     setExpedientes(await res.json());
+  }
+
+  async function cargarSolicitudes() {
+    setCargandoSolicitudes(true);
+    setErrorSolicitudes('');
+
+    try {
+      const res = await fetch(`${API_URL}/solicitudes`);
+      if (!res.ok) {
+        setErrorSolicitudes(await obtenerMensajeError(res));
+        return;
+      }
+      setSolicitudes(await res.json());
+    } catch {
+      setErrorSolicitudes('No se pudo conectar con el backend para consultar las solicitudes.');
+    } finally {
+      setCargandoSolicitudes(false);
+    }
+  }
+
+  async function abrirSolicitudes() {
+    setPantalla('solicitudes');
+    setMensaje('');
+    await cargarSolicitudes();
+  }
+
+  async function crearSolicitud(evento: React.FormEvent<HTMLFormElement>) {
+    evento.preventDefault();
+    setGuardandoSolicitud(true);
+    setErrorSolicitudes('');
+    setMensaje('');
+
+    try {
+      const res = await fetch(`${API_URL}/solicitudes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          numero_solicitud: solicitudNumero,
+          procedencia: solicitudProcedencia,
+          id_suna: solicitudIdSuna || null,
+          fecha_ingreso: solicitudFechaIngreso,
+          establecimiento: solicitudEstablecimiento,
+          solicitante: solicitudSolicitante,
+          motivo: solicitudMotivo,
+          prioridad: solicitudPrioridad,
+        }),
+      });
+
+      if (!res.ok) {
+        setErrorSolicitudes(await obtenerMensajeError(res));
+        return;
+      }
+
+      const creada: SolicitudIntervencion = await res.json();
+      setSolicitudes((actuales) => [...actuales, creada]);
+      setSolicitudSeleccionada(creada);
+      setSolicitudNumero('');
+      setSolicitudProcedencia('');
+      setSolicitudIdSuna('');
+      setSolicitudFechaIngreso('');
+      setSolicitudEstablecimiento('');
+      setSolicitudSolicitante('');
+      setSolicitudMotivo('');
+      setSolicitudPrioridad('');
+      avisar(`Solicitud ${creada.numero_solicitud} registrada correctamente.`, 'ok');
+    } catch {
+      setErrorSolicitudes('No se pudo conectar con el backend para registrar la solicitud.');
+    } finally {
+      setGuardandoSolicitud(false);
+    }
   }
 
   async function cargarDetalle(expediente: Expediente) {
@@ -593,6 +694,7 @@ function App() {
         <nav>
           <button className={pantalla === 'inicio' ? 'active' : ''} onClick={() => setPantalla('inicio')}>Bandeja</button>
           <button className={pantalla === 'expedientes' ? 'active' : ''} onClick={() => setPantalla('expedientes')}>Expedientes</button>
+          <button className={pantalla === 'solicitudes' ? 'active' : ''} onClick={abrirSolicitudes}>Solicitudes de Intervención</button>
           <button>Fondo Compensador</button>
           <button>SAE</button>
           <button>Infraestructura</button>
@@ -606,7 +708,7 @@ function App() {
       <section className="content">
         <header className="topbar">
           <div>
-            <h2>{pantalla === 'inicio' ? 'Bandeja de trabajo' : pantalla === 'nuevo' ? 'Nuevo Expediente' : pantalla === 'detalle' ? 'Expediente Inteligente' : pantalla === 'administracion' ? 'Administración' : 'Expedientes'}</h2>
+            <h2>{pantalla === 'inicio' ? 'Bandeja de trabajo' : pantalla === 'nuevo' ? 'Nuevo Expediente' : pantalla === 'detalle' ? 'Expediente Inteligente' : pantalla === 'solicitudes' ? 'Solicitudes de Intervención' : pantalla === 'administracion' ? 'Administración' : 'Expedientes'}</h2>
             <span>Secretaría Técnica</span>
           </div>
           <div className="user">Gonzalo · Secretario Técnico</div>
@@ -705,6 +807,132 @@ function App() {
           <section className="card">
             <h3>Expedientes</h3>
             <ExpedientesTabla expedientes={expedientes} abrir={cargarDetalle} />
+          </section>
+        )}
+
+        {pantalla === 'solicitudes' && (
+          <section>
+            {errorSolicitudes && <div className="notice error">{errorSolicitudes}</div>}
+
+            <div className="solicitudes-layout">
+              <form className="card" onSubmit={crearSolicitud}>
+                <div className="card-title">
+                  <h3>Registrar Solicitud</h3>
+                  <span className="badge blue">Nueva intervención</span>
+                </div>
+
+                <label>Número de solicitud</label>
+                <input
+                  value={solicitudNumero}
+                  onChange={(e) => setSolicitudNumero(e.target.value)}
+                />
+
+                <label>Procedencia</label>
+                <input
+                  value={solicitudProcedencia}
+                  onChange={(e) => setSolicitudProcedencia(e.target.value)}
+                />
+
+                <label>ID SUNA</label>
+                <input
+                  value={solicitudIdSuna}
+                  onChange={(e) => setSolicitudIdSuna(e.target.value)}
+                  placeholder="Obligatorio cuando la procedencia es SUNA"
+                />
+
+                <label>Fecha de ingreso</label>
+                <input
+                  type="date"
+                  value={solicitudFechaIngreso}
+                  onChange={(e) => setSolicitudFechaIngreso(e.target.value)}
+                />
+
+                <label>Establecimiento</label>
+                <input
+                  value={solicitudEstablecimiento}
+                  onChange={(e) => setSolicitudEstablecimiento(e.target.value)}
+                />
+
+                <label>Solicitante</label>
+                <input
+                  value={solicitudSolicitante}
+                  onChange={(e) => setSolicitudSolicitante(e.target.value)}
+                />
+
+                <label>Motivo</label>
+                <textarea
+                  value={solicitudMotivo}
+                  onChange={(e) => setSolicitudMotivo(e.target.value)}
+                />
+
+                <label>Prioridad</label>
+                <input
+                  value={solicitudPrioridad}
+                  onChange={(e) => setSolicitudPrioridad(e.target.value)}
+                />
+
+                <button className="primary" type="submit" disabled={guardandoSolicitud}>
+                  {guardandoSolicitud ? 'Registrando...' : 'Registrar solicitud'}
+                </button>
+              </form>
+
+              <div>
+                <section className="card solicitudes-table">
+                  <div className="card-title">
+                    <h3>Solicitudes registradas</h3>
+                    <button className="small-button" onClick={cargarSolicitudes} disabled={cargandoSolicitudes}>
+                      Actualizar
+                    </button>
+                  </div>
+
+                  {cargandoSolicitudes ? (
+                    <p className="empty">Cargando solicitudes...</p>
+                  ) : solicitudes.length === 0 ? (
+                    <p className="empty">Todavía no hay solicitudes registradas.</p>
+                  ) : (
+                    <table>
+                      <thead>
+                        <tr><th>Número</th><th>Procedencia</th><th>Estado</th><th></th></tr>
+                      </thead>
+                      <tbody>
+                        {solicitudes.map((solicitud) => (
+                          <tr key={solicitud.id_solicitud}>
+                            <td>{solicitud.numero_solicitud}</td>
+                            <td>{solicitud.procedencia}</td>
+                            <td><span className="badge blue">{solicitud.estado}</span></td>
+                            <td>
+                              <button className="small-button" onClick={() => setSolicitudSeleccionada(solicitud)}>
+                                Ver
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </section>
+
+                <section className="card">
+                  <h3>Detalle de la solicitud</h3>
+                  {solicitudSeleccionada ? (
+                    <dl className="data-list">
+                      <dt>Número</dt><dd>{solicitudSeleccionada.numero_solicitud}</dd>
+                      <dt>Estado</dt><dd><span className="badge blue">{solicitudSeleccionada.estado}</span></dd>
+                      <dt>Procedencia</dt><dd>{solicitudSeleccionada.procedencia}</dd>
+                      <dt>ID SUNA</dt><dd>{solicitudSeleccionada.id_suna || '-'}</dd>
+                      <dt>Fecha de ingreso</dt><dd>{solicitudSeleccionada.fecha_ingreso}</dd>
+                      <dt>Establecimiento</dt><dd>{solicitudSeleccionada.establecimiento}</dd>
+                      <dt>Solicitante</dt><dd>{solicitudSeleccionada.solicitante}</dd>
+                      <dt>Prioridad</dt><dd>{solicitudSeleccionada.prioridad}</dd>
+                      <dt>Motivo</dt><dd>{solicitudSeleccionada.motivo}</dd>
+                      <dt>ID técnico</dt><dd>{solicitudSeleccionada.id_solicitud}</dd>
+                    </dl>
+                  ) : (
+                    <p className="empty">Seleccioná una solicitud para ver su detalle.</p>
+                  )}
+                </section>
+              </div>
+            </div>
           </section>
         )}
 
