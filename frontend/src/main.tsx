@@ -33,6 +33,14 @@ type SolicitudIntervencion = {
   estado: string;
 };
 
+type EvaluacionAdministrativa = {
+  id_evaluacion: string;
+  solicitud_intervencion_id: string;
+  fecha_inicio: string;
+  evaluador: string;
+  observaciones: string;
+};
+
 type Documento = {
   id: string;
   expediente_id: string;
@@ -312,6 +320,14 @@ function App() {
   const [guardandoSolicitud, setGuardandoSolicitud] = useState(false);
   const [errorSolicitudes, setErrorSolicitudes] = useState('');
 
+  const [evaluaciones, setEvaluaciones] = useState<EvaluacionAdministrativa[]>([]);
+  const [cargandoEvaluaciones, setCargandoEvaluaciones] = useState(false);
+  const [guardandoEvaluacion, setGuardandoEvaluacion] = useState(false);
+  const [errorEvaluaciones, setErrorEvaluaciones] = useState('');
+  const [evaluacionFechaInicio, setEvaluacionFechaInicio] = useState('');
+  const [evaluacionEvaluador, setEvaluacionEvaluador] = useState('');
+  const [evaluacionObservaciones, setEvaluacionObservaciones] = useState('');
+
   const [solicitudNumero, setSolicitudNumero] = useState('');
   const [solicitudProcedencia, setSolicitudProcedencia] = useState('');
   const [solicitudIdSuna, setSolicitudIdSuna] = useState('');
@@ -375,10 +391,47 @@ function App() {
     }
   }
 
+  async function cargarEvaluaciones(solicitudId: string) {
+    setCargandoEvaluaciones(true);
+    setErrorEvaluaciones('');
+
+    try {
+      const res = await fetch(`${API_URL}/evaluaciones`);
+      if (!res.ok) {
+        setErrorEvaluaciones(await obtenerMensajeError(res));
+        return;
+      }
+
+      const disponibles: EvaluacionAdministrativa[] = await res.json();
+      setEvaluaciones(
+        disponibles.filter(
+          (evaluacion) => evaluacion.solicitud_intervencion_id === solicitudId,
+        ),
+      );
+    } catch {
+      setErrorEvaluaciones(
+        'No se pudo conectar con el backend para consultar las evaluaciones.',
+      );
+    } finally {
+      setCargandoEvaluaciones(false);
+    }
+  }
+
   async function abrirSolicitudes() {
     setPantalla('solicitudes');
     setMensaje('');
-    await cargarSolicitudes();
+    await Promise.all([
+      cargarSolicitudes(),
+      solicitudSeleccionada
+        ? cargarEvaluaciones(solicitudSeleccionada.id_solicitud)
+        : Promise.resolve(),
+    ]);
+  }
+
+  async function seleccionarSolicitud(solicitud: SolicitudIntervencion) {
+    setSolicitudSeleccionada(solicitud);
+    setMensaje('');
+    await cargarEvaluaciones(solicitud.id_solicitud);
   }
 
   async function crearSolicitud(evento: React.FormEvent<HTMLFormElement>) {
@@ -411,6 +464,7 @@ function App() {
       const creada: SolicitudIntervencion = await res.json();
       setSolicitudes((actuales) => [...actuales, creada]);
       setSolicitudSeleccionada(creada);
+      await cargarEvaluaciones(creada.id_solicitud);
       setSolicitudNumero('');
       setSolicitudProcedencia('');
       setSolicitudIdSuna('');
@@ -424,6 +478,45 @@ function App() {
       setErrorSolicitudes('No se pudo conectar con el backend para registrar la solicitud.');
     } finally {
       setGuardandoSolicitud(false);
+    }
+  }
+
+  async function crearEvaluacion(evento: React.FormEvent<HTMLFormElement>) {
+    evento.preventDefault();
+    if (!solicitudSeleccionada) return;
+
+    setGuardandoEvaluacion(true);
+    setErrorEvaluaciones('');
+    setMensaje('');
+
+    try {
+      const res = await fetch(`${API_URL}/evaluaciones`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          solicitud_intervencion_id: solicitudSeleccionada.id_solicitud,
+          fecha_inicio: evaluacionFechaInicio,
+          evaluador: evaluacionEvaluador,
+          observaciones: evaluacionObservaciones,
+        }),
+      });
+
+      if (!res.ok) {
+        setErrorEvaluaciones(await obtenerMensajeError(res));
+        return;
+      }
+
+      await cargarEvaluaciones(solicitudSeleccionada.id_solicitud);
+      setEvaluacionFechaInicio('');
+      setEvaluacionEvaluador('');
+      setEvaluacionObservaciones('');
+      avisar('Evaluación administrativa registrada correctamente.', 'ok');
+    } catch {
+      setErrorEvaluaciones(
+        'No se pudo conectar con el backend para registrar la evaluación.',
+      );
+    } finally {
+      setGuardandoEvaluacion(false);
     }
   }
 
@@ -901,7 +994,7 @@ function App() {
                             <td>{solicitud.procedencia}</td>
                             <td><span className="badge blue">{solicitud.estado}</span></td>
                             <td>
-                              <button className="small-button" onClick={() => setSolicitudSeleccionada(solicitud)}>
+                              <button className="small-button" onClick={() => seleccionarSolicitud(solicitud)}>
                                 Ver
                               </button>
                             </td>
@@ -915,18 +1008,94 @@ function App() {
                 <section className="card">
                   <h3>Detalle de la solicitud</h3>
                   {solicitudSeleccionada ? (
-                    <dl className="data-list">
-                      <dt>Número</dt><dd>{solicitudSeleccionada.numero_solicitud}</dd>
-                      <dt>Estado</dt><dd><span className="badge blue">{solicitudSeleccionada.estado}</span></dd>
-                      <dt>Procedencia</dt><dd>{solicitudSeleccionada.procedencia}</dd>
-                      <dt>ID SUNA</dt><dd>{solicitudSeleccionada.id_suna || '-'}</dd>
-                      <dt>Fecha de ingreso</dt><dd>{solicitudSeleccionada.fecha_ingreso}</dd>
-                      <dt>Establecimiento</dt><dd>{solicitudSeleccionada.establecimiento}</dd>
-                      <dt>Solicitante</dt><dd>{solicitudSeleccionada.solicitante}</dd>
-                      <dt>Prioridad</dt><dd>{solicitudSeleccionada.prioridad}</dd>
-                      <dt>Motivo</dt><dd>{solicitudSeleccionada.motivo}</dd>
-                      <dt>ID técnico</dt><dd>{solicitudSeleccionada.id_solicitud}</dd>
-                    </dl>
+                    <>
+                      <dl className="data-list">
+                        <dt>Número</dt><dd>{solicitudSeleccionada.numero_solicitud}</dd>
+                        <dt>Estado</dt><dd><span className="badge blue">{solicitudSeleccionada.estado}</span></dd>
+                        <dt>Procedencia</dt><dd>{solicitudSeleccionada.procedencia}</dd>
+                        <dt>ID SUNA</dt><dd>{solicitudSeleccionada.id_suna || '-'}</dd>
+                        <dt>Fecha de ingreso</dt><dd>{solicitudSeleccionada.fecha_ingreso}</dd>
+                        <dt>Establecimiento</dt><dd>{solicitudSeleccionada.establecimiento}</dd>
+                        <dt>Solicitante</dt><dd>{solicitudSeleccionada.solicitante}</dd>
+                        <dt>Prioridad</dt><dd>{solicitudSeleccionada.prioridad}</dd>
+                        <dt>Motivo</dt><dd>{solicitudSeleccionada.motivo}</dd>
+                        <dt>ID técnico</dt><dd>{solicitudSeleccionada.id_solicitud}</dd>
+                      </dl>
+
+                      <section className="subcard">
+                        <div className="card-title">
+                          <h4>Evaluaciones Administrativas</h4>
+                          <button
+                            className="small-button"
+                            onClick={() => cargarEvaluaciones(solicitudSeleccionada.id_solicitud)}
+                            disabled={cargandoEvaluaciones}
+                          >
+                            Actualizar
+                          </button>
+                        </div>
+
+                        {errorEvaluaciones && (
+                          <div className="notice error">{errorEvaluaciones}</div>
+                        )}
+
+                        <div className="evaluaciones-grid">
+                          <form onSubmit={crearEvaluacion}>
+                            <h4>Registrar evaluación</h4>
+
+                            <label>Fecha de inicio</label>
+                            <input
+                              type="date"
+                              value={evaluacionFechaInicio}
+                              onChange={(e) => setEvaluacionFechaInicio(e.target.value)}
+                            />
+
+                            <label>Evaluador</label>
+                            <input
+                              value={evaluacionEvaluador}
+                              onChange={(e) => setEvaluacionEvaluador(e.target.value)}
+                            />
+
+                            <label>Observaciones</label>
+                            <textarea
+                              value={evaluacionObservaciones}
+                              onChange={(e) => setEvaluacionObservaciones(e.target.value)}
+                            />
+
+                            <button
+                              className="primary"
+                              type="submit"
+                              disabled={guardandoEvaluacion}
+                            >
+                              {guardandoEvaluacion
+                                ? 'Registrando...'
+                                : 'Registrar evaluación'}
+                            </button>
+                          </form>
+
+                          <div>
+                            <h4>Evaluaciones registradas</h4>
+                            {cargandoEvaluaciones ? (
+                              <p className="empty">Cargando evaluaciones...</p>
+                            ) : evaluaciones.length === 0 ? (
+                              <p className="empty">
+                                Todavía no hay evaluaciones para esta solicitud.
+                              </p>
+                            ) : (
+                              <div className="evaluaciones-list">
+                                {evaluaciones.map((evaluacion) => (
+                                  <article key={evaluacion.id_evaluacion}>
+                                    <strong>{evaluacion.fecha_inicio}</strong>
+                                    <p>Evaluador: {evaluacion.evaluador}</p>
+                                    <p>{evaluacion.observaciones}</p>
+                                    <small>ID técnico: {evaluacion.id_evaluacion}</small>
+                                  </article>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </section>
+                    </>
                   ) : (
                     <p className="empty">Seleccioná una solicitud para ver su detalle.</p>
                   )}

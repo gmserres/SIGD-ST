@@ -71,6 +71,11 @@ th { color: #64748b; font-weight: 700; }
 .empty { color: #64748b; font-style: italic; }
 .solicitudes-layout { display: grid; grid-template-columns: minmax(320px, .8fr) minmax(520px, 1.4fr); gap: 16px; align-items: start; }
 .solicitudes-table { overflow-x: auto; }
+.evaluaciones-grid { display: grid; grid-template-columns: minmax(240px, .8fr) minmax(280px, 1fr); gap: 18px; align-items: start; }
+.evaluaciones-list { display: grid; gap: 10px; }
+.evaluaciones-list article { border: 1px solid #e2e8f0; background: #fff; border-radius: 12px; padding: 12px; }
+.evaluaciones-list p { margin: 6px 0; color: #334155; }
+.evaluaciones-list small { display: block; margin-top: 8px; color: #64748b; overflow-wrap: anywhere; }
 .analysis-grid, .admin-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
 .analysis-grid div, .admin-grid div { border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px; background: #f8fafc; }
 .analysis-grid strong { color: #64748b; display: block; margin-bottom: 4px; }
@@ -95,7 +100,7 @@ th { color: #64748b; font-weight: 700; }
 @media (max-width: 1000px) {
   .app-shell { display: block; }
   .sidebar { width: 100%; }
-  .metrics, .dashboard-grid, .upload-grid, .expediente-layout, .solicitudes-layout, .analysis-grid, .admin-grid, .validation-columns, .checklist-grid, .intelligence-grid, .evidence-grid, .disposition-editor { grid-template-columns: 1fr; }
+  .metrics, .dashboard-grid, .upload-grid, .expediente-layout, .solicitudes-layout, .evaluaciones-grid, .analysis-grid, .admin-grid, .validation-columns, .checklist-grid, .intelligence-grid, .evidence-grid, .disposition-editor { grid-template-columns: 1fr; }
   .diagnostic-panel { display: block; }
   .assistant-panel { display: block; }
   .assistant-side { text-align: left; margin-top: 12px; }
