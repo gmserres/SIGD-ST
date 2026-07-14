@@ -41,6 +41,15 @@ type EvaluacionAdministrativa = {
   observaciones: string;
 };
 
+type DecisionAdministrativa = {
+  id_decision: string;
+  solicitud_intervencion_id: string;
+  autoridad_decisora: string;
+  fecha_decision: string;
+  resultado: string;
+  fundamento: string;
+};
+
 type Documento = {
   id: string;
   expediente_id: string;
@@ -328,6 +337,15 @@ function App() {
   const [evaluacionEvaluador, setEvaluacionEvaluador] = useState('');
   const [evaluacionObservaciones, setEvaluacionObservaciones] = useState('');
 
+  const [decisiones, setDecisiones] = useState<DecisionAdministrativa[]>([]);
+  const [cargandoDecisiones, setCargandoDecisiones] = useState(false);
+  const [guardandoDecision, setGuardandoDecision] = useState(false);
+  const [errorDecisiones, setErrorDecisiones] = useState('');
+  const [decisionAutoridad, setDecisionAutoridad] = useState('');
+  const [decisionFecha, setDecisionFecha] = useState('');
+  const [decisionResultado, setDecisionResultado] = useState('');
+  const [decisionFundamento, setDecisionFundamento] = useState('');
+
   const [solicitudNumero, setSolicitudNumero] = useState('');
   const [solicitudProcedencia, setSolicitudProcedencia] = useState('');
   const [solicitudIdSuna, setSolicitudIdSuna] = useState('');
@@ -417,6 +435,32 @@ function App() {
     }
   }
 
+  async function cargarDecisiones(solicitudId: string) {
+    setCargandoDecisiones(true);
+    setErrorDecisiones('');
+
+    try {
+      const res = await fetch(`${API_URL}/decisiones`);
+      if (!res.ok) {
+        setErrorDecisiones(await obtenerMensajeError(res));
+        return;
+      }
+
+      const disponibles: DecisionAdministrativa[] = await res.json();
+      setDecisiones(
+        disponibles.filter(
+          (decision) => decision.solicitud_intervencion_id === solicitudId,
+        ),
+      );
+    } catch {
+      setErrorDecisiones(
+        'No se pudo conectar con el backend para consultar las decisiones.',
+      );
+    } finally {
+      setCargandoDecisiones(false);
+    }
+  }
+
   async function abrirSolicitudes() {
     setPantalla('solicitudes');
     setMensaje('');
@@ -425,13 +469,19 @@ function App() {
       solicitudSeleccionada
         ? cargarEvaluaciones(solicitudSeleccionada.id_solicitud)
         : Promise.resolve(),
+      solicitudSeleccionada
+        ? cargarDecisiones(solicitudSeleccionada.id_solicitud)
+        : Promise.resolve(),
     ]);
   }
 
   async function seleccionarSolicitud(solicitud: SolicitudIntervencion) {
     setSolicitudSeleccionada(solicitud);
     setMensaje('');
-    await cargarEvaluaciones(solicitud.id_solicitud);
+    await Promise.all([
+      cargarEvaluaciones(solicitud.id_solicitud),
+      cargarDecisiones(solicitud.id_solicitud),
+    ]);
   }
 
   async function crearSolicitud(evento: React.FormEvent<HTMLFormElement>) {
@@ -464,7 +514,10 @@ function App() {
       const creada: SolicitudIntervencion = await res.json();
       setSolicitudes((actuales) => [...actuales, creada]);
       setSolicitudSeleccionada(creada);
-      await cargarEvaluaciones(creada.id_solicitud);
+      await Promise.all([
+        cargarEvaluaciones(creada.id_solicitud),
+        cargarDecisiones(creada.id_solicitud),
+      ]);
       setSolicitudNumero('');
       setSolicitudProcedencia('');
       setSolicitudIdSuna('');
@@ -517,6 +570,47 @@ function App() {
       );
     } finally {
       setGuardandoEvaluacion(false);
+    }
+  }
+
+  async function crearDecision(evento: React.FormEvent<HTMLFormElement>) {
+    evento.preventDefault();
+    if (!solicitudSeleccionada) return;
+
+    setGuardandoDecision(true);
+    setErrorDecisiones('');
+    setMensaje('');
+
+    try {
+      const res = await fetch(`${API_URL}/decisiones`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          solicitud_intervencion_id: solicitudSeleccionada.id_solicitud,
+          autoridad_decisora: decisionAutoridad,
+          fecha_decision: decisionFecha,
+          resultado: decisionResultado,
+          fundamento: decisionFundamento,
+        }),
+      });
+
+      if (!res.ok) {
+        setErrorDecisiones(await obtenerMensajeError(res));
+        return;
+      }
+
+      await cargarDecisiones(solicitudSeleccionada.id_solicitud);
+      setDecisionAutoridad('');
+      setDecisionFecha('');
+      setDecisionResultado('');
+      setDecisionFundamento('');
+      avisar('Decisión administrativa registrada correctamente.', 'ok');
+    } catch {
+      setErrorDecisiones(
+        'No se pudo conectar con el backend para registrar la decisión.',
+      );
+    } finally {
+      setGuardandoDecision(false);
     }
   }
 
@@ -1088,6 +1182,87 @@ function App() {
                                     <p>Evaluador: {evaluacion.evaluador}</p>
                                     <p>{evaluacion.observaciones}</p>
                                     <small>ID técnico: {evaluacion.id_evaluacion}</small>
+                                  </article>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </section>
+
+                      <section className="subcard">
+                        <div className="card-title">
+                          <h4>Decisiones Administrativas</h4>
+                          <button
+                            className="small-button"
+                            onClick={() => cargarDecisiones(solicitudSeleccionada.id_solicitud)}
+                            disabled={cargandoDecisiones}
+                          >
+                            Actualizar
+                          </button>
+                        </div>
+
+                        {errorDecisiones && (
+                          <div className="notice error">{errorDecisiones}</div>
+                        )}
+
+                        <div className="decisiones-grid">
+                          <form onSubmit={crearDecision}>
+                            <h4>Registrar decisión</h4>
+
+                            <label>Autoridad decisora</label>
+                            <input
+                              value={decisionAutoridad}
+                              onChange={(e) => setDecisionAutoridad(e.target.value)}
+                            />
+
+                            <label>Fecha de decisión</label>
+                            <input
+                              type="date"
+                              value={decisionFecha}
+                              onChange={(e) => setDecisionFecha(e.target.value)}
+                            />
+
+                            <label>Resultado</label>
+                            <input
+                              value={decisionResultado}
+                              onChange={(e) => setDecisionResultado(e.target.value)}
+                            />
+
+                            <label>Fundamento</label>
+                            <textarea
+                              value={decisionFundamento}
+                              onChange={(e) => setDecisionFundamento(e.target.value)}
+                            />
+
+                            <button
+                              className="primary"
+                              type="submit"
+                              disabled={guardandoDecision}
+                            >
+                              {guardandoDecision
+                                ? 'Registrando...'
+                                : 'Registrar decisión'}
+                            </button>
+                          </form>
+
+                          <div>
+                            <h4>Decisiones registradas</h4>
+                            {cargandoDecisiones ? (
+                              <p className="empty">Cargando decisiones...</p>
+                            ) : decisiones.length === 0 ? (
+                              <p className="empty">
+                                Todavía no hay decisiones para esta solicitud.
+                              </p>
+                            ) : (
+                              <div className="decisiones-list">
+                                {decisiones.map((decision) => (
+                                  <article key={decision.id_decision}>
+                                    <strong>{decision.fecha_decision}</strong>
+                                    <p>Autoridad: {decision.autoridad_decisora}</p>
+                                    <p>Resultado: {decision.resultado}</p>
+                                    <p>{decision.fundamento}</p>
+                                    <small>ID técnico: {decision.id_decision}</small>
                                   </article>
                                 ))}
                               </div>
