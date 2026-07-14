@@ -346,6 +346,10 @@ function App() {
   const [decisionResultado, setDecisionResultado] = useState('');
   const [decisionFundamento, setDecisionFundamento] = useState('');
 
+  const [catalogoEvaluadores, setCatalogoEvaluadores] = useState<string[]>([]);
+  const [catalogoAutoridadesDecisoras, setCatalogoAutoridadesDecisoras] = useState<string[]>([]);
+  const [catalogoResultadosDecision, setCatalogoResultadosDecision] = useState<string[]>([]);
+
   const [solicitudNumero, setSolicitudNumero] = useState('');
   const [solicitudProcedencia, setSolicitudProcedencia] = useState('');
   const [solicitudIdSuna, setSolicitudIdSuna] = useState('');
@@ -384,6 +388,27 @@ function App() {
   function avisar(texto: string, tipo: 'ok' | 'error' | 'info' = 'info') {
     setMensaje(texto);
     setMensajeTipo(tipo);
+  }
+
+  async function cargarCatalogosIntervencion() {
+    async function cargarCatalogo(
+      ruta: string,
+      asignar: (valores: string[]) => void,
+    ) {
+      try {
+        const res = await fetch(`${API_URL}${ruta}`);
+        if (!res.ok) return;
+        asignar(await res.json());
+      } catch {
+        asignar([]);
+      }
+    }
+
+    await Promise.all([
+      cargarCatalogo('/catalogos/evaluadores', setCatalogoEvaluadores),
+      cargarCatalogo('/catalogos/autoridades-decisoras', setCatalogoAutoridadesDecisoras),
+      cargarCatalogo('/catalogos/resultados-decision', setCatalogoResultadosDecision),
+    ]);
   }
 
   async function cargarExpedientes() {
@@ -862,6 +887,7 @@ function App() {
 
   useEffect(() => {
     cargarExpedientes();
+    cargarCatalogosIntervencion();
   }, []);
 
   const diag = diagnosticoIA(analisis);
@@ -1144,10 +1170,18 @@ function App() {
                             />
 
                             <label>Evaluador</label>
-                            <input
+                            <select
                               value={evaluacionEvaluador}
                               onChange={(e) => setEvaluacionEvaluador(e.target.value)}
-                            />
+                              disabled={catalogoEvaluadores.length === 0}
+                            >
+                              <option value="">
+                                {catalogoEvaluadores.length === 0 ? 'No disponible' : 'Seleccionar evaluador'}
+                              </option>
+                              {catalogoEvaluadores.map((evaluador) => (
+                                <option key={evaluador} value={evaluador}>{evaluador}</option>
+                              ))}
+                            </select>
 
                             <label>Observaciones</label>
                             <textarea
@@ -1211,10 +1245,18 @@ function App() {
                             <h4>Registrar decisión</h4>
 
                             <label>Autoridad decisora</label>
-                            <input
+                            <select
                               value={decisionAutoridad}
                               onChange={(e) => setDecisionAutoridad(e.target.value)}
-                            />
+                              disabled={catalogoAutoridadesDecisoras.length === 0}
+                            >
+                              <option value="">
+                                {catalogoAutoridadesDecisoras.length === 0 ? 'No disponible' : 'Seleccionar autoridad'}
+                              </option>
+                              {catalogoAutoridadesDecisoras.map((autoridad) => (
+                                <option key={autoridad} value={autoridad}>{autoridad}</option>
+                              ))}
+                            </select>
 
                             <label>Fecha de decisión</label>
                             <input
@@ -1224,10 +1266,18 @@ function App() {
                             />
 
                             <label>Resultado</label>
-                            <input
+                            <select
                               value={decisionResultado}
                               onChange={(e) => setDecisionResultado(e.target.value)}
-                            />
+                              disabled={catalogoResultadosDecision.length === 0}
+                            >
+                              <option value="">
+                                {catalogoResultadosDecision.length === 0 ? 'No disponible' : 'Seleccionar resultado'}
+                              </option>
+                              {catalogoResultadosDecision.map((resultado) => (
+                                <option key={resultado} value={resultado}>{resultado}</option>
+                              ))}
+                            </select>
 
                             <label>Fundamento</label>
                             <textarea
