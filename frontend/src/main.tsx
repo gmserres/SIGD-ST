@@ -17,6 +17,8 @@ type Expediente = {
   establecimiento?: string | null;
   objeto?: string | null;
   numero_disposicion?: string | null;
+  solicitud_intervencion_id?: string | null;
+  decision_administrativa_id?: string | null;
   creado: string;
 };
 
@@ -1364,22 +1366,73 @@ function App() {
                               </p>
                             ) : (
                               <div className="decisiones-list">
-                                {decisiones.map((decision) => (
-                                  <article key={decision.id_decision}>
-                                    <strong>{decision.fecha_decision}</strong>
-                                    <p>Autoridad: {decision.autoridad_decisora}</p>
-                                    <p>Resultado: {decision.resultado}</p>
-                                    <p>{decision.fundamento}</p>
-                                    <small>ID técnico: {decision.id_decision}</small>
+                                {decisiones.map((decision) => {
+                                  const expedientesDecision = expedientes.filter(
+                                    (expediente) => (
+                                      expediente.decision_administrativa_id
+                                      === decision.id_decision
+                                    ),
+                                  );
 
-                                    {decision.resultado === 'Aprobar intervención' && (
-                                      <>
+                                  return (
+                                    <article key={decision.id_decision}>
+                                      <strong>{decision.fecha_decision}</strong>
+                                      <p>Autoridad: {decision.autoridad_decisora}</p>
+                                      <p>Resultado: {decision.resultado}</p>
+                                      <p>{decision.fundamento}</p>
+                                      <small>ID técnico: {decision.id_decision}</small>
+
+                                      {decision.resultado === 'Aprobar intervención' && (
+                                        <>
+                                          {expedientesDecision.length > 0 && (
+                                            <div className="subcard">
+                                              <h4>Expedientes generados</h4>
+                                              <table>
+                                                <thead>
+                                                  <tr>
+                                                    <th>Número interno</th>
+                                                    <th>Número GDEBA</th>
+                                                    <th>Estado</th>
+                                                    <th></th>
+                                                  </tr>
+                                                </thead>
+                                                <tbody>
+                                                  {expedientesDecision.map((expediente) => (
+                                                    <tr key={expediente.id}>
+                                                      <td>{expediente.numero_interno}</td>
+                                                      <td>
+                                                        {expediente.numero_gdeba
+                                                          || 'Sin número GDEBA'}
+                                                      </td>
+                                                      <td>
+                                                        <span className={claseEstado(expediente.estado)}>
+                                                          {etiquetaEstado(expediente.estado)}
+                                                        </span>
+                                                      </td>
+                                                      <td>
+                                                        <button
+                                                          className="small-button"
+                                                          type="button"
+                                                          onClick={() => cargarDetalle(expediente)}
+                                                        >
+                                                          Abrir expediente
+                                                        </button>
+                                                      </td>
+                                                    </tr>
+                                                  ))}
+                                                </tbody>
+                                              </table>
+                                            </div>
+                                          )}
+
                                         <button
                                           className="secondary"
                                           type="button"
                                           onClick={() => mostrarFormularioExpediente(decision.id_decision)}
                                         >
-                                          Crear expediente
+                                          {expedientesDecision.length > 0
+                                            ? 'Crear otro expediente'
+                                            : 'Crear expediente'}
                                         </button>
 
                                         {decisionExpedienteActiva === decision.id_decision && (
@@ -1430,10 +1483,11 @@ function App() {
                                             </div>
                                           </form>
                                         )}
-                                      </>
-                                    )}
-                                  </article>
-                                ))}
+                                        </>
+                                      )}
+                                    </article>
+                                  );
+                                })}
                               </div>
                             )}
                           </div>
