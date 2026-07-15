@@ -346,6 +346,12 @@ function App() {
   const [decisionResultado, setDecisionResultado] = useState('');
   const [decisionFundamento, setDecisionFundamento] = useState('');
 
+  const [decisionExpedienteActiva, setDecisionExpedienteActiva] = useState<string | null>(null);
+  const [expedienteDecisionNumeroInterno, setExpedienteDecisionNumeroInterno] = useState('');
+  const [expedienteDecisionNumeroGdeba, setExpedienteDecisionNumeroGdeba] = useState('');
+  const [guardandoExpedienteDecision, setGuardandoExpedienteDecision] = useState(false);
+  const [errorExpedienteDecision, setErrorExpedienteDecision] = useState('');
+
   const [catalogoEvaluadores, setCatalogoEvaluadores] = useState<string[]>([]);
   const [catalogoAutoridadesDecisoras, setCatalogoAutoridadesDecisoras] = useState<string[]>([]);
   const [catalogoResultadosDecision, setCatalogoResultadosDecision] = useState<string[]>([]);
@@ -636,6 +642,58 @@ function App() {
       );
     } finally {
       setGuardandoDecision(false);
+    }
+  }
+
+  function mostrarFormularioExpediente(decisionId: string) {
+    setDecisionExpedienteActiva(decisionId);
+    setExpedienteDecisionNumeroInterno('');
+    setExpedienteDecisionNumeroGdeba('');
+    setErrorExpedienteDecision('');
+  }
+
+  function ocultarFormularioExpediente() {
+    setDecisionExpedienteActiva(null);
+    setErrorExpedienteDecision('');
+  }
+
+  async function crearExpedienteDesdeDecision(
+    evento: React.FormEvent<HTMLFormElement>,
+    decisionId: string,
+  ) {
+    evento.preventDefault();
+    setGuardandoExpedienteDecision(true);
+    setErrorExpedienteDecision('');
+    setMensaje('');
+
+    try {
+      const res = await fetch(`${API_URL}/decisiones/${decisionId}/expedientes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          numero_interno: expedienteDecisionNumeroInterno,
+          numero_gdeba: expedienteDecisionNumeroGdeba || null,
+        }),
+      });
+
+      if (!res.ok) {
+        setErrorExpedienteDecision(await obtenerMensajeError(res));
+        return;
+      }
+
+      const creado: Expediente = await res.json();
+      setDecisionExpedienteActiva(null);
+      setExpedienteDecisionNumeroInterno('');
+      setExpedienteDecisionNumeroGdeba('');
+      await cargarExpedientes();
+      await cargarDetalle(creado);
+      avisar(`Expediente ${creado.numero_interno} creado correctamente.`, 'ok');
+    } catch {
+      setErrorExpedienteDecision(
+        'No se pudo conectar con el backend para crear el expediente.',
+      );
+    } finally {
+      setGuardandoExpedienteDecision(false);
     }
   }
 
@@ -1313,6 +1371,67 @@ function App() {
                                     <p>Resultado: {decision.resultado}</p>
                                     <p>{decision.fundamento}</p>
                                     <small>ID técnico: {decision.id_decision}</small>
+
+                                    {decision.resultado === 'Aprobar intervención' && (
+                                      <>
+                                        <button
+                                          className="secondary"
+                                          type="button"
+                                          onClick={() => mostrarFormularioExpediente(decision.id_decision)}
+                                        >
+                                          Crear expediente
+                                        </button>
+
+                                        {decisionExpedienteActiva === decision.id_decision && (
+                                          <form
+                                            className="subcard"
+                                            onSubmit={(evento) => crearExpedienteDesdeDecision(
+                                              evento,
+                                              decision.id_decision,
+                                            )}
+                                          >
+                                            <h4>Crear expediente</h4>
+
+                                            {errorExpedienteDecision && (
+                                              <div className="notice error">
+                                                {errorExpedienteDecision}
+                                              </div>
+                                            )}
+
+                                            <label>Número de expediente interno</label>
+                                            <input
+                                              value={expedienteDecisionNumeroInterno}
+                                              onChange={(e) => setExpedienteDecisionNumeroInterno(e.target.value)}
+                                            />
+
+                                            <label>Número de expediente GDEBA (opcional)</label>
+                                            <input
+                                              value={expedienteDecisionNumeroGdeba}
+                                              onChange={(e) => setExpedienteDecisionNumeroGdeba(e.target.value)}
+                                            />
+
+                                            <div className="actions">
+                                              <button
+                                                className="secondary"
+                                                type="button"
+                                                onClick={ocultarFormularioExpediente}
+                                              >
+                                                Cancelar
+                                              </button>
+                                              <button
+                                                className="primary"
+                                                type="submit"
+                                                disabled={guardandoExpedienteDecision}
+                                              >
+                                                {guardandoExpedienteDecision
+                                                  ? 'Creando...'
+                                                  : 'Confirmar creación'}
+                                              </button>
+                                            </div>
+                                          </form>
+                                        )}
+                                      </>
+                                    )}
                                   </article>
                                 ))}
                               </div>
