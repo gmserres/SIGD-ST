@@ -9,6 +9,8 @@ from app.domain.estados import EstadoExpediente
 class ExpedienteCreate(BaseModel):
     numero_interno: str = Field(..., examples=["033-188/2025"])
     numero_gdeba: Optional[str] = Field(default=None)
+    solicitud_intervencion_id: str | None = None
+    decision_administrativa_id: str | None = None
     id_suna: Optional[str] = Field(default=None, examples=["45872"])
     tipo_tramite: str = Field(default="FONDO_COMPENSADOR")
     establecimiento: Optional[str] = Field(default=None, examples=["EP N° 2"])
@@ -27,6 +29,8 @@ class ExpedienteRead(BaseModel):
     id: str
     numero_interno: str
     numero_gdeba: Optional[str]
+    solicitud_intervencion_id: str | None = None
+    decision_administrativa_id: str | None = None
     id_suna: Optional[str]
     tipo_tramite: str
     estado: EstadoExpediente

@@ -14,6 +14,8 @@ class ExpedienteService:
             id=expediente_id,
             numero_interno=data.numero_interno,
             numero_gdeba=data.numero_gdeba,
+            solicitud_intervencion_id=data.solicitud_intervencion_id,
+            decision_administrativa_id=data.decision_administrativa_id,
             id_suna=data.id_suna,
             tipo_tramite=data.tipo_tramite,
             estado=EstadoExpediente.BORRADOR,
