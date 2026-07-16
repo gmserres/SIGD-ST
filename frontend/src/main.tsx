@@ -327,6 +327,8 @@ function App() {
   const [mensajeTipo, setMensajeTipo] = useState<'ok' | 'error' | 'info'>('info');
   const [solicitudes, setSolicitudes] = useState<SolicitudIntervencion[]>([]);
   const [solicitudSeleccionada, setSolicitudSeleccionada] = useState<SolicitudIntervencion | null>(null);
+  const [solicitudOrigenExpediente, setSolicitudOrigenExpediente] = useState<SolicitudIntervencion | null>(null);
+  const [decisionOrigenExpediente, setDecisionOrigenExpediente] = useState<DecisionAdministrativa | null>(null);
   const [cargandoSolicitudes, setCargandoSolicitudes] = useState(false);
   const [guardandoSolicitud, setGuardandoSolicitud] = useState(false);
   const [errorSolicitudes, setErrorSolicitudes] = useState('');
@@ -705,14 +707,44 @@ function App() {
     setTabDetalle('resumen');
     setAnalisis(null);
     setMensaje('');
+    setSolicitudOrigenExpediente(null);
+    setDecisionOrigenExpediente(null);
 
-    const [docsRes, histRes] = await Promise.all([
+    const [
+      docsRes,
+      histRes,
+      solicitudOrigenRes,
+      decisionOrigenRes,
+    ] = await Promise.all([
       fetch(`${API_URL}/expedientes/${expediente.id}/documentos`),
       fetch(`${API_URL}/expedientes/${expediente.id}/historial`),
+      expediente.solicitud_intervencion_id
+        ? fetch(`${API_URL}/solicitudes/${expediente.solicitud_intervencion_id}`)
+        : Promise.resolve(null),
+      expediente.decision_administrativa_id
+        ? fetch(`${API_URL}/decisiones/${expediente.decision_administrativa_id}`)
+        : Promise.resolve(null),
     ]);
 
     setDocumentos(await docsRes.json());
     setHistorial(await histRes.json());
+
+    if (solicitudOrigenRes?.ok) {
+      setSolicitudOrigenExpediente(await solicitudOrigenRes.json());
+    }
+
+    if (decisionOrigenRes?.ok) {
+      setDecisionOrigenExpediente(await decisionOrigenRes.json());
+    }
+  }
+
+  async function abrirSolicitudOrigen() {
+    if (!solicitudOrigenExpediente) return;
+
+    setPantalla('solicitudes');
+    setMensaje('');
+    await cargarSolicitudes();
+    await seleccionarSolicitud(solicitudOrigenExpediente);
   }
 
   async function refrescarDetalleActual() {
@@ -1539,6 +1571,55 @@ function App() {
                       <dt>Documentos</dt><dd>{documentos.length}</dd>
                       <dt>Última acción</dt><dd>{historial[historial.length - 1]?.accion || '-'}</dd>
                     </dl>
+
+                    <section className="subcard">
+                      <h3>Origen del trámite</h3>
+
+                      {!seleccionado.solicitud_intervencion_id ? (
+                        <p>
+                          Este expediente no posee una Solicitud de Intervención asociada.
+                        </p>
+                      ) : solicitudOrigenExpediente ? (
+                        <>
+                          <h4>Solicitud de Intervención</h4>
+                          <dl className="data-list">
+                            <dt>ID SUNA</dt>
+                            <dd>{solicitudOrigenExpediente.id_suna || '-'}</dd>
+                            <dt>Establecimiento</dt>
+                            <dd>{solicitudOrigenExpediente.establecimiento}</dd>
+                            <dt>Motivo</dt>
+                            <dd>{solicitudOrigenExpediente.motivo}</dd>
+                          </dl>
+
+                          {decisionOrigenExpediente && (
+                            <>
+                              <h4>Decisión Administrativa</h4>
+                              <dl className="data-list">
+                                <dt>Fecha</dt>
+                                <dd>{decisionOrigenExpediente.fecha_decision}</dd>
+                                <dt>Autoridad decisora</dt>
+                                <dd>{decisionOrigenExpediente.autoridad_decisora}</dd>
+                                <dt>Resultado</dt>
+                                <dd>{decisionOrigenExpediente.resultado}</dd>
+                              </dl>
+                            </>
+                          )}
+
+                          <button
+                            className="secondary"
+                            type="button"
+                            onClick={abrirSolicitudOrigen}
+                          >
+                            Abrir Solicitud
+                          </button>
+                        </>
+                      ) : (
+                        <p>
+                          No se pudo recuperar la Solicitud de Intervención asociada.
+                        </p>
+                      )}
+                    </section>
+
                     <div className="actions">
                       <button className="primary" onClick={analizarOP}>Analizar OP</button>
                       <button className="secondary" onClick={consultarValidacion}>Ver validación</button>
