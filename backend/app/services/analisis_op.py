@@ -196,79 +196,30 @@ class AnalisisOPService:
                 faltantes=faltantes,
             )
 
-        return self._analisis_alfa_simulado(expediente_id, datos.advertencias)
-
-    def _analisis_alfa_simulado(self, expediente_id: str, advertencias_pdf: list[str]) -> AnalisisOPRead:
-        importe_bruto = 3509316.41
-        importe_neto = 2920686.82
-        cantidad_uc = calcular_uc(importe_bruto)
-        procedimiento = determinar_procedimiento(cantidad_uc)
-
-        documentos_comerciales = [
-            DocumentoComercialExtraido(
-                tipo="Factura",
-                letra="B",
-                numero="00001-00000394",
-                fecha="18/11/2025",
-                importe=2206476.02,
-            ),
-            DocumentoComercialExtraido(
-                tipo="Factura",
-                letra="B",
-                numero="00001-00000395",
-                fecha="18/11/2025",
-                importe=1302840.39,
-            ),
-        ]
-
-        retenciones = [
-            RetencionExtraida(concepto="Retención Ganancias", importe=14377.81),
-            RetencionExtraida(concepto="Retención Ingresos Brutos", importe=58005.23),
-            RetencionExtraida(concepto="Retención SUSS Rég. General", importe=29002.62),
-            RetencionExtraida(concepto="Retención IVA a Inscriptos", importe=487243.93),
-        ]
-
-        validaciones = [
-            "OP detectada y asociada al expediente.",
-            "Proveedor identificado.",
-            "CUIT identificado.",
-            "Fondo Compensador identificado.",
-            "Documentos comerciales detectados.",
-            "Retenciones detectadas.",
-            "UC calculadas.",
-            "Procedimiento determinado.",
-        ]
-
-        advertencias = list(advertencias_pdf)
-        advertencias.append("No se pudo extraer texto real suficiente. Se mantiene análisis Alfa simulado.")
-
         return AnalisisOPRead(
             expediente_id=expediente_id,
-            modo="ALFA_SIMULADO",
+            modo="EXTRACCION_FALLIDA",
             op_detectada=True,
-            proveedor="CONSTRUCTORA 4M SRL",
-            cuit="30-71807806-3",
-            fondo="Fondo Compensador",
-            orden_pago="OP 1/2025",
-            liquidacion="2025-101",
-            fecha_op="29/11/2025",
-            importe_bruto=importe_bruto,
-            importe_neto=importe_neto,
+            proveedor=None,
+            cuit=None,
+            fondo=None,
+            orden_pago=None,
+            liquidacion=None,
+            fecha_op=None,
+            importe_bruto=None,
+            importe_neto=None,
             valor_uc=VALOR_UC_VIGENTE,
             norma_uc=NORMA_UC,
-            cantidad_uc=cantidad_uc,
-            procedimiento=procedimiento,
-            encuadre_legal=encuadre_legal(procedimiento),
-            documentos_comerciales=documentos_comerciales,
-            retenciones=retenciones,
-            validaciones=validaciones,
-            advertencias=advertencias,
-            faltantes=[
-                "Remito o conformidad firmada",
-                "Validación CAE",
-                "Certificado Fiscal ARBA",
-                "Constancia ARCA",
+            cantidad_uc=None,
+            procedimiento=None,
+            encuadre_legal=None,
+            documentos_comerciales=[],
+            retenciones=[],
+            validaciones=["OP cargada y asociada al expediente."],
+            advertencias=[
+                "No fue posible leer correctamente el contenido de la Orden de Pago."
             ],
+            faltantes=["Lectura válida de la Orden de Pago"],
         )
 
 

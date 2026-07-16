@@ -164,13 +164,54 @@ async def cargar_op(expediente_id: str, file: UploadFile = File(...)):
     return documento
 
 
+def _verificar_op_legible_para_disposicion(expediente_id: str) -> AnalisisOPRead:
+    analisis = analisis_op_service.analizar(expediente_id)
+
+    if not analisis.op_detectada:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "mensaje": "No se puede continuar sin una Orden de Pago.",
+                "errores": ["Falta cargar la Orden de Pago."],
+            },
+        )
+
+    if analisis.modo == "EXTRACCION_FALLIDA":
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "mensaje": (
+                    "La Orden de Pago fue incorporada al expediente, pero no "
+                    "fue posible extraer la información necesaria para generar "
+                    "la disposición."
+                ),
+                "errores": [
+                    "No fue posible leer correctamente el contenido de la Orden "
+                    "de Pago."
+                ],
+            },
+        )
+
+    return analisis
+
+
 @router.post("/{expediente_id}/analizar-op", response_model=AnalisisOPRead)
 def analizar_op(expediente_id: str):
     obtener_expediente(expediente_id)
     if not validacion_service.tiene_op(expediente_id):
         historial_service.registrar(expediente_id, "ANALISIS_OP_BLOQUEADO", detalle="No existe OP cargada.")
     analisis = analisis_op_service.analizar(expediente_id)
-    historial_service.registrar(expediente_id, "OP_ANALIZADA_IA", detalle=f"Modo {analisis.modo}")
+    if analisis.modo == "EXTRACCION_FALLIDA":
+        historial_service.registrar(
+            expediente_id,
+            "ANALISIS_OP_FALLIDO",
+            detalle=(
+                "No fue posible leer correctamente el contenido de la Orden "
+                "de Pago."
+            ),
+        )
+    else:
+        historial_service.registrar(expediente_id, "OP_ANALIZADA_IA", detalle=f"Modo {analisis.modo}")
     return analisis
 
 
@@ -263,18 +304,21 @@ def generar_borrador_disposicion(expediente_id: str, regenerar: bool = False):
                 "errores": ["El expediente debe estar VALIDADO."],
             },
         )
+    _verificar_op_legible_para_disposicion(expediente_id)
     return disposicion_service.generar_borrador(expediente_id, regenerar=regenerar)
 
 
 @router.get("/{expediente_id}/disposicion/borrador", response_model=DisposicionRead)
 def obtener_borrador_disposicion(expediente_id: str):
     obtener_expediente(expediente_id)
+    _verificar_op_legible_para_disposicion(expediente_id)
     return disposicion_service.obtener(expediente_id)
 
 
 @router.put("/{expediente_id}/disposicion/borrador", response_model=DisposicionRead)
 def actualizar_borrador_disposicion(expediente_id: str, data: DisposicionUpdate):
     obtener_expediente(expediente_id)
+    _verificar_op_legible_para_disposicion(expediente_id)
     return disposicion_service.actualizar_borrador(expediente_id, data)
 
 
@@ -286,6 +330,7 @@ def actualizar_borrador_disposicion(expediente_id: str, data: DisposicionUpdate)
 @router.get("/{expediente_id}/disposicion/borrador/docx")
 def descargar_borrador_disposicion_docx(expediente_id: str):
     obtener_expediente(expediente_id)
+    _verificar_op_legible_para_disposicion(expediente_id)
     ruta = disposicion_docx_service.generar_docx(expediente_id)
     return FileResponse(
         path=ruta,
@@ -297,6 +342,7 @@ def descargar_borrador_disposicion_docx(expediente_id: str):
 @router.get("/{expediente_id}/disposicion/borrador/texto")
 def exportar_borrador_disposicion_texto(expediente_id: str):
     obtener_expediente(expediente_id)
+    _verificar_op_legible_para_disposicion(expediente_id)
     borrador = disposicion_service.obtener(expediente_id)
     contenido = (
         f"DISPOSICIÓN Nº {borrador.numero_disposicion or '____/____'}\n\n"
@@ -312,6 +358,7 @@ def exportar_borrador_disposicion_texto(expediente_id: str):
 @router.post("/{expediente_id}/generar-disposicion", response_model=ExpedienteRead)
 def generar_disposicion(expediente_id: str):
     expediente = obtener_expediente(expediente_id)
+    _verificar_op_legible_para_disposicion(expediente_id)
     errores = validacion_service.errores_bloqueantes(expediente_id)
     if errores:
         historial_service.registrar(expediente_id, "GENERACION_DISPOSICION_BLOQUEADA", detalle=" | ".join(errores))

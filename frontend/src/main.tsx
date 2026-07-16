@@ -820,9 +820,25 @@ function App() {
   async function analizarOP() {
     if (!seleccionado) return;
     const res = await fetch(`${API_URL}/expedientes/${seleccionado.id}/analizar-op`, { method: 'POST' });
+
+    if (!res.ok) {
+      avisar(await obtenerMensajeError(res), 'error');
+      return;
+    }
+
     const data = await res.json();
     setAnalisis(data);
     setTabDetalle('ia');
+
+    if (data.modo === 'EXTRACCION_FALLIDA') {
+      avisar(
+        'La Orden de Pago fue incorporada al expediente, pero no fue posible '
+          + 'extraer la información necesaria para generar la disposición.',
+        'error',
+      );
+      return;
+    }
+
     avisar(data.op_detectada ? 'Orden de Pago analizada correctamente.' : 'No se encontró OP cargada para analizar.', data.op_detectada ? 'ok' : 'error');
   }
 
@@ -1702,6 +1718,17 @@ function App() {
                       <p className="empty">Ejecutá el análisis para ver el resumen inteligente del expediente.</p>
                     ) : !analisis.op_detectada ? (
                       <div className="warning-panel">No existe OP cargada para analizar.</div>
+                    ) : analisis.modo === 'EXTRACCION_FALLIDA' ? (
+                      <div className="warning-panel">
+                        <strong>
+                          La Orden de Pago fue incorporada al expediente, pero no fue
+                          posible extraer la información necesaria para generar la
+                          disposición.
+                        </strong>
+                        <p>
+                          No fue posible leer correctamente el contenido de la Orden de Pago.
+                        </p>
+                      </div>
                     ) : (
                       <>
                         <div className={`assistant-panel ${diag.color}`}>

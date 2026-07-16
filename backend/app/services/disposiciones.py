@@ -26,11 +26,18 @@ class DisposicionService:
         self._plantilla_version = "Disposición FC 2026.2"
 
     def generar_borrador(self, expediente_id: str, regenerar: bool = False) -> DisposicionRead:
+        analisis = analisis_op_service.analizar(expediente_id)
+        if not analisis.op_detectada or analisis.modo == "EXTRACCION_FALLIDA":
+            raise ValueError(
+                "La Orden de Pago fue incorporada al expediente, pero no fue "
+                "posible extraer la información necesaria para generar la "
+                "disposición."
+            )
+
         if expediente_id in self._borradores and not regenerar:
             return self._borradores[expediente_id]
 
         expediente = expediente_service.obtener(expediente_id)
-        analisis = analisis_op_service.analizar(expediente_id)
         historial = historial_service.listar_por_expediente(expediente_id)
         validado_observado = any(h.accion == "EXPEDIENTE_VALIDADO_CON_OBSERVACIONES" for h in historial)
         checklist_fisico = any(h.accion == "CHECKLIST_FISICO_REGISTRADO" for h in historial)
