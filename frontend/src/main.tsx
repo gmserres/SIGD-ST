@@ -5,7 +5,7 @@ import './styles.css';
 const API_URL = 'http://localhost:8000';
 
 type Pantalla = 'inicio' | 'nuevo' | 'expedientes' | 'detalle' | 'solicitudes' | 'administracion';
-type TabDetalle = 'resumen' | 'documentos' | 'ia' | 'validacion' | 'disposicion' | 'historial';
+type TabDetalle = 'workflow' | 'documentos' | 'ia' | 'validacion' | 'disposicion' | 'historial';
 
 type Expediente = {
   id: string;
@@ -313,7 +313,7 @@ async function obtenerMensajeError(res: Response) {
 
 function App() {
   const [pantalla, setPantalla] = useState<Pantalla>('inicio');
-  const [tabDetalle, setTabDetalle] = useState<TabDetalle>('resumen');
+  const [tabDetalle, setTabDetalle] = useState<TabDetalle>('workflow');
   const [expedientes, setExpedientes] = useState<Expediente[]>([]);
   const [seleccionado, setSeleccionado] = useState<Expediente | null>(null);
   const [documentos, setDocumentos] = useState<Documento[]>([]);
@@ -704,7 +704,7 @@ function App() {
   async function cargarDetalle(expediente: Expediente) {
     setSeleccionado(expediente);
     setPantalla('detalle');
-    setTabDetalle('resumen');
+    setTabDetalle('workflow');
     setAnalisis(null);
     setMensaje('');
     setSolicitudOrigenExpediente(null);
@@ -1001,6 +1001,158 @@ function App() {
   const diag = diagnosticoIA(analisis);
   const comparacion = comparacionDocumental(analisis);
   const confiabilidad = confiabilidadIA(analisis);
+  const tieneOP = documentos.some((documento) => documento.tipo === 'OP');
+  const opConExtraccionFallida = analisis?.modo === 'EXTRACCION_FALLIDA';
+  const opAnalizadaCorrectamente = Boolean(
+    analisis?.op_detectada && analisis.modo !== 'EXTRACCION_FALLIDA',
+  );
+  const disposicionEmitida = seleccionado?.estado === 'DISPOSICION_EMITIDA';
+  const validacionAdministrativaCompleta = Boolean(
+    seleccionado
+      && (
+        ['VALIDADO', 'DISPOSICION_EMITIDA'].includes(seleccionado.estado)
+        || historial.some((evento) =>
+          [
+            'EXPEDIENTE_VALIDADO',
+            'EXPEDIENTE_VALIDADO_CON_OBSERVACIONES',
+          ].includes(evento.accion),
+        )
+      ),
+  );
+
+  const etapaWorkflow = disposicionEmitida
+    ? 'formalizacion'
+    : disposicionBorrador
+      ? 'disposicion'
+      : opConExtraccionFallida || tieneOP
+        ? 'op'
+        : validacionAdministrativaCompleta
+          ? 'op'
+          : 'validacion';
+
+  const estadoOP = opConExtraccionFallida
+    ? 'Requiere atención'
+    : opAnalizadaCorrectamente
+      ? 'Analizada'
+      : tieneOP
+        ? 'Pendiente de análisis'
+        : 'No incorporada';
+
+  const workflowSteps = [
+    {
+      id: 'validacion',
+      texto: 'Validación',
+      estado: validacionAdministrativaCompleta
+        ? 'completed'
+        : etapaWorkflow === 'validacion'
+          ? 'current'
+          : 'blocked',
+    },
+    {
+      id: 'op',
+      texto: 'Orden de Pago',
+      estado: opConExtraccionFallida
+        ? 'attention'
+        : opAnalizadaCorrectamente
+          ? 'completed'
+          : etapaWorkflow === 'op'
+            ? 'current'
+            : validacionAdministrativaCompleta
+              ? 'current'
+              : 'blocked',
+    },
+    {
+      id: 'disposicion',
+      texto: 'Disposición',
+      estado: disposicionEmitida
+        ? 'completed'
+        : etapaWorkflow === 'disposicion'
+          ? 'current'
+          : 'blocked',
+    },
+    {
+      id: 'formalizacion',
+      texto: 'Formalización',
+      estado: disposicionEmitida ? 'current' : 'blocked',
+    },
+    {
+      id: 'archivo',
+      texto: 'Archivo',
+      estado: 'future',
+    },
+  ];
+
+  const accionPrincipal = (() => {
+    if (disposicionEmitida) {
+      return {
+        descripcion: 'La disposición fue emitida y se encuentra disponible para su descarga.',
+        etiqueta: 'Descargar disposición',
+        ejecutar: descargarBorradorWord,
+      };
+    }
+
+    if (disposicionBorrador) {
+      return {
+        descripcion: 'Existe un borrador de disposición pendiente de revisión.',
+        etiqueta: 'Trabajar en la disposición',
+        ejecutar: () => setTabDetalle('disposicion'),
+      };
+    }
+
+    if (opConExtraccionFallida) {
+      return {
+        descripcion: 'La Orden de Pago fue incorporada, pero requiere revisión antes de continuar.',
+        etiqueta: 'Revisar documentación',
+        ejecutar: () => setTabDetalle('documentos'),
+      };
+    }
+
+    if (opAnalizadaCorrectamente) {
+      return {
+        descripcion: 'La Orden de Pago fue analizada y puede prepararse la disposición.',
+        etiqueta: 'Preparar disposición',
+        ejecutar: () => prepararDisposicion(false),
+      };
+    }
+
+    if (tieneOP) {
+      return {
+        descripcion: 'La Orden de Pago fue incorporada y está pendiente de análisis.',
+        etiqueta: 'Analizar Orden de Pago',
+        ejecutar: analizarOP,
+      };
+    }
+
+    if (validacionAdministrativaCompleta) {
+      return {
+        descripcion: 'La validación administrativa está completa. Corresponde incorporar la Orden de Pago.',
+        etiqueta: 'Incorporar Orden de Pago',
+        ejecutar: () => setTabDetalle('documentos'),
+      };
+    }
+
+    if (validacion?.estado_general === 'VERDE') {
+      return {
+        descripcion: 'Los controles están completos. Corresponde validar administrativamente el expediente.',
+        etiqueta: 'Validar expediente',
+        ejecutar: validarExpediente,
+      };
+    }
+
+    if (validacion?.estado_general === 'AMARILLO') {
+      return {
+        descripcion: 'La validación presenta observaciones que deben resolverse o acreditarse.',
+        etiqueta: 'Completar checklist físico',
+        ejecutar: cargarChecklistFisico,
+      };
+    }
+
+    return {
+      descripcion: 'El expediente requiere completar su validación administrativa.',
+      etiqueta: 'Completar validación',
+      ejecutar: cargarChecklistFisico,
+    };
+  })();
 
   return (
     <main className="app-shell">
@@ -1554,103 +1706,122 @@ function App() {
         {pantalla === 'detalle' && seleccionado && (
           <section className="expediente-page">
             <div className="expediente-header">
-              <div>
+              <div className="expediente-identity">
                 <span className="eyebrow">Expediente</span>
                 <h2>{seleccionado.numero_interno}</h2>
-                <p>{seleccionado.establecimiento || '-'} · {seleccionado.objeto || '-'}</p>
+                <div className="expediente-identity-grid">
+                  <div>
+                    <span>Número GDEBA</span>
+                    <strong>{seleccionado.numero_gdeba || 'Sin número GDEBA'}</strong>
+                  </div>
+                  <div>
+                    <span>Tipo de trámite</span>
+                    <strong>{seleccionado.tipo_tramite === 'FONDO_COMPENSADOR' ? 'Fondo Compensador' : seleccionado.tipo_tramite}</strong>
+                  </div>
+                  <div>
+                    <span>Establecimiento</span>
+                    <strong>{seleccionado.establecimiento || '-'}</strong>
+                  </div>
+                  <div>
+                    <span>Objeto</span>
+                    <strong>{seleccionado.objeto || '-'}</strong>
+                  </div>
+                </div>
               </div>
-              <span className={estadoAdministrativo(seleccionado, historial).clase}>{estadoAdministrativo(seleccionado, historial).texto}</span>
+
+              <div className="expediente-header-status">
+                <span className={estadoAdministrativo(seleccionado, historial).clase}>
+                  {estadoAdministrativo(seleccionado, historial).texto}
+                </span>
+
+                {!seleccionado.solicitud_intervencion_id ? (
+                  <small>Sin Solicitud de Intervención asociada</small>
+                ) : solicitudOrigenExpediente ? (
+                  <>
+                    <small>Origen: Solicitud {solicitudOrigenExpediente.numero_solicitud}</small>
+                    <button className="small-button" type="button" onClick={abrirSolicitudOrigen}>
+                      Abrir Solicitud
+                    </button>
+                  </>
+                ) : (
+                  <small>No se pudo recuperar la Solicitud asociada</small>
+                )}
+              </div>
             </div>
 
-            <div className="expediente-layout">
-              <aside className="expediente-side">
-                <button className={tabDetalle === 'resumen' ? 'active' : ''} onClick={() => setTabDetalle('resumen')}>Resumen</button>
-                <button className={tabDetalle === 'documentos' ? 'active' : ''} onClick={() => setTabDetalle('documentos')}>Documentos</button>
-                <button className={tabDetalle === 'ia' ? 'active' : ''} onClick={() => setTabDetalle('ia')}>IA documental</button>
-                <button className={tabDetalle === 'validacion' ? 'active' : ''} onClick={consultarValidacion}>Validación</button>
-                <button className={tabDetalle === 'disposicion' ? 'active' : ''} onClick={() => setTabDetalle('disposicion')}>Disposición</button>
-                <button className={tabDetalle === 'historial' ? 'active' : ''} onClick={() => setTabDetalle('historial')}>Historial</button>
-              </aside>
+            <div className="workflow-steps" aria-label="Etapas del trámite">
+              {workflowSteps.map((etapa, indice) => (
+                <div className={`workflow-step ${etapa.estado}`} key={etapa.id}>
+                  <span className="workflow-step-number">
+                    {etapa.estado === 'completed' ? '✓' : indice + 1}
+                  </span>
+                  <span>{etapa.texto}</span>
+                </div>
+              ))}
+            </div>
 
+            <div className="workflow-layout">
               <section className="expediente-main">
-                {tabDetalle === 'resumen' && (
+                {tabDetalle === 'workflow' && (
                   <div className="card">
                     <div className="card-title">
-                      <h3>Resumen operativo</h3>
-                      <span className="badge blue">Fondo Compensador</span>
+                      <div>
+                        <span className="eyebrow">Etapa actual</span>
+                        <h3>
+                          {etapaWorkflow === 'validacion'
+                            ? 'Validación administrativa'
+                            : etapaWorkflow === 'op'
+                              ? 'Orden de Pago'
+                              : etapaWorkflow === 'disposicion'
+                                ? 'Disposición'
+                                : 'Formalización'}
+                        </h3>
+                      </div>
+                      {opConExtraccionFallida && <span className="badge red">Requiere atención</span>}
                     </div>
-                    <dl className="data-list">
-                      <dt>ID interno</dt><dd>{seleccionado.id}</dd>
-                      <dt>Expediente GDEBA</dt><dd>{seleccionado.numero_gdeba || '-'}</dd>
-                      <dt>ID SUNA</dt><dd>{seleccionado.id_suna || '-'}</dd>
-                      <dt>Disposición</dt><dd>{seleccionado.numero_disposicion || '-'}</dd>
-                      <dt>Documentos</dt><dd>{documentos.length}</dd>
-                      <dt>Última acción</dt><dd>{historial[historial.length - 1]?.accion || '-'}</dd>
-                    </dl>
 
-                    <section className="subcard">
-                      <h3>Origen del trámite</h3>
-
-                      {!seleccionado.solicitud_intervencion_id ? (
-                        <p>
-                          Este expediente no posee una Solicitud de Intervención asociada.
-                        </p>
-                      ) : solicitudOrigenExpediente ? (
-                        <>
-                          <h4>Solicitud de Intervención</h4>
-                          <dl className="data-list">
-                            <dt>ID SUNA</dt>
-                            <dd>{solicitudOrigenExpediente.id_suna || '-'}</dd>
-                            <dt>Establecimiento</dt>
-                            <dd>{solicitudOrigenExpediente.establecimiento}</dd>
-                            <dt>Motivo</dt>
-                            <dd>{solicitudOrigenExpediente.motivo}</dd>
-                          </dl>
-
-                          {decisionOrigenExpediente && (
-                            <>
-                              <h4>Decisión Administrativa</h4>
-                              <dl className="data-list">
-                                <dt>Fecha</dt>
-                                <dd>{decisionOrigenExpediente.fecha_decision}</dd>
-                                <dt>Autoridad decisora</dt>
-                                <dd>{decisionOrigenExpediente.autoridad_decisora}</dd>
-                                <dt>Resultado</dt>
-                                <dd>{decisionOrigenExpediente.resultado}</dd>
-                              </dl>
-                            </>
-                          )}
-
-                          <button
-                            className="secondary"
-                            type="button"
-                            onClick={abrirSolicitudOrigen}
-                          >
-                            Abrir Solicitud
+                    <div className="workflow-summary-grid">
+                      <article>
+                        <span>Validación administrativa</span>
+                        <strong>
+                          {validacionAdministrativaCompleta ? 'Completa' : validacion?.estado_general || 'Pendiente'}
+                        </strong>
+                        {!validacionAdministrativaCompleta && (
+                          <button className="small-button" type="button" onClick={consultarValidacion}>
+                            Ver validación
                           </button>
-                        </>
-                      ) : (
-                        <p>
-                          No se pudo recuperar la Solicitud de Intervención asociada.
-                        </p>
-                      )}
-                    </section>
+                        )}
+                      </article>
 
-                    <div className="actions">
-                      <button className="primary" onClick={analizarOP}>Analizar OP</button>
-                      <button className="secondary" onClick={consultarValidacion}>Ver validación</button>
-                      {!['VALIDADO', 'DISPOSICION_EMITIDA'].includes(seleccionado.estado) && (
-                        <button className="primary" onClick={validarExpediente}>Validar expediente</button>
-                      )}
-                      {seleccionado.estado === 'VALIDADO' && (
-                        <button className="primary" onClick={() => prepararDisposicion(false)}>Generar borrador de disposición</button>
-                      )}
-                      {seleccionado.estado === 'DISPOSICION_EMITIDA' && (
-                        <button className="secondary" onClick={() => setTabDetalle('disposicion')}>Ver disposición</button>
-                      )}
+                      <article className={opConExtraccionFallida ? 'attention' : ''}>
+                        <span>Orden de Pago</span>
+                        <strong>{estadoOP}</strong>
+                        {tieneOP && !opAnalizadaCorrectamente && (
+                          <button className="small-button" type="button" onClick={analizarOP}>
+                            Analizar OP
+                          </button>
+                        )}
+                      </article>
+
+                      <article>
+                        <span>Disposición</span>
+                        <strong>
+                          {disposicionEmitida
+                            ? seleccionado.numero_disposicion || 'Emitida'
+                            : disposicionBorrador
+                              ? 'Borrador'
+                              : 'Pendiente'}
+                        </strong>
+                        {(disposicionBorrador || disposicionEmitida) && (
+                          <button className="small-button" type="button" onClick={() => setTabDetalle('disposicion')}>
+                            Ver disposición
+                          </button>
+                        )}
+                      </article>
                     </div>
+
                     <div className="flow-note">
-                      La validación ahora verifica documentación crítica antes de permitir avanzar.
+                      {accionPrincipal.descripcion}
                     </div>
                   </div>
                 )}
@@ -1661,8 +1832,16 @@ function App() {
                     <div className="upload-grid">
                       <div className="upload-box">
                         <strong>Orden de Pago</strong>
-                        <input type="file" accept=".pdf" onChange={(e) => setArchivoOP(e.target.files?.[0] || null)} />
-                        <button className="secondary" onClick={subirOP}>Cargar OP</button>
+                        {validacionAdministrativaCompleta ? (
+                          <>
+                            <input type="file" accept=".pdf" onChange={(e) => setArchivoOP(e.target.files?.[0] || null)} />
+                            <button className="secondary" onClick={subirOP}>Cargar OP</button>
+                          </>
+                        ) : (
+                          <p className="blocked-note">
+                            La Orden de Pago podrá incorporarse una vez completada la validación administrativa.
+                          </p>
+                        )}
                       </div>
                       <div className="upload-box">
                         <strong>Documento complementario</strong>
@@ -1945,7 +2124,7 @@ function App() {
                       <div className="empty-disposition">
                         <p className="empty">Todavía no hay borrador generado para este expediente.</p>
                         {seleccionado.estado === 'VALIDADO' ? (
-                          <button className="primary" onClick={() => prepararDisposicion(false)}>Generar borrador</button>
+                          <button className="secondary" onClick={() => prepararDisposicion(false)}>Preparar disposición</button>
                         ) : (
                           <p className="warn">El expediente debe estar validado antes de generar la disposición.</p>
                         )}
@@ -2006,6 +2185,73 @@ function App() {
                   </div>
                 )}
               </section>
+
+              <aside className="next-action-panel">
+                <section>
+                  <span className="eyebrow">Estado</span>
+                  <strong className="next-action-status">
+                    {estadoAdministrativo(seleccionado, historial).texto}
+                  </strong>
+                </section>
+
+                <section>
+                  <span className="eyebrow">Próximo paso</span>
+                  <p>{accionPrincipal.descripcion}</p>
+                  <button
+                    className="primary next-action-button"
+                    type="button"
+                    onClick={accionPrincipal.ejecutar}
+                  >
+                    {accionPrincipal.etiqueta}
+                  </button>
+                </section>
+
+                <section>
+                  <span className="eyebrow">Acciones disponibles</span>
+                  <nav className="workflow-consultations">
+                    <button
+                      className={tabDetalle === 'workflow' ? 'active' : ''}
+                      type="button"
+                      onClick={() => setTabDetalle('workflow')}
+                    >
+                      Estado del trámite
+                    </button>
+                    <button
+                      className={tabDetalle === 'documentos' ? 'active' : ''}
+                      type="button"
+                      onClick={() => setTabDetalle('documentos')}
+                    >
+                      Documentos
+                    </button>
+                    <button
+                      className={tabDetalle === 'ia' ? 'active' : ''}
+                      type="button"
+                      onClick={() => setTabDetalle('ia')}
+                    >
+                      Análisis
+                    </button>
+                    <button
+                      className={tabDetalle === 'historial' ? 'active' : ''}
+                      type="button"
+                      onClick={() => setTabDetalle('historial')}
+                    >
+                      Historial
+                    </button>
+                    <button
+                      className={tabDetalle === 'validacion' ? 'active' : ''}
+                      type="button"
+                      onClick={consultarValidacion}
+                    >
+                      Validación
+                    </button>
+                    {solicitudOrigenExpediente && (
+                      <button type="button" onClick={abrirSolicitudOrigen}>
+                        Abrir Solicitud
+                      </button>
+                    )}
+                  </nav>
+                </section>
+              </aside>
             </div>
           </section>
         )}

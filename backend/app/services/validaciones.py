@@ -33,7 +33,6 @@ class ValidacionService:
 
         tipos = {doc.tipo.upper() for doc in documentos}
         tiene_op = "OP" in tipos
-        agregar("Orden de Pago", tiene_op, "OP cargada.", "Falta cargar la Orden de Pago.")
 
         factura_acreditada = "FACTURA" in tipos or "CHECK_FACTURA" in tipos or bool(checklist and checklist.factura)
         agregar(
