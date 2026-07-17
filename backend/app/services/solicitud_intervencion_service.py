@@ -2,6 +2,9 @@ from dataclasses import asdict
 from uuid import uuid4
 
 from app.domain.solicitud_intervencion import SolicitudIntervencion
+from app.repositories.solicitud_intervencion_repository import (
+    SolicitudIntervencionRepository,
+)
 from app.schemas.solicitud_intervencion import (
     SolicitudIntervencionCreate,
     SolicitudIntervencionRead,
@@ -9,8 +12,8 @@ from app.schemas.solicitud_intervencion import (
 
 
 class SolicitudIntervencionService:
-    def __init__(self) -> None:
-        self._solicitudes: dict[str, SolicitudIntervencion] = {}
+    def __init__(self, repository: SolicitudIntervencionRepository) -> None:
+        self._repository = repository
 
     def crear(
         self,
@@ -29,21 +32,20 @@ class SolicitudIntervencionService:
             prioridad=data.prioridad,
             estado="REGISTRADA",
         )
-        self._solicitudes[solicitud_id] = solicitud
+        self._repository.guardar(solicitud)
         return SolicitudIntervencionRead(**asdict(solicitud))
 
     def obtener_por_id(
         self,
         solicitud_id: str,
     ) -> SolicitudIntervencionRead:
-        solicitud = self._solicitudes[solicitud_id]
+        solicitud = self._repository.obtener_por_id(solicitud_id)
+        if solicitud is None:
+            raise KeyError(solicitud_id)
         return SolicitudIntervencionRead(**asdict(solicitud))
 
     def listar(self) -> list[SolicitudIntervencionRead]:
         return [
             SolicitudIntervencionRead(**asdict(solicitud))
-            for solicitud in self._solicitudes.values()
+            for solicitud in self._repository.listar()
         ]
-
-
-solicitud_intervencion_service = SolicitudIntervencionService()

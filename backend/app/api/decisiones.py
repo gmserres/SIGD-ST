@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException, status
 
+from app.composition.solicitud_intervencion import solicitud_intervencion_service
 from app.schemas.decision_expediente import CrearExpedienteDesdeDecision
 from app.schemas.decision_administrativa import (
     DecisionAdministrativaCreate,
@@ -10,7 +11,6 @@ from app.services.decision_administrativa_service import (
     decision_administrativa_service,
 )
 from app.services.expedientes import expediente_service
-from app.services.solicitud_intervencion_service import solicitud_intervencion_service
 
 
 router = APIRouter()

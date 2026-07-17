@@ -1,11 +1,11 @@
 from fastapi import APIRouter, HTTPException, status
 
+from app.composition.solicitud_intervencion import (
+    solicitud_intervencion_service,
+)
 from app.schemas.solicitud_intervencion import (
     SolicitudIntervencionCreate,
     SolicitudIntervencionRead,
-)
-from app.services.solicitud_intervencion_service import (
-    solicitud_intervencion_service,
 )
 
 
