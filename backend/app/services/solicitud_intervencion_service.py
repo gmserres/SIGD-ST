@@ -95,8 +95,22 @@ class SolicitudIntervencionService:
             **asdict(solicitud_actualizada)
         )
 
-    def listar(self) -> list[SolicitudIntervencionRead]:
+    def listar(
+        self,
+        *,
+        numero_solicitud: str | None = None,
+        id_suna: str | None = None,
+        procedencia: str | None = None,
+        establecimiento: str | None = None,
+        estado: str | None = None,
+    ) -> list[SolicitudIntervencionRead]:
         return [
             SolicitudIntervencionRead(**asdict(solicitud))
-            for solicitud in self._repository.listar()
+            for solicitud in self._repository.listar(
+                numero_solicitud=numero_solicitud,
+                id_suna=id_suna,
+                procedencia=procedencia,
+                establecimiento=establecimiento,
+                estado=estado,
+            )
         ]

@@ -19,5 +19,13 @@ class SolicitudIntervencionRepository(Protocol):
     ) -> SolicitudIntervencion | None:
         ...
 
-    def listar(self) -> list[SolicitudIntervencion]:
+    def listar(
+        self,
+        *,
+        numero_solicitud: str | None = None,
+        id_suna: str | None = None,
+        procedencia: str | None = None,
+        establecimiento: str | None = None,
+        estado: str | None = None,
+    ) -> list[SolicitudIntervencion]:
         ...

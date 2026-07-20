@@ -60,8 +60,20 @@ def actualizar_solicitud(
 
 
 @router.get("", response_model=list[SolicitudIntervencionRead])
-def listar_solicitudes() -> list[SolicitudIntervencionRead]:
-    return solicitud_intervencion_service.listar()
+def listar_solicitudes(
+    numero_solicitud: str | None = None,
+    id_suna: str | None = None,
+    procedencia: str | None = None,
+    establecimiento: str | None = None,
+    estado: str | None = None,
+) -> list[SolicitudIntervencionRead]:
+    return solicitud_intervencion_service.listar(
+        numero_solicitud=numero_solicitud,
+        id_suna=id_suna,
+        procedencia=procedencia,
+        establecimiento=establecimiento,
+        estado=estado,
+    )
 
 
 @router.get("/{solicitud_id}", response_model=SolicitudIntervencionRead)

@@ -38,5 +38,40 @@ class InMemorySolicitudIntervencionRepository:
             None,
         )
 
-    def listar(self) -> list[SolicitudIntervencion]:
-        return list(self._solicitudes.values())
+    def listar(
+        self,
+        *,
+        numero_solicitud: str | None = None,
+        id_suna: str | None = None,
+        procedencia: str | None = None,
+        establecimiento: str | None = None,
+        estado: str | None = None,
+    ) -> list[SolicitudIntervencion]:
+        solicitudes = list(self._solicitudes.values())
+
+        return [
+            solicitud
+            for solicitud in solicitudes
+            if (
+                numero_solicitud is None
+                or solicitud.numero_solicitud == numero_solicitud
+            )
+            and (
+                id_suna is None
+                or solicitud.id_suna == id_suna
+            )
+            and (
+                procedencia is None
+                or solicitud.procedencia.casefold()
+                == procedencia.casefold()
+            )
+            and (
+                establecimiento is None
+                or establecimiento.casefold()
+                in solicitud.establecimiento.casefold()
+            )
+            and (
+                estado is None
+                or solicitud.estado.casefold() == estado.casefold()
+            )
+        ]
