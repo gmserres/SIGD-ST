@@ -3,6 +3,9 @@ from fastapi import APIRouter, HTTPException, status
 from app.composition.solicitud_intervencion import (
     solicitud_intervencion_service,
 )
+from app.domain.solicitud_intervencion import (
+    NumeroSolicitudDuplicadoError,
+)
 from app.schemas.solicitud_intervencion import (
     SolicitudIntervencionCreate,
     SolicitudIntervencionRead,
@@ -20,7 +23,13 @@ router = APIRouter()
 def crear_solicitud(
     data: SolicitudIntervencionCreate,
 ) -> SolicitudIntervencionRead:
-    return solicitud_intervencion_service.crear(data)
+    try:
+        return solicitud_intervencion_service.crear(data)
+    except NumeroSolicitudDuplicadoError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(exc),
+        ) from exc
 
 
 @router.get("", response_model=list[SolicitudIntervencionRead])

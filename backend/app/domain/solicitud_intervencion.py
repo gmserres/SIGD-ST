@@ -2,6 +2,10 @@ from dataclasses import dataclass
 from datetime import date
 
 
+class NumeroSolicitudDuplicadoError(ValueError):
+    pass
+
+
 @dataclass
 class SolicitudIntervencion:
     id_solicitud: str

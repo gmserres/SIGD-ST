@@ -1,7 +1,11 @@
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
-from app.domain.solicitud_intervencion import SolicitudIntervencion
+from app.domain.solicitud_intervencion import (
+    NumeroSolicitudDuplicadoError,
+    SolicitudIntervencion,
+)
 from app.infrastructure.database.mappers.solicitud_intervencion_mapper import (
     a_dominio,
     a_modelo,
@@ -31,6 +35,21 @@ class PostgresSolicitudIntervencionRepository:
                 else:
                     actualizar_modelo(modelo, solicitud)
                 session.commit()
+            except IntegrityError as exc:
+                session.rollback()
+                diagnostico = getattr(exc.orig, "diag", None)
+                constraint_name = getattr(
+                    diagnostico,
+                    "constraint_name",
+                    None,
+                )
+                if constraint_name == (
+                    "uq_solicitudes_intervencion_numero_solicitud"
+                ):
+                    raise NumeroSolicitudDuplicadoError(
+                        "El número de solicitud ya existe."
+                    ) from exc
+                raise
             except Exception:
                 session.rollback()
                 raise
@@ -44,6 +63,20 @@ class PostgresSolicitudIntervencionRepository:
                 SolicitudIntervencionModel,
                 solicitud_id,
             )
+            if modelo is None:
+                return None
+            return a_dominio(modelo)
+
+    def obtener_por_numero(
+        self,
+        numero_solicitud: str,
+    ) -> SolicitudIntervencion | None:
+        with self._session_factory() as session:
+            consulta = select(SolicitudIntervencionModel).where(
+                SolicitudIntervencionModel.numero_solicitud
+                == numero_solicitud
+            )
+            modelo = session.scalar(consulta)
             if modelo is None:
                 return None
             return a_dominio(modelo)

@@ -1,6 +1,6 @@
 from datetime import date
 
-from pydantic import BaseModel, model_validator
+from pydantic import BaseModel, field_validator, model_validator
 
 
 class SolicitudIntervencionCreate(BaseModel):
@@ -12,6 +12,16 @@ class SolicitudIntervencionCreate(BaseModel):
     solicitante: str
     motivo: str
     prioridad: str
+
+    @field_validator("numero_solicitud")
+    @classmethod
+    def validar_numero_solicitud_obligatorio(
+        cls,
+        numero_solicitud: str,
+    ) -> str:
+        if not numero_solicitud.strip():
+            raise ValueError("numero_solicitud es obligatorio")
+        return numero_solicitud
 
     @model_validator(mode="after")
     def validar_id_suna_para_procedencia_suna(

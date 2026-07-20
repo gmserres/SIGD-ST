@@ -1,7 +1,10 @@
 from dataclasses import asdict
 from uuid import uuid4
 
-from app.domain.solicitud_intervencion import SolicitudIntervencion
+from app.domain.solicitud_intervencion import (
+    NumeroSolicitudDuplicadoError,
+    SolicitudIntervencion,
+)
 from app.repositories.solicitud_intervencion_repository import (
     SolicitudIntervencionRepository,
 )
@@ -19,6 +22,14 @@ class SolicitudIntervencionService:
         self,
         data: SolicitudIntervencionCreate,
     ) -> SolicitudIntervencionRead:
+        solicitud_existente = self._repository.obtener_por_numero(
+            data.numero_solicitud
+        )
+        if solicitud_existente is not None:
+            raise NumeroSolicitudDuplicadoError(
+                "El número de solicitud ya existe."
+            )
+
         solicitud_id = str(uuid4())
         solicitud = SolicitudIntervencion(
             id_solicitud=solicitud_id,
