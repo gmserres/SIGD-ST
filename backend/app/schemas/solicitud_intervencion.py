@@ -35,6 +35,10 @@ class SolicitudIntervencionCreate(BaseModel):
         return self
 
 
+class SolicitudIntervencionUpdate(SolicitudIntervencionCreate):
+    pass
+
+
 class SolicitudIntervencionRead(BaseModel):
     id_solicitud: str
     numero_solicitud: str

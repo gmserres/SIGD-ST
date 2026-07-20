@@ -9,6 +9,7 @@ from app.domain.solicitud_intervencion import (
 from app.schemas.solicitud_intervencion import (
     SolicitudIntervencionCreate,
     SolicitudIntervencionRead,
+    SolicitudIntervencionUpdate,
 )
 
 
@@ -25,6 +26,32 @@ def crear_solicitud(
 ) -> SolicitudIntervencionRead:
     try:
         return solicitud_intervencion_service.crear(data)
+    except NumeroSolicitudDuplicadoError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(exc),
+        ) from exc
+
+
+@router.put(
+    "/{solicitud_id}",
+    response_model=SolicitudIntervencionRead,
+    status_code=status.HTTP_200_OK,
+)
+def actualizar_solicitud(
+    solicitud_id: str,
+    data: SolicitudIntervencionUpdate,
+) -> SolicitudIntervencionRead:
+    try:
+        return solicitud_intervencion_service.actualizar(
+            solicitud_id,
+            data,
+        )
+    except KeyError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Solicitud de Intervención no encontrada",
+        ) from exc
     except NumeroSolicitudDuplicadoError as exc:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,

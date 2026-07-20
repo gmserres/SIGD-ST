@@ -11,6 +11,7 @@ from app.repositories.solicitud_intervencion_repository import (
 from app.schemas.solicitud_intervencion import (
     SolicitudIntervencionCreate,
     SolicitudIntervencionRead,
+    SolicitudIntervencionUpdate,
 )
 
 
@@ -54,6 +55,45 @@ class SolicitudIntervencionService:
         if solicitud is None:
             raise KeyError(solicitud_id)
         return SolicitudIntervencionRead(**asdict(solicitud))
+
+    def actualizar(
+        self,
+        solicitud_id: str,
+        data: SolicitudIntervencionUpdate,
+    ) -> SolicitudIntervencionRead:
+        solicitud_existente = self._repository.obtener_por_id(
+            solicitud_id
+        )
+        if solicitud_existente is None:
+            raise KeyError(solicitud_id)
+
+        solicitud_con_mismo_numero = (
+            self._repository.obtener_por_numero(data.numero_solicitud)
+        )
+        if (
+            solicitud_con_mismo_numero is not None
+            and solicitud_con_mismo_numero.id_solicitud != solicitud_id
+        ):
+            raise NumeroSolicitudDuplicadoError(
+                "El número de solicitud ya existe."
+            )
+
+        solicitud_actualizada = SolicitudIntervencion(
+            id_solicitud=solicitud_id,
+            numero_solicitud=data.numero_solicitud,
+            procedencia=data.procedencia,
+            id_suna=data.id_suna,
+            fecha_ingreso=data.fecha_ingreso,
+            establecimiento=data.establecimiento,
+            solicitante=data.solicitante,
+            motivo=data.motivo,
+            prioridad=data.prioridad,
+            estado=solicitud_existente.estado,
+        )
+        self._repository.guardar(solicitud_actualizada)
+        return SolicitudIntervencionRead(
+            **asdict(solicitud_actualizada)
+        )
 
     def listar(self) -> list[SolicitudIntervencionRead]:
         return [
