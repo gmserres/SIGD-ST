@@ -7,7 +7,7 @@ from app.modules.documentos.extractor_datos import extraer_datos_op_desde_pdf
 from app.schemas.disposicion import DisposicionRead, DisposicionUpdate
 from app.composition.analisis_op import analisis_op_service
 from app.services.documentos import documento_service
-from app.services.expedientes import expediente_service
+from app.composition.expediente import expediente_service
 from app.services.historial import historial_service
 from app.services.parametros import parametros_institucionales_service
 from app.services.template_engine import (

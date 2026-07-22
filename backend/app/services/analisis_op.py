@@ -10,7 +10,7 @@ from app.modules.inteligencia.confiabilidad import calcular_confiabilidad, calcu
 from app.modules.inteligencia.reglas import diagnosticar_expediente
 from app.schemas.analisis_op import AnalisisOPRead, DocumentoComercialExtraido, RetencionExtraida
 from app.services.documentos import documento_service
-from app.services.expedientes import expediente_service
+from app.composition.expediente import expediente_service
 
 
 class AnalisisOPService:

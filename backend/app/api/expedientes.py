@@ -19,7 +19,7 @@ from app.services.documentos import documento_service
 from app.services.disposiciones import disposicion_service
 from app.services.disposicion_docx import disposicion_docx_service
 from app.services.checklist_fisico import checklist_fisico_service
-from app.services.expedientes import expediente_service
+from app.composition.expediente import expediente_service
 from app.services.historial import historial_service
 from app.services.parametros import parametros_institucionales_service
 from app.services.texto_documento import texto_documento_service

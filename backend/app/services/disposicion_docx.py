@@ -11,7 +11,7 @@ from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 
 from app.services.disposiciones import disposicion_service
-from app.services.expedientes import expediente_service
+from app.composition.expediente import expediente_service
 from app.services.historial import historial_service
 
 

@@ -10,7 +10,7 @@ from app.schemas.expediente import ExpedienteCreate, ExpedienteRead
 from app.services.decision_administrativa_service import (
     decision_administrativa_service,
 )
-from app.services.expedientes import expediente_service
+from app.composition.expediente import expediente_service
 
 
 router = APIRouter()

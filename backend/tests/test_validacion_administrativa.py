@@ -10,7 +10,7 @@ from app.schemas.checklist_fisico import ChecklistFisicoRead
 from app.schemas.expediente import ExpedienteRead
 from app.services.checklist_fisico import checklist_fisico_service
 from app.services.documentos import documento_service
-from app.services.expedientes import expediente_service
+from app.composition.expediente import expediente_service
 from app.services.validaciones import ValidacionService
 
 
