@@ -1,22 +1,32 @@
+from decimal import Decimal
 from pathlib import Path
 
+from app.application.configuracion_uc.determinar_procedimiento_contratacion import (
+    DeterminarProcedimientoContratacion,
+)
 from app.modules.documentos.extractor_datos import extraer_datos_op_desde_pdf
 from app.modules.inteligencia.comparador import comparar_total_facturas
 from app.modules.inteligencia.confiabilidad import calcular_confiabilidad, calcular_prioridad
 from app.modules.inteligencia.reglas import diagnosticar_expediente
-from app.modules.fondo_compensador.reglas import (
-    NORMA_UC,
-    VALOR_UC_VIGENTE,
-    calcular_uc,
-    determinar_procedimiento,
-    encuadre_legal,
-)
 from app.schemas.analisis_op import AnalisisOPRead, DocumentoComercialExtraido, RetencionExtraida
 from app.services.documentos import documento_service
+from app.services.expedientes import expediente_service
 
 
 class AnalisisOPService:
+    def __init__(
+        self,
+        determinar_procedimiento_contratacion: DeterminarProcedimientoContratacion,
+    ) -> None:
+        self._determinar_procedimiento_contratacion = (
+            determinar_procedimiento_contratacion
+        )
+
     def analizar(self, expediente_id: str) -> AnalisisOPRead:
+        expediente = expediente_service.obtener(expediente_id)
+        # Integración transitoria: la asociación histórica inmutable con la
+        # Configuración UC se incorporará en un sprint posterior.
+        fecha_referencia = expediente.creado.date()
         documentos = documento_service.listar_por_expediente(expediente_id)
         op = next((doc for doc in documentos if doc.tipo == "OP"), None)
 
@@ -33,10 +43,12 @@ class AnalisisOPService:
                 fecha_op=None,
                 importe_bruto=None,
                 importe_neto=None,
-                valor_uc=VALOR_UC_VIGENTE,
-                norma_uc=NORMA_UC,
+                valor_uc=None,
+                norma_uc=None,
                 cantidad_uc=None,
                 procedimiento=None,
+                articulo=None,
+                inciso=None,
                 encuadre_legal=None,
                 documentos_comerciales=[],
                 retenciones=[],
@@ -51,8 +63,14 @@ class AnalisisOPService:
         if datos.texto_extraido:
             importe_bruto = datos.monto_total_facturas or datos.importe_pago or datos.importe_probable
             importe_neto = datos.monto_neto_pagar or datos.importe_pago
-            cantidad_uc = calcular_uc(importe_bruto) if importe_bruto else None
-            procedimiento = determinar_procedimiento(cantidad_uc) if cantidad_uc else None
+            determinacion = None
+            if importe_bruto is not None:
+                determinacion = (
+                    self._determinar_procedimiento_contratacion.ejecutar(
+                        fecha=fecha_referencia,
+                        monto=Decimal(str(importe_bruto)),
+                    )
+                )
 
             documentos_comerciales = [
                 DocumentoComercialExtraido(
@@ -117,7 +135,7 @@ class AnalisisOPService:
             if datos.retenciones:
                 validaciones.append(f"{len(datos.retenciones)} retención(es) detectada(s).")
 
-            if cantidad_uc:
+            if determinacion is not None:
                 validaciones.append("UC calculadas desde el monto total detectado.")
 
             comparacion = comparar_total_facturas(
@@ -184,11 +202,43 @@ class AnalisisOPService:
                 fecha_op=datos.fecha,
                 importe_bruto=importe_bruto,
                 importe_neto=importe_neto,
-                valor_uc=VALOR_UC_VIGENTE,
-                norma_uc=NORMA_UC,
-                cantidad_uc=cantidad_uc,
-                procedimiento=procedimiento,
-                encuadre_legal=encuadre_legal(procedimiento) if procedimiento else None,
+                valor_uc=(
+                    determinacion.valor_uc
+                    if determinacion is not None
+                    else None
+                ),
+                norma_uc=(
+                    determinacion.rango.referencia_normativa
+                    if determinacion is not None
+                    else None
+                ),
+                cantidad_uc=(
+                    determinacion.cantidad_uc
+                    if determinacion is not None
+                    else None
+                ),
+                procedimiento=(
+                    determinacion.rango.procedimiento
+                    if determinacion is not None
+                    else None
+                ),
+                articulo=(
+                    determinacion.rango.articulo
+                    if determinacion is not None
+                    else None
+                ),
+                inciso=(
+                    determinacion.rango.inciso
+                    if determinacion is not None
+                    else None
+                ),
+                encuadre_legal=(
+                    f"{determinacion.rango.articulo} "
+                    f"{determinacion.rango.inciso}. "
+                    f"{determinacion.rango.referencia_normativa}"
+                    if determinacion is not None
+                    else None
+                ),
                 documentos_comerciales=documentos_comerciales,
                 retenciones=retenciones,
                 validaciones=validaciones,
@@ -208,10 +258,12 @@ class AnalisisOPService:
             fecha_op=None,
             importe_bruto=None,
             importe_neto=None,
-            valor_uc=VALOR_UC_VIGENTE,
-            norma_uc=NORMA_UC,
+            valor_uc=None,
+            norma_uc=None,
             cantidad_uc=None,
             procedimiento=None,
+            articulo=None,
+            inciso=None,
             encuadre_legal=None,
             documentos_comerciales=[],
             retenciones=[],
@@ -221,6 +273,3 @@ class AnalisisOPService:
             ],
             faltantes=["Lectura válida de la Orden de Pago"],
         )
-
-
-analisis_op_service = AnalisisOPService()

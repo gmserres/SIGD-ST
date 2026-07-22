@@ -5,7 +5,7 @@ import re
 
 from app.modules.documentos.extractor_datos import extraer_datos_op_desde_pdf
 from app.schemas.disposicion import DisposicionRead, DisposicionUpdate
-from app.services.analisis_op import analisis_op_service
+from app.composition.analisis_op import analisis_op_service
 from app.services.documentos import documento_service
 from app.services.expedientes import expediente_service
 from app.services.historial import historial_service
@@ -119,7 +119,11 @@ class DisposicionService:
         cbu = self._extraer_por_etiqueta(texto_op, "Número de cbu") or self._extraer_por_etiqueta(texto_op, "Numero de cbu") or "CBU pendiente de verificación"
         fondo = (datos_op.fondo if datos_op and datos_op.fondo else analisis.fondo) or "FONDO COMPENSADOR"
         fondo = fondo.upper()
-        articulo_dr = self._articulo_dr(analisis.procedimiento)
+        articulo_dr = " ".join(
+            valor
+            for valor in (analisis.articulo, analisis.inciso)
+            if valor
+        ) or "artículo pendiente de parametrización"
 
         return {
             "FECHA": fecha,
@@ -130,8 +134,8 @@ class DisposicionService:
             "CUIT": analisis.cuit or "CUIT PENDIENTE",
             "IMPORTE": formatear_moneda(importe_bruto),
             "IMPORTE_LETRAS": numero_a_letras(importe_bruto),
-            "UC": formatear_numero((importe_bruto / parametros.valor_uc) if importe_bruto else analisis.cantidad_uc, 2),
-            "NORMA_UC": parametros.norma_uc,
+            "UC": formatear_numero(analisis.cantidad_uc, 2),
+            "NORMA_UC": analisis.norma_uc or "norma pendiente de parametrización",
             "TABLA_FACTURAS": self._tabla_facturas(facturas),
             "CONCEPTO_PAGO": expediente.objeto or "concepto pendiente de completar",
             "ESTABLECIMIENTOS": expediente.establecimiento or "establecimientos pendientes de completar",

@@ -14,7 +14,7 @@ from app.schemas.parametros import ParametrosInstitucionalesRead, ParametrosInst
 from app.schemas.texto_documento import TextoDocumentoRead
 from app.schemas.validacion import ValidacionExpedienteRead
 from app.schemas.validacion_observada import ValidacionObservadaCreate
-from app.services.analisis_op import analisis_op_service
+from app.composition.analisis_op import analisis_op_service
 from app.services.documentos import documento_service
 from app.services.disposiciones import disposicion_service
 from app.services.disposicion_docx import disposicion_docx_service

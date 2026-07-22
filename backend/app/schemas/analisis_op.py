@@ -1,3 +1,4 @@
+from decimal import Decimal
 from typing import List, Optional
 
 from pydantic import BaseModel
@@ -28,10 +29,12 @@ class AnalisisOPRead(BaseModel):
     fecha_op: Optional[str]
     importe_bruto: Optional[float]
     importe_neto: Optional[float]
-    valor_uc: float
-    norma_uc: str
-    cantidad_uc: Optional[float]
+    valor_uc: Decimal | None
+    norma_uc: str | None
+    cantidad_uc: Decimal | None
     procedimiento: Optional[str]
+    articulo: Optional[str]
+    inciso: Optional[str]
     encuadre_legal: Optional[str]
     documentos_comerciales: List[DocumentoComercialExtraido]
     retenciones: List[RetencionExtraida]
