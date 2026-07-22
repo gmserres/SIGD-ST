@@ -27,7 +27,6 @@ class ValidacionService:
                 advertencias.append(observacion_error)
 
         agregar("Expediente interno", bool(expediente.numero_interno), "Expediente informado.", "Falta número de expediente interno.")
-        agregar("Número de disposición", bool(expediente.numero_disposicion), "Número de disposición informado.", "Falta número de disposición.")
         agregar("Establecimiento", bool(expediente.establecimiento), "Establecimiento informado.", "Falta establecimiento.")
         agregar("Objeto", bool(expediente.objeto), "Objeto informado.", "Falta objeto de la contratación.")
 
