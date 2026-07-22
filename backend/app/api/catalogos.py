@@ -33,6 +33,12 @@ RESULTADOS_DECISION_TEMPORALES = [
     "Pendiente de fondos",
 ]
 
+FONDOS_INTERVINIENTES_TEMPORALES = [
+    "FONDO_COMPENSADOR",
+    "CUFP",
+    "OTRO",
+]
+
 @router.post("/proveedores", response_model=ProveedorRead)
 def crear_proveedor(data: ProveedorCreate):
     return catalogo_service.crear_proveedor(data)
@@ -64,3 +70,7 @@ def listar_autoridades_decisoras():
 @router.get("/resultados-decision", response_model=list[str])
 def listar_resultados_decision():
     return RESULTADOS_DECISION_TEMPORALES
+
+@router.get("/fondos-intervinientes", response_model=list[str])
+def listar_fondos_intervinientes():
+    return FONDOS_INTERVINIENTES_TEMPORALES

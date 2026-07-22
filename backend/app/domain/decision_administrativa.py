@@ -10,3 +10,6 @@ class DecisionAdministrativa:
     fecha_decision: date
     resultado: str
     fundamento: str
+    fondo_interviniente: str | None
+    descripcion_fondo: str | None
+    usuario_registrante: str

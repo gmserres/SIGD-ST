@@ -47,7 +47,22 @@ def crear_expediente_desde_decision(
     if decision.resultado != "Aprobar intervención":
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="La decisión no habilita la creación de un expediente.",
+            detail="La decisión no aprueba la intervención.",
+        )
+
+    if decision.fondo_interviniente is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="La decisión no tiene un Fondo Interviniente determinado.",
+        )
+
+    if decision.fondo_interviniente != "FONDO_COMPENSADOR":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                "El circuito del Fondo Interviniente seleccionado todavía "
+                "no está implementado."
+            ),
         )
 
     try:

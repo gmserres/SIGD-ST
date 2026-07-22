@@ -24,6 +24,9 @@ class DecisionAdministrativaService:
             fecha_decision=data.fecha_decision,
             resultado=data.resultado,
             fundamento=data.fundamento,
+            fondo_interviniente=data.fondo_interviniente,
+            descripcion_fondo=data.descripcion_fondo,
+            usuario_registrante=data.usuario_registrante,
         )
         self._decisiones[decision_id] = decision
         return DecisionAdministrativaRead(**asdict(decision))

@@ -50,6 +50,9 @@ type DecisionAdministrativa = {
   fecha_decision: string;
   resultado: string;
   fundamento: string;
+  fondo_interviniente: 'FONDO_COMPENSADOR' | 'CUFP' | 'OTRO' | null;
+  descripcion_fondo: string | null;
+  usuario_registrante: string;
 };
 
 type Documento = {
@@ -152,6 +155,15 @@ function etiquetaEstado(estado: string) {
     ARCHIVADO: 'Archivado',
   };
   return mapa[estado] || estado;
+}
+
+function etiquetaFondoInterviniente(fondo: string | null) {
+  const etiquetas: Record<string, string> = {
+    FONDO_COMPENSADOR: 'Fondo Compensador',
+    CUFP: 'CUFP',
+    OTRO: 'Otro',
+  };
+  return fondo ? etiquetas[fondo] || fondo : 'No determinado';
 }
 
 function claseEstado(estado: string) {
@@ -349,6 +361,9 @@ function App() {
   const [decisionFecha, setDecisionFecha] = useState('');
   const [decisionResultado, setDecisionResultado] = useState('');
   const [decisionFundamento, setDecisionFundamento] = useState('');
+  const [decisionFondoInterviniente, setDecisionFondoInterviniente] = useState('');
+  const [decisionDescripcionFondo, setDecisionDescripcionFondo] = useState('');
+  const [decisionUsuarioRegistrante, setDecisionUsuarioRegistrante] = useState('');
 
   const [decisionExpedienteActiva, setDecisionExpedienteActiva] = useState<string | null>(null);
   const [expedienteDecisionNumeroInterno, setExpedienteDecisionNumeroInterno] = useState('');
@@ -359,6 +374,7 @@ function App() {
   const [catalogoEvaluadores, setCatalogoEvaluadores] = useState<string[]>([]);
   const [catalogoAutoridadesDecisoras, setCatalogoAutoridadesDecisoras] = useState<string[]>([]);
   const [catalogoResultadosDecision, setCatalogoResultadosDecision] = useState<string[]>([]);
+  const [catalogoFondosIntervinientes, setCatalogoFondosIntervinientes] = useState<string[]>([]);
 
   const [solicitudNumero, setSolicitudNumero] = useState('');
   const [solicitudProcedencia, setSolicitudProcedencia] = useState('');
@@ -418,6 +434,7 @@ function App() {
       cargarCatalogo('/catalogos/evaluadores', setCatalogoEvaluadores),
       cargarCatalogo('/catalogos/autoridades-decisoras', setCatalogoAutoridadesDecisoras),
       cargarCatalogo('/catalogos/resultados-decision', setCatalogoResultadosDecision),
+      cargarCatalogo('/catalogos/fondos-intervinientes', setCatalogoFondosIntervinientes),
     ]);
   }
 
@@ -626,6 +643,9 @@ function App() {
           fecha_decision: decisionFecha,
           resultado: decisionResultado,
           fundamento: decisionFundamento,
+          fondo_interviniente: decisionFondoInterviniente || null,
+          descripcion_fondo: decisionDescripcionFondo || null,
+          usuario_registrante: decisionUsuarioRegistrante,
         }),
       });
 
@@ -639,6 +659,9 @@ function App() {
       setDecisionFecha('');
       setDecisionResultado('');
       setDecisionFundamento('');
+      setDecisionFondoInterviniente('');
+      setDecisionDescripcionFondo('');
+      setDecisionUsuarioRegistrante('');
       avisar('Decisión administrativa registrada correctamente.', 'ok');
     } catch {
       setErrorDecisiones(
@@ -1545,6 +1568,40 @@ function App() {
                               onChange={(e) => setDecisionFundamento(e.target.value)}
                             />
 
+                            <label>Fondo Interviniente</label>
+                            <select
+                              value={decisionFondoInterviniente}
+                              onChange={(e) => setDecisionFondoInterviniente(e.target.value)}
+                              disabled={catalogoFondosIntervinientes.length === 0}
+                            >
+                              <option value="">
+                                {catalogoFondosIntervinientes.length === 0
+                                  ? 'No disponible'
+                                  : 'Seleccionar Fondo'}
+                              </option>
+                              {catalogoFondosIntervinientes.map((fondo) => (
+                                <option key={fondo} value={fondo}>
+                                  {etiquetaFondoInterviniente(fondo)}
+                                </option>
+                              ))}
+                            </select>
+
+                            {decisionFondoInterviniente === 'OTRO' && (
+                              <>
+                                <label>Descripción del Fondo</label>
+                                <input
+                                  value={decisionDescripcionFondo}
+                                  onChange={(e) => setDecisionDescripcionFondo(e.target.value)}
+                                />
+                              </>
+                            )}
+
+                            <label>Usuario registrante</label>
+                            <input
+                              value={decisionUsuarioRegistrante}
+                              onChange={(e) => setDecisionUsuarioRegistrante(e.target.value)}
+                            />
+
                             <button
                               className="primary"
                               type="submit"
@@ -1579,10 +1636,19 @@ function App() {
                                       <strong>{decision.fecha_decision}</strong>
                                       <p>Autoridad: {decision.autoridad_decisora}</p>
                                       <p>Resultado: {decision.resultado}</p>
+                                      <p>
+                                        Fondo Interviniente:{' '}
+                                        {etiquetaFondoInterviniente(decision.fondo_interviniente)}
+                                      </p>
+                                      {decision.descripcion_fondo && (
+                                        <p>Descripción del Fondo: {decision.descripcion_fondo}</p>
+                                      )}
+                                      <p>Registrada por: {decision.usuario_registrante}</p>
                                       <p>{decision.fundamento}</p>
                                       <small>ID técnico: {decision.id_decision}</small>
 
-                                      {decision.resultado === 'Aprobar intervención' && (
+                                      {decision.resultado === 'Aprobar intervención'
+                                        && decision.fondo_interviniente === 'FONDO_COMPENSADOR' && (
                                         <>
                                           {expedientesDecision.length > 0 && (
                                             <div className="subcard">
@@ -1685,6 +1751,21 @@ function App() {
                                         )}
                                         </>
                                       )}
+
+                                      {decision.resultado === 'Aprobar intervención'
+                                        && !decision.fondo_interviniente && (
+                                        <div className="notice info">
+                                          La decisión no tiene un Fondo Interviniente determinado.
+                                        </div>
+                                      )}
+
+                                      {decision.resultado === 'Aprobar intervención'
+                                        && decision.fondo_interviniente
+                                        && decision.fondo_interviniente !== 'FONDO_COMPENSADOR' && (
+                                        <div className="notice info">
+                                          El circuito del Fondo Interviniente seleccionado todavía no está implementado.
+                                        </div>
+                                      )}
                                     </article>
                                   );
                                 })}
@@ -1726,6 +1807,22 @@ function App() {
                     <span>Objeto</span>
                     <strong>{seleccionado.objeto || '-'}</strong>
                   </div>
+                  {decisionOrigenExpediente && (
+                    <>
+                      <div>
+                        <span>Fondo Interviniente</span>
+                        <strong>
+                          {etiquetaFondoInterviniente(
+                            decisionOrigenExpediente.fondo_interviniente,
+                          )}
+                        </strong>
+                      </div>
+                      <div>
+                        <span>Autoridad decisora</span>
+                        <strong>{decisionOrigenExpediente.autoridad_decisora}</strong>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
 
