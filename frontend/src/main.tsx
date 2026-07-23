@@ -18,6 +18,12 @@ const fondosIntervinientesDisponibles = [
 type Pantalla = 'inicio' | 'nuevo' | 'expedientes' | 'detalle' | 'solicitudes' | 'administracion';
 type TabDetalle = 'workflow' | 'documentos' | 'ia' | 'validacion' | 'disposicion' | 'historial';
 
+const CONTROLES_OBLIGATORIOS_VALIDACION = new Set([
+  'Expediente interno',
+  'Establecimiento',
+  'Objeto',
+]);
+
 type Expediente = {
   id: string;
   numero_interno: string;
@@ -200,6 +206,18 @@ function claseValidacion(estado: string) {
   if (estado === 'OK') return 'badge green';
   if (estado === 'ADVERTENCIA') return 'badge yellow';
   return 'badge red';
+}
+
+function iconoValidacion(estado: string) {
+  if (estado === 'OK') return '✓';
+  if (estado === 'ADVERTENCIA') return '!';
+  return '×';
+}
+
+function etiquetaValidacion(estado: string) {
+  if (estado === 'OK') return 'Cumplido';
+  if (estado === 'ADVERTENCIA') return 'Advertencia';
+  return 'Error bloqueante';
 }
 
 function diagnosticoIA(analisis: AnalisisOP | null) {
@@ -1174,15 +1192,17 @@ function App() {
     (decision) => decision.resultado === 'Aprobar intervención',
   );
 
-  const etapaWorkflow = disposicionEmitida
-    ? 'formalizacion'
-    : disposicionBorrador
-      ? 'disposicion'
-      : opConExtraccionFallida || tieneOP
-        ? 'op'
-        : validacionAdministrativaCompleta
+  const etapaWorkflow = seleccionado?.estado === 'ARCHIVADO'
+    ? 'archivo'
+    : disposicionEmitida
+      ? 'formalizacion'
+      : disposicionBorrador
+        ? 'disposicion'
+        : opConExtraccionFallida || tieneOP
           ? 'op'
-          : 'validacion';
+          : validacionAdministrativaCompleta
+            ? 'op'
+            : 'validacion';
 
   const estadoOP = opConExtraccionFallida
     ? 'Requiere atención'
@@ -1218,7 +1238,7 @@ function App() {
     {
       id: 'disposicion',
       texto: 'Disposición',
-      estado: disposicionEmitida
+      estado: etapaWorkflow === 'archivo' || disposicionEmitida
         ? 'completed'
         : etapaWorkflow === 'disposicion'
           ? 'current'
@@ -1227,12 +1247,16 @@ function App() {
     {
       id: 'formalizacion',
       texto: 'Formalización',
-      estado: disposicionEmitida ? 'current' : 'blocked',
+      estado: etapaWorkflow === 'archivo'
+        ? 'completed'
+        : disposicionEmitida
+          ? 'current'
+          : 'blocked',
     },
     {
       id: 'archivo',
       texto: 'Archivo',
-      estado: 'future',
+      estado: etapaWorkflow === 'archivo' ? 'current' : 'future',
     },
   ];
 
@@ -1976,67 +2000,14 @@ function App() {
               <div className="expediente-identity">
                 <span className="eyebrow">Expediente</span>
                 <h2>{seleccionado.numero_interno}</h2>
-                <div className="expediente-identity-grid">
-                  <div>
-                    <span>Número GDEBA</span>
-                    <strong>{seleccionado.numero_gdeba || 'No disponible'}</strong>
-                  </div>
-                </div>
               </div>
 
               <div className="expediente-header-status">
                 <span className={estadoAdministrativo(seleccionado, historial).clase}>
                   {estadoAdministrativo(seleccionado, historial).texto}
                 </span>
-              </div>
-            </div>
-
-            <section className="card expediente-origin-section">
-              <h3>Origen del Expediente</h3>
-              <div className="expediente-origin-grid">
                 <div>
-                  <h4>Solicitud de Intervención origen</h4>
-                  <div className="expediente-identity-grid">
-                    <div>
-                      <span>Número de Solicitud</span>
-                      <strong>{solicitudOrigenExpediente?.numero_solicitud || 'No disponible'}</strong>
-                    </div>
-                    <div>
-                      <span>ID SUNA</span>
-                      <strong>{solicitudOrigenExpediente?.id_suna || 'No disponible'}</strong>
-                    </div>
-                    <div>
-                      <span>Establecimiento</span>
-                      <strong>{solicitudOrigenExpediente?.establecimiento || 'No disponible'}</strong>
-                    </div>
-                  </div>
-                  {solicitudOrigenExpediente && (
-                    <button className="small-button" type="button" onClick={abrirSolicitudOrigen}>
-                      Abrir Solicitud
-                    </button>
-                  )}
-                </div>
-
-                <div>
-                  <h4>Decisión Administrativa origen</h4>
-                  <div className="expediente-identity-grid">
-                    <div>
-                      <span>Fecha</span>
-                      <strong>{decisionOrigenExpediente?.fecha_decision || 'No disponible'}</strong>
-                    </div>
-                    <div>
-                      <span>Autoridad</span>
-                      <strong>{decisionOrigenExpediente?.autoridad_decisora || 'No disponible'}</strong>
-                    </div>
-                    <div>
-                      <span>Resultado</span>
-                      <strong>{decisionOrigenExpediente?.resultado || 'No disponible'}</strong>
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <h4>Fondo Interviniente</h4>
+                  <span>Fondo Interviniente</span>
                   <strong>
                     {decisionOrigenExpediente?.fondo_interviniente
                       ? etiquetaFondoInterviniente(decisionOrigenExpediente.fondo_interviniente)
@@ -2044,65 +2015,106 @@ function App() {
                   </strong>
                 </div>
               </div>
-            </section>
+            </div>
 
-            <section className="card">
-              <h3>Datos Generales</h3>
-              <div className="expediente-identity-grid">
-                <div>
-                  <span>Tipo de trámite</span>
-                  <strong>
-                    {seleccionado.tipo_tramite === 'FONDO_COMPENSADOR'
-                      ? 'Fondo Compensador'
-                      : seleccionado.tipo_tramite || 'No disponible'}
-                  </strong>
+            <section className="card expediente-origin-section">
+              <div className="card-title">
+                <h3>Resumen del Expediente</h3>
+              </div>
+              <div className="expediente-summary-grid">
+                <div className="expediente-summary-group">
+                  <h4>Origen</h4>
+                  <div className="expediente-summary-primary">
+                    <span>Solicitud</span>
+                    <strong>{solicitudOrigenExpediente?.numero_solicitud || 'No disponible'}</strong>
+                  </div>
+                  <div>
+                    <span>ID SUNA</span>
+                    <strong>{solicitudOrigenExpediente?.id_suna || 'No disponible'}</strong>
+                  </div>
                 </div>
-                <div>
-                  <span>Establecimiento</span>
-                  <strong>{seleccionado.establecimiento || 'No disponible'}</strong>
+
+                <div className="expediente-summary-group">
+                  <h4>Intervención</h4>
+                  <div className="expediente-summary-primary">
+                    <span>Escuela o establecimiento</span>
+                    <strong>
+                      {solicitudOrigenExpediente?.establecimiento
+                        || seleccionado.establecimiento
+                        || 'No disponible'}
+                    </strong>
+                  </div>
+                  <div>
+                    <span>Objeto</span>
+                    <strong>{seleccionado.objeto || 'No disponible'}</strong>
+                  </div>
                 </div>
-                <div>
-                  <span>Objeto</span>
-                  <strong>{seleccionado.objeto || 'No disponible'}</strong>
+
+                <div className="expediente-summary-group">
+                  <h4>Decisión</h4>
+                  <div className="expediente-summary-primary">
+                    <span>Resultado</span>
+                    <strong>{decisionOrigenExpediente?.resultado || 'No disponible'}</strong>
+                  </div>
+                  <div>
+                    <span>Autoridad</span>
+                    <strong>{decisionOrigenExpediente?.autoridad_decisora || 'No disponible'}</strong>
+                  </div>
+                  <div>
+                    <span>Fecha</span>
+                    <strong>{decisionOrigenExpediente?.fecha_decision || 'No disponible'}</strong>
+                  </div>
+                </div>
+
+                <div className="expediente-summary-group">
+                  <h4>Administración</h4>
+                  <div>
+                    <span>Fondo Interviniente</span>
+                    <strong>
+                      {decisionOrigenExpediente?.fondo_interviniente
+                        ? etiquetaFondoInterviniente(decisionOrigenExpediente.fondo_interviniente)
+                        : 'No disponible'}
+                    </strong>
+                  </div>
+                  <div>
+                    <span>Tipo de trámite</span>
+                    <strong>
+                      {seleccionado.tipo_tramite === 'FONDO_COMPENSADOR'
+                        ? 'Fondo Compensador'
+                        : seleccionado.tipo_tramite || 'No disponible'}
+                    </strong>
+                  </div>
+                  <div>
+                    <span>Número GDEBA</span>
+                    <strong>{seleccionado.numero_gdeba || 'No disponible'}</strong>
+                  </div>
                 </div>
               </div>
             </section>
 
-            <section className="card">
-              <h3>Preparación Administrativa</h3>
-              <div className="checklist-grid">
+            <section
+              className={`card administrative-preparation ${
+                preparacionAdministrativaCompleta ? 'complete' : ''
+              }`}
+            >
+              <div className="card-title">
+                <h3>Preparación Administrativa</h3>
+                <span className="muted">
+                  {controlesPreparacionPendientes.length === 0
+                    ? 'Completa'
+                    : `${controlesPreparacionPendientes.length} pendiente${
+                      controlesPreparacionPendientes.length === 1 ? '' : 's'
+                    }`}
+                </span>
+              </div>
+              <div className="administrative-preparation-grid">
                 {controlesPreparacionAdministrativa.map((control) => (
                   <div className="administrative-preparation-item" key={control.texto}>
                     <span aria-hidden="true">{control.completo ? '✓' : '○'}</span>
-                    <span>{control.texto}</span>
+                    <span>{control.texto.replace(/\.$/, '')}</span>
                     <strong>{control.completo ? 'Completo' : 'Pendiente'}</strong>
                   </div>
                 ))}
-              </div>
-              <div className="notice info">
-                {preparacionAdministrativaCompleta
-                  ? 'El Expediente está listo para iniciar la Validación Administrativa.'
-                  : 'Complete los datos indicados antes de continuar.'}
-              </div>
-
-              <div
-                className={`next-recommended-action ${
-                  preparacionAdministrativaCompleta ? 'complete' : ''
-                }`}
-              >
-                <h4>Próxima acción recomendada</h4>
-                <p>
-                  {preparacionAdministrativaCompleta
-                    ? 'El Expediente está preparado para iniciar la Validación Administrativa.'
-                    : 'Complete los datos pendientes para poder iniciar la Validación Administrativa.'}
-                </p>
-                {!preparacionAdministrativaCompleta && (
-                  <ul>
-                    {controlesPreparacionPendientes.map((control) => (
-                      <li key={control.texto}>{control.accion}</li>
-                    ))}
-                  </ul>
-                )}
               </div>
             </section>
 
@@ -2137,48 +2149,39 @@ function App() {
                       {opConExtraccionFallida && <span className="badge red">Requiere atención</span>}
                     </div>
 
-                    <div className="workflow-summary-grid">
-                      <article>
+                    <div className="workflow-active-status">
+                      {etapaWorkflow === 'validacion' && (
+                        <article>
                         <span>Validación administrativa</span>
                         <strong>
                           {validacionAdministrativaCompleta ? 'Completa' : validacion?.estado_general || 'Pendiente'}
                         </strong>
-                        {!validacionAdministrativaCompleta && (
-                          <button className="small-button" type="button" onClick={consultarValidacion}>
-                            Ver validación
-                          </button>
-                        )}
-                      </article>
-
-                      <article className={opConExtraccionFallida ? 'attention' : ''}>
-                        <span>Orden de Pago</span>
-                        <strong>{estadoOP}</strong>
-                        {tieneOP && !opAnalizadaCorrectamente && (
-                          <button className="small-button" type="button" onClick={analizarOP}>
-                            Analizar OP
-                          </button>
-                        )}
-                      </article>
-
-                      <article>
-                        <span>Disposición</span>
-                        <strong>
-                          {disposicionEmitida
-                            ? seleccionado.numero_disposicion || 'Emitida'
-                            : disposicionBorrador
-                              ? 'Borrador'
-                              : 'Pendiente'}
-                        </strong>
-                        {(disposicionBorrador || disposicionEmitida) && (
-                          <button className="small-button" type="button" onClick={() => setTabDetalle('disposicion')}>
-                            Ver disposición
-                          </button>
-                        )}
-                      </article>
-                    </div>
-
-                    <div className="flow-note">
-                      {accionPrincipal.descripcion}
+                        </article>
+                      )}
+                      {etapaWorkflow === 'op' && (
+                        <article className={opConExtraccionFallida ? 'attention' : ''}>
+                          <span>Orden de Pago</span>
+                          <strong>{estadoOP}</strong>
+                        </article>
+                      )}
+                      {etapaWorkflow === 'disposicion' && (
+                        <article>
+                          <span>Disposición</span>
+                          <strong>{disposicionBorrador ? 'Borrador' : 'Pendiente'}</strong>
+                        </article>
+                      )}
+                      {etapaWorkflow === 'formalizacion' && (
+                        <article>
+                          <span>Formalización</span>
+                          <strong>{seleccionado.numero_disposicion || 'Disposición emitida'}</strong>
+                        </article>
+                      )}
+                      {etapaWorkflow === 'archivo' && (
+                        <article>
+                          <span>Archivo</span>
+                          <strong>{estadoAdministrativo(seleccionado, historial).texto}</strong>
+                        </article>
+                      )}
                     </div>
                   </div>
                 )}
@@ -2420,18 +2423,59 @@ function App() {
                       <p className="empty">Presioná “Ver validación” para ejecutar los controles.</p>
                     ) : (
                       <>
-                        <table>
-                          <thead><tr><th>Control</th><th>Estado</th><th>Observación</th></tr></thead>
-                          <tbody>
-                            {validacion.controles.map((c, i) => (
-                              <tr key={i}>
-                                <td>{c.control}</td>
-                                <td><span className={claseValidacion(c.estado)}>{c.estado}</span></td>
-                                <td>{c.observacion || '-'}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
+                        <div className="administrative-controls">
+                          <section>
+                            <h4>Controles obligatorios</h4>
+                            <div className="administrative-controls-list">
+                              {validacion.controles
+                                .filter((control) => CONTROLES_OBLIGATORIOS_VALIDACION.has(control.control))
+                                .map((control) => (
+                                  <div
+                                    className="administrative-control"
+                                    key={control.control}
+                                    title={control.observacion || undefined}
+                                  >
+                                    <span
+                                      className={`validation-control-icon ${claseValidacion(control.estado)}`}
+                                      aria-label={etiquetaValidacion(control.estado)}
+                                    >
+                                      {iconoValidacion(control.estado)}
+                                    </span>
+                                    <span>{control.control}</span>
+                                  </div>
+                                ))}
+                            </div>
+                          </section>
+
+                          <section>
+                            <h4>Documentación y controles complementarios</h4>
+                            <div className="administrative-controls-list">
+                              {validacion.controles
+                                .filter((control) => !CONTROLES_OBLIGATORIOS_VALIDACION.has(control.control))
+                                .map((control) => (
+                                  <div
+                                    className="administrative-control"
+                                    key={control.control}
+                                    title={control.observacion || undefined}
+                                  >
+                                    <span
+                                      className={`validation-control-icon ${claseValidacion(control.estado)}`}
+                                      aria-label={etiquetaValidacion(control.estado)}
+                                    >
+                                      {iconoValidacion(control.estado)}
+                                    </span>
+                                    <span>{control.control}</span>
+                                  </div>
+                                ))}
+                            </div>
+                          </section>
+
+                          <div className="administrative-controls-legend" aria-label="Referencia de estados">
+                            <span><strong>✓</strong> Cumplido</span>
+                            <span><strong>!</strong> Advertencia</span>
+                            <span><strong>×</strong> Error bloqueante</span>
+                          </div>
+                        </div>
 
                         {validacion.estado_general === 'VERDE' && (
                           <div className="validation-action-panel green-panel">
@@ -2545,14 +2589,7 @@ function App() {
 
               <aside className="next-action-panel">
                 <section>
-                  <span className="eyebrow">Estado</span>
-                  <strong className="next-action-status">
-                    {estadoAdministrativo(seleccionado, historial).texto}
-                  </strong>
-                </section>
-
-                <section>
-                  <span className="eyebrow">Próximo paso</span>
+                  <span className="eyebrow">Próxima acción recomendada</span>
                   <p>{accionPrincipal.descripcion}</p>
                   <button
                     className="primary next-action-button"
