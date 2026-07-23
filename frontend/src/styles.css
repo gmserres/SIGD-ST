@@ -79,8 +79,10 @@ th { color: #64748b; font-weight: 700; }
 .expediente-summary-primary strong { font-size: 16px; }
 .administrative-preparation .card-title { margin-bottom: 12px; }
 .administrative-preparation-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
-.administrative-preparation-item { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; }
-.administrative-preparation-item > span:first-child { font-size: 18px; }
+.administrative-preparation-item { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 8px; align-items: center; min-height: 24px; }
+.administrative-preparation-item > span:first-child { display: inline-grid; place-items: center; width: 22px; font-size: 18px; line-height: 1; }
+.administrative-preparation-legend { display: flex; flex-wrap: wrap; gap: 18px; margin-top: 12px; padding-top: 10px; border-top: 1px solid #e2e8f0; color: #64748b; font-size: 12px; }
+.administrative-preparation-legend span { display: inline-flex; gap: 5px; align-items: center; }
 .eyebrow { color: #64748b; font-size: 13px; text-transform: uppercase; letter-spacing: .08em; }
 .workflow-steps { display: grid; grid-template-columns: repeat(5, 1fr); background: #fff; border: 1px solid #dbe1ea; border-radius: 16px; padding: 12px; box-shadow: 0 2px 6px rgba(15,23,42,.04); }
 .workflow-step { position: relative; display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 38px; padding: 5px 10px; color: #64748b; font-size: 13px; font-weight: 700; text-align: center; }

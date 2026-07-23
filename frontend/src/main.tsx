@@ -2112,9 +2112,12 @@ function App() {
                   <div className="administrative-preparation-item" key={control.texto}>
                     <span aria-hidden="true">{control.completo ? '✓' : '○'}</span>
                     <span>{control.texto.replace(/\.$/, '')}</span>
-                    <strong>{control.completo ? 'Completo' : 'Pendiente'}</strong>
                   </div>
                 ))}
+              </div>
+              <div className="administrative-preparation-legend" aria-label="Referencia de estados">
+                <span><strong>○</strong> Pendiente</span>
+                <span><strong>✓</strong> Completo</span>
               </div>
             </section>
 
