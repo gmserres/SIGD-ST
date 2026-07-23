@@ -11,6 +11,7 @@ class Expediente:
     numero_gdeba: str | None
     solicitud_intervencion_id: str | None
     decision_administrativa_id: str | None
+    configuracion_uc_id: str | None
     id_suna: str | None
     tipo_tramite: str
     estado: EstadoExpediente

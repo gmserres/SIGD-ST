@@ -4,7 +4,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from app.application.configuracion_uc.determinar_procedimiento_contratacion import (
     MultiplesRangosProcedimientoUCError,
@@ -31,6 +31,9 @@ class MotorDeterminacionFalso:
     ) -> None:
         self.resultado = resultado
         self.invocaciones: list[tuple[date, Decimal]] = []
+        self.invocaciones_historicas: list[
+            tuple[ConfiguracionUC, Decimal]
+        ] = []
         self.error: Exception | None = None
 
     def ejecutar(
@@ -43,13 +46,23 @@ class MotorDeterminacionFalso:
             raise self.error
         return self.resultado
 
+    def ejecutar_con_configuracion(
+        self,
+        configuracion: ConfiguracionUC,
+        monto: Decimal,
+    ) -> ResultadoDeterminacionProcedimiento:
+        self.invocaciones_historicas.append((configuracion, monto))
+        if self.error is not None:
+            raise self.error
+        return self.resultado
+
 
 class IntegracionMotorUCFondoCompensadorTest(unittest.TestCase):
     def test_analisis_delega_fecha_monto_y_conserva_resultado(
         self,
     ) -> None:
         motor = MotorDeterminacionFalso(self._crear_resultado())
-        servicio = AnalisisOPService(motor)
+        servicio = AnalisisOPService(motor, MagicMock())
 
         analisis = self._analizar(
             servicio,
@@ -84,7 +97,7 @@ class IntegracionMotorUCFondoCompensadorTest(unittest.TestCase):
         for monto_total, importe_pago, probable, esperado in casos:
             with self.subTest(esperado=esperado):
                 motor = MotorDeterminacionFalso(self._crear_resultado())
-                servicio = AnalisisOPService(motor)
+                servicio = AnalisisOPService(motor, MagicMock())
 
                 self._analizar(
                     servicio,
@@ -99,7 +112,7 @@ class IntegracionMotorUCFondoCompensadorTest(unittest.TestCase):
         self,
     ) -> None:
         motor = MotorDeterminacionFalso(self._crear_resultado())
-        servicio = AnalisisOPService(motor)
+        servicio = AnalisisOPService(motor, MagicMock())
 
         with patch(
             "app.services.analisis_op.expediente_service.obtener",
@@ -141,7 +154,7 @@ class IntegracionMotorUCFondoCompensadorTest(unittest.TestCase):
             with self.subTest(error=type(error).__name__):
                 motor = MotorDeterminacionFalso(self._crear_resultado())
                 motor.error = error
-                servicio = AnalisisOPService(motor)
+                servicio = AnalisisOPService(motor, MagicMock())
 
                 with self.assertRaises(type(error)) as contexto:
                     self._analizar(servicio)
@@ -153,7 +166,8 @@ class IntegracionMotorUCFondoCompensadorTest(unittest.TestCase):
     ) -> None:
         analisis = self._analizar(
             AnalisisOPService(
-                MotorDeterminacionFalso(self._crear_resultado())
+                MotorDeterminacionFalso(self._crear_resultado()),
+                MagicMock(),
             )
         )
 
@@ -259,12 +273,18 @@ class IntegracionMotorUCFondoCompensadorTest(unittest.TestCase):
         ), patch(
             "app.services.analisis_op.extraer_datos_op_desde_pdf",
             return_value=datos,
+        ), patch(
+            "app.services.analisis_op."
+            "expediente_service.asociar_configuracion_uc",
         ):
             return servicio.analizar("EXP-1")
 
     @staticmethod
     def _expediente():
-        return SimpleNamespace(creado=datetime(2026, 7, 10, 15, 30))
+        return SimpleNamespace(
+            creado=datetime(2026, 7, 10, 15, 30),
+            configuracion_uc_id=None,
+        )
 
     @staticmethod
     def _crear_resultado() -> ResultadoDeterminacionProcedimiento:

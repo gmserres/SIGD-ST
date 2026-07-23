@@ -80,12 +80,21 @@ class DeterminarProcedimientoContratacion:
         fecha: date,
         monto: Decimal,
     ) -> ResultadoDeterminacionProcedimiento:
-        if monto < Decimal("0"):
-            raise MontoDeterminacionProcedimientoNegativoError(monto)
-
+        self._validar_monto(monto)
         configuracion = (
             self._obtener_configuracion_vigente.ejecutar(fecha)
         )
+        return self.ejecutar_con_configuracion(
+            configuracion=configuracion,
+            monto=monto,
+        )
+
+    def ejecutar_con_configuracion(
+        self,
+        configuracion: ConfiguracionUC,
+        monto: Decimal,
+    ) -> ResultadoDeterminacionProcedimiento:
+        self._validar_monto(monto)
         cantidad_uc = monto / configuracion.valor_uc
         rangos_aplicables = tuple(
             rango
@@ -116,6 +125,11 @@ class DeterminarProcedimientoContratacion:
             configuracion=configuracion,
             rango=rangos_aplicables[0],
         )
+
+    @staticmethod
+    def _validar_monto(monto: Decimal) -> None:
+        if monto < Decimal("0"):
+            raise MontoDeterminacionProcedimientoNegativoError(monto)
 
     @staticmethod
     def _contiene(

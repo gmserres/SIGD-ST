@@ -4,28 +4,41 @@ from pathlib import Path
 from app.application.configuracion_uc.determinar_procedimiento_contratacion import (
     DeterminarProcedimientoContratacion,
 )
+from app.domain.configuracion_uc import ConfiguracionUCId
 from app.modules.documentos.extractor_datos import extraer_datos_op_desde_pdf
 from app.modules.inteligencia.comparador import comparar_total_facturas
 from app.modules.inteligencia.confiabilidad import calcular_confiabilidad, calcular_prioridad
 from app.modules.inteligencia.reglas import diagnosticar_expediente
+from app.repositories.configuracion_uc_repository import (
+    ConfiguracionUCRepository,
+)
 from app.schemas.analisis_op import AnalisisOPRead, DocumentoComercialExtraido, RetencionExtraida
 from app.services.documentos import documento_service
 from app.composition.expediente import expediente_service
+
+
+class ConfiguracionUCHistoricaNoEncontradaError(LookupError):
+    def __init__(self, configuracion_uc_id: ConfiguracionUCId) -> None:
+        self.configuracion_uc_id = configuracion_uc_id
+        super().__init__(
+            "No existe la Configuración UC histórica asociada "
+            f"al expediente: {configuracion_uc_id}."
+        )
 
 
 class AnalisisOPService:
     def __init__(
         self,
         determinar_procedimiento_contratacion: DeterminarProcedimientoContratacion,
+        configuracion_uc_repository: ConfiguracionUCRepository,
     ) -> None:
         self._determinar_procedimiento_contratacion = (
             determinar_procedimiento_contratacion
         )
+        self._configuracion_uc_repository = configuracion_uc_repository
 
     def analizar(self, expediente_id: str) -> AnalisisOPRead:
         expediente = expediente_service.obtener(expediente_id)
-        # Integración transitoria: la asociación histórica inmutable con la
-        # Configuración UC se incorporará en un sprint posterior.
         fecha_referencia = expediente.creado.date()
         documentos = documento_service.listar_por_expediente(expediente_id)
         op = next((doc for doc in documentos if doc.tipo == "OP"), None)
@@ -65,12 +78,31 @@ class AnalisisOPService:
             importe_neto = datos.monto_neto_pagar or datos.importe_pago
             determinacion = None
             if importe_bruto is not None:
-                determinacion = (
-                    self._determinar_procedimiento_contratacion.ejecutar(
-                        fecha=fecha_referencia,
-                        monto=Decimal(str(importe_bruto)),
+                monto = Decimal(str(importe_bruto))
+                if expediente.configuracion_uc_id is not None:
+                    configuracion = (
+                        self._configuracion_uc_repository.obtener_por_id(
+                            expediente.configuracion_uc_id
+                        )
                     )
-                )
+                    if configuracion is None:
+                        raise ConfiguracionUCHistoricaNoEncontradaError(
+                            expediente.configuracion_uc_id
+                        )
+                    determinacion = (
+                        self._determinar_procedimiento_contratacion
+                        .ejecutar_con_configuracion(
+                            configuracion=configuracion,
+                            monto=monto,
+                        )
+                    )
+                else:
+                    determinacion = (
+                        self._determinar_procedimiento_contratacion.ejecutar(
+                            fecha=fecha_referencia,
+                            monto=monto,
+                        )
+                    )
 
             documentos_comerciales = [
                 DocumentoComercialExtraido(
@@ -189,6 +221,15 @@ class AnalisisOPService:
 
             advertencias = list(datos.advertencias)
             advertencias.append("Extracción automática inicial. Requiere revisión humana.")
+
+            if (
+                expediente.configuracion_uc_id is None
+                and determinacion is not None
+            ):
+                expediente_service.asociar_configuracion_uc(
+                    expediente_id,
+                    determinacion.configuracion.id_configuracion,
+                )
 
             return AnalisisOPRead(
                 expediente_id=expediente_id,

@@ -30,5 +30,6 @@ determinar_procedimiento_contratacion = (
     )
 )
 analisis_op_service = AnalisisOPService(
-    determinar_procedimiento_contratacion
+    determinar_procedimiento_contratacion,
+    configuracion_uc_repository,
 )

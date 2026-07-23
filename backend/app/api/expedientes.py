@@ -15,6 +15,9 @@ from app.schemas.texto_documento import TextoDocumentoRead
 from app.schemas.validacion import ValidacionExpedienteRead
 from app.schemas.validacion_observada import ValidacionObservadaCreate
 from app.composition.analisis_op import analisis_op_service
+from app.services.analisis_op import (
+    ConfiguracionUCHistoricaNoEncontradaError,
+)
 from app.services.documentos import documento_service
 from app.services.disposiciones import disposicion_service
 from app.services.disposicion_docx import disposicion_docx_service
@@ -164,8 +167,24 @@ async def cargar_op(expediente_id: str, file: UploadFile = File(...)):
     return documento
 
 
+def _analizar_op_o_conflicto(expediente_id: str) -> AnalisisOPRead:
+    try:
+        return analisis_op_service.analizar(expediente_id)
+    except ConfiguracionUCHistoricaNoEncontradaError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "mensaje": str(exc),
+                "errores": [
+                    "La referencia histórica de Configuración UC "
+                    "no pudo ser recuperada."
+                ],
+            },
+        ) from exc
+
+
 def _verificar_op_legible_para_disposicion(expediente_id: str) -> AnalisisOPRead:
-    analisis = analisis_op_service.analizar(expediente_id)
+    analisis = _analizar_op_o_conflicto(expediente_id)
 
     if not analisis.op_detectada:
         raise HTTPException(
@@ -200,7 +219,7 @@ def analizar_op(expediente_id: str):
     obtener_expediente(expediente_id)
     if not validacion_service.tiene_op(expediente_id):
         historial_service.registrar(expediente_id, "ANALISIS_OP_BLOQUEADO", detalle="No existe OP cargada.")
-    analisis = analisis_op_service.analizar(expediente_id)
+    analisis = _analizar_op_o_conflicto(expediente_id)
     if analisis.modo == "EXTRACCION_FALLIDA":
         historial_service.registrar(
             expediente_id,

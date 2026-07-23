@@ -1,9 +1,20 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, Index, Integer, Sequence, String, Text
+from sqlalchemy import (
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    Sequence,
+    String,
+    Text,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.infrastructure.database.base import Base
+from app.infrastructure.database.models.configuracion_uc_model import (
+    ConfiguracionUCModel,
+)
 
 
 expedientes_id_sequence = Sequence("expedientes_id_seq")
@@ -14,6 +25,7 @@ class ExpedienteModel(Base):
     __table_args__ = (
         Index("ix_expedientes_solicitud", "solicitud_intervencion_id"),
         Index("ix_expedientes_decision", "decision_administrativa_id"),
+        Index("ix_expedientes_configuracion_uc", "configuracion_uc_id"),
         Index("ix_expedientes_id_suna", "id_suna"),
         Index("ix_expedientes_estado", "estado"),
     )
@@ -31,6 +43,14 @@ class ExpedienteModel(Base):
     )
     decision_administrativa_id: Mapped[str | None] = mapped_column(
         String(64), nullable=True
+    )
+    configuracion_uc_id: Mapped[str | None] = mapped_column(
+        String(64),
+        ForeignKey(
+            ConfiguracionUCModel.id_configuracion,
+            ondelete="RESTRICT",
+        ),
+        nullable=True,
     )
     id_suna: Mapped[str | None] = mapped_column(String(255), nullable=True)
     tipo_tramite: Mapped[str] = mapped_column(String(64), nullable=False)

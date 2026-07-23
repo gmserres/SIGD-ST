@@ -11,6 +11,7 @@ class ExpedienteCreate(BaseModel):
     numero_gdeba: Optional[str] = Field(default=None)
     solicitud_intervencion_id: str | None = None
     decision_administrativa_id: str | None = None
+    configuracion_uc_id: str | None = None
     id_suna: Optional[str] = Field(default=None, examples=["45872"])
     tipo_tramite: str = Field(default="FONDO_COMPENSADOR")
     establecimiento: Optional[str] = Field(default=None, examples=["EP N° 2"])
@@ -31,6 +32,7 @@ class ExpedienteRead(BaseModel):
     numero_gdeba: Optional[str]
     solicitud_intervencion_id: str | None = None
     decision_administrativa_id: str | None = None
+    configuracion_uc_id: str | None = None
     id_suna: Optional[str]
     tipo_tramite: str
     estado: EstadoExpediente

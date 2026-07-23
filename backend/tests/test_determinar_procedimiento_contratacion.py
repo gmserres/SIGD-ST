@@ -59,6 +59,25 @@ class DeterminarProcedimientoContratacionTest(unittest.TestCase):
             configuracion.rangos[0],
         )
 
+    def test_ejecuta_con_configuracion_sin_consultar_vigencia(
+        self,
+    ) -> None:
+        configuracion = self._crear_configuracion()
+        obtener = ObtenerConfiguracionUCVigenteFalso(configuracion)
+        caso_de_uso = DeterminarProcedimientoContratacion(obtener)
+
+        resultado = caso_de_uso.ejecutar_con_configuracion(
+            configuracion=configuracion,
+            monto=Decimal("12345.67"),
+        )
+
+        self.assertEqual(obtener.fechas_consultadas, [])
+        self.assertIs(resultado.configuracion, configuracion)
+        self.assertEqual(
+            resultado.cantidad_uc,
+            Decimal("12.34567"),
+        )
+
     def test_respeta_limite_inferior_inclusivo(self) -> None:
         configuracion = self._crear_configuracion(
             rangos=(

@@ -10,6 +10,7 @@ def a_modelo(expediente: Expediente) -> ExpedienteModel:
         numero_gdeba=expediente.numero_gdeba,
         solicitud_intervencion_id=expediente.solicitud_intervencion_id,
         decision_administrativa_id=expediente.decision_administrativa_id,
+        configuracion_uc_id=expediente.configuracion_uc_id,
         id_suna=expediente.id_suna,
         tipo_tramite=expediente.tipo_tramite,
         estado=expediente.estado.value,
@@ -27,6 +28,7 @@ def a_dominio(modelo: ExpedienteModel) -> Expediente:
         numero_gdeba=modelo.numero_gdeba,
         solicitud_intervencion_id=modelo.solicitud_intervencion_id,
         decision_administrativa_id=modelo.decision_administrativa_id,
+        configuracion_uc_id=modelo.configuracion_uc_id,
         id_suna=modelo.id_suna,
         tipo_tramite=modelo.tipo_tramite,
         estado=EstadoExpediente(modelo.estado),
@@ -42,6 +44,7 @@ def actualizar_modelo(modelo: ExpedienteModel, expediente: Expediente) -> None:
     modelo.numero_gdeba = expediente.numero_gdeba
     modelo.solicitud_intervencion_id = expediente.solicitud_intervencion_id
     modelo.decision_administrativa_id = expediente.decision_administrativa_id
+    modelo.configuracion_uc_id = expediente.configuracion_uc_id
     modelo.id_suna = expediente.id_suna
     modelo.tipo_tramite = expediente.tipo_tramite
     modelo.estado = expediente.estado.value

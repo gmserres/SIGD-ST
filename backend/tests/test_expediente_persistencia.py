@@ -16,7 +16,10 @@ from app.repositories.expediente_in_memory_repository import (
     InMemoryExpedienteRepository,
 )
 from app.schemas.expediente import ExpedienteCreate, ExpedienteUpdate
-from app.services.expedientes import ExpedienteService
+from app.services.expedientes import (
+    ConfiguracionUCExpedienteYaAsociadaError,
+    ExpedienteService,
+)
 
 
 class ExpedientePersistenciaTest(unittest.TestCase):
@@ -31,6 +34,80 @@ class ExpedientePersistenciaTest(unittest.TestCase):
         self.assertEqual(segundo.id, "EXP-000002")
         self.assertEqual([item.id for item in servicio.listar()], [primero.id, segundo.id])
         self.assertEqual(servicio.obtener(primero.id), primero)
+        self.assertIsNone(primero.configuracion_uc_id)
+
+    def test_asocia_configuracion_uc_y_conserva_el_agregado(self) -> None:
+        servicio = ExpedienteService(InMemoryExpedienteRepository())
+        creado = servicio.crear(self._crear_data("033-1/2026"))
+
+        asociado = servicio.asociar_configuracion_uc(
+            creado.id,
+            "configuracion-1",
+        )
+
+        self.assertEqual(asociado.configuracion_uc_id, "configuracion-1")
+        self.assertEqual(asociado.estado, creado.estado)
+        self.assertEqual(asociado.numero_interno, creado.numero_interno)
+        self.assertEqual(asociado.creado, creado.creado)
+
+    def test_asociacion_repetida_es_idempotente(self) -> None:
+        servicio = ExpedienteService(InMemoryExpedienteRepository())
+        creado = servicio.crear(self._crear_data("033-1/2026"))
+        servicio.asociar_configuracion_uc(creado.id, "configuracion-1")
+
+        repetido = servicio.asociar_configuracion_uc(
+            creado.id,
+            "configuracion-1",
+        )
+
+        self.assertEqual(repetido.configuracion_uc_id, "configuracion-1")
+
+    def test_rechaza_reemplazar_configuracion_uc(self) -> None:
+        servicio = ExpedienteService(InMemoryExpedienteRepository())
+        creado = servicio.crear(self._crear_data("033-1/2026"))
+        servicio.asociar_configuracion_uc(creado.id, "configuracion-1")
+
+        with self.assertRaises(
+            ConfiguracionUCExpedienteYaAsociadaError
+        ) as contexto:
+            servicio.asociar_configuracion_uc(
+                creado.id,
+                "configuracion-2",
+            )
+
+        self.assertEqual(contexto.exception.expediente_id, creado.id)
+        self.assertEqual(
+            contexto.exception.configuracion_uc_id_existente,
+            "configuracion-1",
+        )
+        self.assertEqual(
+            contexto.exception.configuracion_uc_id_solicitada,
+            "configuracion-2",
+        )
+
+    def test_actualizacion_generica_no_borra_ni_reemplaza_asociacion(
+        self,
+    ) -> None:
+        servicio = ExpedienteService(InMemoryExpedienteRepository())
+        creado = servicio.crear(self._crear_data("033-1/2026"))
+        servicio.asociar_configuracion_uc(creado.id, "configuracion-1")
+
+        data = ExpedienteUpdate.model_validate(
+            {
+                "establecimiento": "EP 2",
+                "configuracion_uc_id": "configuracion-2",
+            }
+        )
+        actualizado = servicio.actualizar(creado.id, data)
+
+        self.assertNotIn(
+            "configuracion_uc_id",
+            ExpedienteUpdate.model_fields,
+        )
+        self.assertEqual(
+            actualizado.configuracion_uc_id,
+            "configuracion-1",
+        )
 
     def test_actualiza_campos_y_preserva_identidad_relaciones_fecha_y_estado(self) -> None:
         servicio = ExpedienteService(InMemoryExpedienteRepository())
@@ -62,7 +139,10 @@ class ExpedientePersistenciaTest(unittest.TestCase):
             servicio.obtener("EXP-INEXISTENTE")
 
     def test_mapper_preserva_todos_los_campos(self) -> None:
-        expediente = self._crear_dominio("EXP-000001")
+        expediente = self._crear_dominio(
+            "EXP-000001",
+            configuracion_uc_id="configuracion-1",
+        )
 
         recuperado = a_dominio(a_modelo(expediente))
 
@@ -73,7 +153,10 @@ class ExpedientePersistenciaTest(unittest.TestCase):
         Base.metadata.create_all(engine)
         fabrica = sessionmaker(bind=engine, expire_on_commit=False)
         primero = PostgresExpedienteRepository(fabrica)
-        expediente = self._crear_dominio("EXP-000001")
+        expediente = self._crear_dominio(
+            "EXP-000001",
+            configuracion_uc_id="configuracion-1",
+        )
 
         primero.guardar(expediente)
         segundo = PostgresExpedienteRepository(fabrica)
@@ -96,12 +179,16 @@ class ExpedientePersistenciaTest(unittest.TestCase):
         sesion.rollback.assert_called_once_with()
 
     @staticmethod
-    def _crear_data(numero_interno: str) -> ExpedienteCreate:
+    def _crear_data(
+        numero_interno: str,
+        configuracion_uc_id: str | None = None,
+    ) -> ExpedienteCreate:
         return ExpedienteCreate(
             numero_interno=numero_interno,
             numero_gdeba=None,
             solicitud_intervencion_id="solicitud-1",
             decision_administrativa_id="decision-1",
+            configuracion_uc_id=configuracion_uc_id,
             id_suna="123",
             tipo_tramite="FONDO_COMPENSADOR",
             establecimiento="EP 1",
@@ -110,13 +197,17 @@ class ExpedientePersistenciaTest(unittest.TestCase):
         )
 
     @staticmethod
-    def _crear_dominio(expediente_id: str) -> Expediente:
+    def _crear_dominio(
+        expediente_id: str,
+        configuracion_uc_id: str | None = None,
+    ) -> Expediente:
         return Expediente(
             id=expediente_id,
             numero_interno="033-1/2026",
             numero_gdeba=None,
             solicitud_intervencion_id="solicitud-1",
             decision_administrativa_id="decision-1",
+            configuracion_uc_id=configuracion_uc_id,
             id_suna="123",
             tipo_tramite="FONDO_COMPENSADOR",
             estado=EstadoExpediente.BORRADOR,
