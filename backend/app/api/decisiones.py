@@ -8,6 +8,7 @@ from app.schemas.decision_administrativa import (
 )
 from app.schemas.expediente import ExpedienteCreate, ExpedienteRead
 from app.services.decision_administrativa_service import (
+    DecisionAprobatoriaDuplicadaError,
     decision_administrativa_service,
 )
 from app.composition.expediente import expediente_service
@@ -24,7 +25,13 @@ router = APIRouter()
 def crear_decision(
     data: DecisionAdministrativaCreate,
 ) -> DecisionAdministrativaRead:
-    return decision_administrativa_service.crear(data)
+    try:
+        return decision_administrativa_service.crear(data)
+    except DecisionAprobatoriaDuplicadaError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(exc),
+        ) from exc
 
 
 @router.post(

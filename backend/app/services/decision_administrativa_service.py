@@ -8,6 +8,10 @@ from app.schemas.decision_administrativa import (
 )
 
 
+class DecisionAprobatoriaDuplicadaError(ValueError):
+    pass
+
+
 class DecisionAdministrativaService:
     def __init__(self) -> None:
         self._decisiones: dict[str, DecisionAdministrativa] = {}
@@ -16,6 +20,19 @@ class DecisionAdministrativaService:
         self,
         data: DecisionAdministrativaCreate,
     ) -> DecisionAdministrativaRead:
+        if (
+            data.resultado == "Aprobar intervención"
+            and any(
+                decision.solicitud_intervencion_id
+                == data.solicitud_intervencion_id
+                and decision.resultado == "Aprobar intervención"
+                for decision in self._decisiones.values()
+            )
+        ):
+            raise DecisionAprobatoriaDuplicadaError(
+                "La intervención ya fue aprobada."
+            )
+
         decision_id = str(uuid4())
         decision = DecisionAdministrativa(
             id_decision=decision_id,

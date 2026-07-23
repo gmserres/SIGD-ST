@@ -9,6 +9,7 @@ from app.api.decisiones import crear_expediente_desde_decision
 from app.schemas.decision_administrativa import DecisionAdministrativaCreate
 from app.schemas.decision_expediente import CrearExpedienteDesdeDecision
 from app.services.decision_administrativa_service import (
+    DecisionAprobatoriaDuplicadaError,
     DecisionAdministrativaService,
 )
 
@@ -31,6 +32,31 @@ class FondoIntervinienteTest(unittest.TestCase):
         self.assertEqual(decision.fondo_interviniente, "FONDO_COMPENSADOR")
         self.assertEqual(decision.autoridad_decisora, "Tesorero")
         self.assertEqual(decision.usuario_registrante, "Secretario Técnico")
+        self.assertEqual(
+            service.listar()[0].fondo_interviniente,
+            "FONDO_COMPENSADOR",
+        )
+
+    def test_rechaza_segunda_decision_aprobatoria_para_la_misma_solicitud(
+        self,
+    ) -> None:
+        service = DecisionAdministrativaService()
+        data = DecisionAdministrativaCreate(
+            solicitud_intervencion_id="solicitud-1",
+            autoridad_decisora="Tesorero",
+            fecha_decision=date(2026, 7, 22),
+            resultado="Aprobar intervención",
+            fundamento="Intervención aprobada.",
+            fondo_interviniente="FONDO_COMPENSADOR",
+            usuario_registrante="Secretario Técnico",
+        )
+        service.crear(data)
+
+        with self.assertRaisesRegex(
+            DecisionAprobatoriaDuplicadaError,
+            "La intervención ya fue aprobada.",
+        ):
+            service.crear(data)
 
     def test_rechaza_otro_sin_descripcion(self) -> None:
         with self.assertRaises(ValidationError):

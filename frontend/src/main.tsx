@@ -3,6 +3,17 @@ import { createRoot } from 'react-dom/client';
 import './styles.css';
 
 const API_URL = 'http://localhost:8000';
+const procedenciasDisponibles = [
+  'SUNA',
+  'MESA DE ENTRADA',
+  'CORREO ELECTRÓNICO',
+  'OTRA',
+];
+const fondosIntervinientesDisponibles = [
+  'FONDO_COMPENSADOR',
+  'CUFP',
+  'OTRO',
+];
 
 type Pantalla = 'inicio' | 'nuevo' | 'expedientes' | 'detalle' | 'solicitudes' | 'administracion';
 type TabDetalle = 'workflow' | 'documentos' | 'ia' | 'validacion' | 'disposicion' | 'historial';
@@ -364,6 +375,7 @@ function App() {
   const [decisionFondoInterviniente, setDecisionFondoInterviniente] = useState('');
   const [decisionDescripcionFondo, setDecisionDescripcionFondo] = useState('');
   const [decisionUsuarioRegistrante, setDecisionUsuarioRegistrante] = useState('');
+  const [decisionRecienCreadaId, setDecisionRecienCreadaId] = useState<string | null>(null);
 
   const [decisionExpedienteActiva, setDecisionExpedienteActiva] = useState<string | null>(null);
   const [expedienteDecisionNumeroInterno, setExpedienteDecisionNumeroInterno] = useState('');
@@ -374,9 +386,7 @@ function App() {
   const [catalogoEvaluadores, setCatalogoEvaluadores] = useState<string[]>([]);
   const [catalogoAutoridadesDecisoras, setCatalogoAutoridadesDecisoras] = useState<string[]>([]);
   const [catalogoResultadosDecision, setCatalogoResultadosDecision] = useState<string[]>([]);
-  const [catalogoFondosIntervinientes, setCatalogoFondosIntervinientes] = useState<string[]>([]);
 
-  const [solicitudNumero, setSolicitudNumero] = useState('');
   const [solicitudProcedencia, setSolicitudProcedencia] = useState('');
   const [solicitudIdSuna, setSolicitudIdSuna] = useState('');
   const [solicitudFechaIngreso, setSolicitudFechaIngreso] = useState('');
@@ -411,6 +421,25 @@ function App() {
     };
   }, [expedientes]);
 
+  const metricasSolicitudes = useMemo(() => {
+    const solicitudesConExpediente = new Set(
+      expedientes
+        .map((expediente) => expediente.solicitud_intervencion_id)
+        .filter((solicitudId): solicitudId is string => Boolean(solicitudId)),
+    );
+    const pendientes = solicitudes.filter(
+      (solicitud) => !solicitudesConExpediente.has(solicitud.id_solicitud),
+    );
+
+    return {
+      total: solicitudes.length,
+      pendientes,
+      conIdSuna: solicitudes.filter((solicitud) => Boolean(solicitud.id_suna)).length,
+      conExpediente: solicitudesConExpediente.size,
+      recientes: solicitudes.slice(-5).reverse(),
+    };
+  }, [solicitudes, expedientes]);
+
   function avisar(texto: string, tipo: 'ok' | 'error' | 'info' = 'info') {
     setMensaje(texto);
     setMensajeTipo(tipo);
@@ -434,7 +463,6 @@ function App() {
       cargarCatalogo('/catalogos/evaluadores', setCatalogoEvaluadores),
       cargarCatalogo('/catalogos/autoridades-decisoras', setCatalogoAutoridadesDecisoras),
       cargarCatalogo('/catalogos/resultados-decision', setCatalogoResultadosDecision),
-      cargarCatalogo('/catalogos/fondos-intervinientes', setCatalogoFondosIntervinientes),
     ]);
   }
 
@@ -528,12 +556,36 @@ function App() {
   }
 
   async function seleccionarSolicitud(solicitud: SolicitudIntervencion) {
+    setPantalla('solicitudes');
     setSolicitudSeleccionada(solicitud);
     setMensaje('');
     await Promise.all([
       cargarEvaluaciones(solicitud.id_solicitud),
       cargarDecisiones(solicitud.id_solicitud),
     ]);
+  }
+
+  async function abrirSolicitudDesdeBandeja(
+    solicitud: SolicitudIntervencion,
+  ) {
+    await seleccionarSolicitud(solicitud);
+  }
+
+  async function abrirNuevaSolicitud() {
+    setPantalla('solicitudes');
+    setSolicitudSeleccionada(null);
+    setEvaluaciones([]);
+    setDecisiones([]);
+    setSolicitudProcedencia('');
+    setSolicitudIdSuna('');
+    setSolicitudFechaIngreso('');
+    setSolicitudEstablecimiento('');
+    setSolicitudSolicitante('');
+    setSolicitudMotivo('');
+    setSolicitudPrioridad('');
+    setErrorSolicitudes('');
+    setMensaje('');
+    await cargarSolicitudes();
   }
 
   async function crearSolicitud(evento: React.FormEvent<HTMLFormElement>) {
@@ -543,11 +595,22 @@ function App() {
     setMensaje('');
 
     try {
+      const ejercicio = new Date().getFullYear();
+      const patronNumeroSolicitud = new RegExp(`^SOL-${ejercicio}-(\\d{6})$`);
+      const mayorCorrelativo = solicitudes.reduce((mayor, solicitud) => {
+        const coincidencia = solicitud.numero_solicitud.match(patronNumeroSolicitud);
+        return coincidencia
+          ? Math.max(mayor, Number(coincidencia[1]))
+          : mayor;
+      }, 0);
+      const numeroSolicitud = `SOL-${ejercicio}-${String(
+        mayorCorrelativo + 1,
+      ).padStart(6, '0')}`;
       const res = await fetch(`${API_URL}/solicitudes`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          numero_solicitud: solicitudNumero,
+          numero_solicitud: numeroSolicitud,
           procedencia: solicitudProcedencia,
           id_suna: solicitudIdSuna || null,
           fecha_ingreso: solicitudFechaIngreso,
@@ -570,7 +633,6 @@ function App() {
         cargarEvaluaciones(creada.id_solicitud),
         cargarDecisiones(creada.id_solicitud),
       ]);
-      setSolicitudNumero('');
       setSolicitudProcedencia('');
       setSolicitudIdSuna('');
       setSolicitudFechaIngreso('');
@@ -629,6 +691,24 @@ function App() {
     evento.preventDefault();
     if (!solicitudSeleccionada) return;
 
+    if (
+      decisionResultado === 'Aprobar intervención'
+      && solicitudYaAprobada
+    ) {
+      setErrorDecisiones('La intervención ya fue aprobada.');
+      return;
+    }
+
+    if (
+      decisionResultado === 'Aprobar intervención'
+      && !decisionFondoInterviniente
+    ) {
+      setErrorDecisiones(
+        'Debe seleccionar el Fondo Interviniente antes de registrar una decisión aprobatoria.',
+      );
+      return;
+    }
+
     setGuardandoDecision(true);
     setErrorDecisiones('');
     setMensaje('');
@@ -654,7 +734,15 @@ function App() {
         return;
       }
 
+      const creada: DecisionAdministrativa = await res.json();
       await cargarDecisiones(solicitudSeleccionada.id_solicitud);
+      setDecisionRecienCreadaId(creada.id_decision);
+      setDecisionExpedienteActiva(
+        creada.resultado === 'Aprobar intervención'
+          && creada.fondo_interviniente === 'FONDO_COMPENSADOR'
+          ? creada.id_decision
+          : null,
+      );
       setDecisionAutoridad('');
       setDecisionFecha('');
       setDecisionResultado('');
@@ -1018,6 +1106,7 @@ function App() {
 
   useEffect(() => {
     cargarExpedientes();
+    cargarSolicitudes();
     cargarCatalogosIntervencion();
   }, []);
 
@@ -1041,6 +1130,48 @@ function App() {
           ].includes(evento.accion),
         )
       ),
+  );
+
+  const controlesPreparacionAdministrativa = [
+    {
+      texto: 'Número GDEBA informado.',
+      accion: 'Informar Número GDEBA.',
+      completo: Boolean(seleccionado?.numero_gdeba),
+    },
+    {
+      texto: 'Objeto del Expediente informado.',
+      accion: 'Completar Objeto del Expediente.',
+      completo: Boolean(seleccionado?.objeto),
+    },
+    {
+      texto: 'Establecimiento informado.',
+      accion: 'Informar Establecimiento.',
+      completo: Boolean(seleccionado?.establecimiento),
+    },
+    {
+      texto: 'Solicitud de Intervención asociada.',
+      accion: 'Asociar Solicitud de Intervención.',
+      completo: Boolean(solicitudOrigenExpediente),
+    },
+    {
+      texto: 'Decisión Administrativa registrada.',
+      accion: 'Registrar Decisión Administrativa.',
+      completo: Boolean(decisionOrigenExpediente),
+    },
+    {
+      texto: 'Fondo Interviniente determinado.',
+      accion: 'Determinar Fondo Interviniente.',
+      completo: Boolean(decisionOrigenExpediente?.fondo_interviniente),
+    },
+  ];
+  const preparacionAdministrativaCompleta = controlesPreparacionAdministrativa.every(
+    (control) => control.completo,
+  );
+  const controlesPreparacionPendientes = controlesPreparacionAdministrativa.filter(
+    (control) => !control.completo,
+  );
+  const solicitudYaAprobada = decisiones.some(
+    (decision) => decision.resultado === 'Aprobar intervención',
   );
 
   const etapaWorkflow = disposicionEmitida
@@ -1185,7 +1316,7 @@ function App() {
           <div><h1>SIGD-ST</h1><p>Consejo Escolar<br />General Alvarado</p></div>
         </div>
 
-        <button className="new-button" onClick={() => setPantalla('nuevo')}>+ Nuevo Expediente</button>
+        <button className="new-button" onClick={abrirNuevaSolicitud}>+ Nueva Solicitud</button>
 
         <nav>
           <button className={pantalla === 'inicio' ? 'active' : ''} onClick={() => setPantalla('inicio')}>Bandeja</button>
@@ -1204,7 +1335,7 @@ function App() {
       <section className="content">
         <header className="topbar">
           <div>
-            <h2>{pantalla === 'inicio' ? 'Bandeja de trabajo' : pantalla === 'nuevo' ? 'Nuevo Expediente' : pantalla === 'detalle' ? 'Expediente Inteligente' : pantalla === 'solicitudes' ? 'Solicitudes de Intervención' : pantalla === 'administracion' ? 'Administración' : 'Expedientes'}</h2>
+            <h2>{pantalla === 'inicio' ? 'Dashboard de Solicitudes de Intervención' : pantalla === 'nuevo' ? 'Nuevo Expediente' : pantalla === 'detalle' ? 'Expediente Inteligente' : pantalla === 'solicitudes' ? 'Solicitudes de Intervención' : pantalla === 'administracion' ? 'Administración' : 'Expedientes'}</h2>
             <span>Secretaría Técnica</span>
           </div>
           <div className="user">Gonzalo · Secretario Técnico</div>
@@ -1215,53 +1346,67 @@ function App() {
         {pantalla === 'inicio' && (
           <>
             <section className="metrics">
-              <div className="metric-card"><span>📁</span><strong>{metricas.total}</strong><p>Expedientes</p></div>
-              <div className="metric-card"><span>🕒</span><strong>{metricas.pendientes}</strong><p>Requieren acción</p></div>
-              <div className="metric-card"><span>✅</span><strong>{metricas.validados}</strong><p>Validados</p></div>
-              <div className="metric-card"><span>✍️</span><strong>{metricas.paraFirmar}</strong><p>Para firma</p></div>
+              <div className="metric-card"><span>📨</span><strong>{metricasSolicitudes.total}</strong><p>Solicitudes ingresadas</p></div>
+              <div className="metric-card"><span>🕒</span><strong>{metricasSolicitudes.pendientes.length}</strong><p>Pendientes de tramitación</p></div>
+              <div className="metric-card"><span>🔗</span><strong>{metricasSolicitudes.conIdSuna}</strong><p>Con ID SUNA</p></div>
+              <div className="metric-card"><span>📁</span><strong>{metricasSolicitudes.conExpediente}</strong><p>Con Expediente generado</p></div>
             </section>
 
             <section className="dashboard-grid">
               <div className="card work-queue">
                 <div className="card-title">
-                  <h3>Bandeja de pendientes</h3>
-                  <button className="link" onClick={() => setPantalla('expedientes')}>Ver todos</button>
+                  <h3>Solicitudes pendientes</h3>
+                  <button className="link" onClick={abrirSolicitudes}>Ver todas</button>
                 </div>
-                {metricas.requiereAccion.length === 0 ? (
-                  <p className="empty">No hay expedientes pendientes.</p>
+                {metricasSolicitudes.pendientes.length === 0 ? (
+                  <p className="empty">No hay Solicitudes pendientes.</p>
                 ) : (
-                  metricas.requiereAccion.map(exp => (
-                    <button className="queue-item" key={exp.id} onClick={() => cargarDetalle(exp)}>
+                  metricasSolicitudes.pendientes.slice(0, 6).map((solicitud) => (
+                    <button
+                      className="queue-item"
+                      key={solicitud.id_solicitud}
+                      onClick={() => abrirSolicitudDesdeBandeja(solicitud)}
+                    >
                       <div>
-                        <strong>{exp.numero_interno}</strong>
-                        <p>{exp.establecimiento || 'Sin establecimiento'} · {exp.objeto || 'Sin objeto'}</p>
+                        <strong>{solicitud.numero_solicitud}</strong>
+                        <p>{solicitud.establecimiento} · {solicitud.motivo}</p>
                       </div>
-                      <span className={claseEstado(exp.estado)}>{etiquetaEstado(exp.estado)}</span>
+                      <span className="badge blue">{solicitud.estado}</span>
                     </button>
                   ))
                 )}
               </div>
 
               <div className="card">
-                <h3>Asistente del Secretario Técnico</h3>
-                <div className="assistant-box">
-                  <p>✓ IA documental con facturas y retenciones.</p>
-                  <p>✓ Diagnóstico automático del expediente.</p>
-                  <p>✓ Semáforo documental inicial.</p>
-                  <p>✓ Recomendaciones administrativas.</p>
-                  <p>✓ Comparador documental y confiabilidad.</p>
-                  <p>✓ Validación inteligente con bloqueos.</p>
-                  <p>✓ Evidencias por archivo, checklist o dato automático.</p>
-                  <p>✓ Checklist físico en etapa de validación.</p>
-                  <p>✓ Borrador de disposición exportable a texto.</p>
-                  <p>✓ Motor de plantillas institucionales.</p>
+                <div className="card-title">
+                  <h3>Solicitudes recientes</h3>
+                  <button className="link" onClick={abrirSolicitudes}>Abrir registro</button>
                 </div>
-                <button className="primary" onClick={() => setPantalla('nuevo')}>Crear expediente</button>
+                {metricasSolicitudes.recientes.length === 0 ? (
+                  <p className="empty">Todavía no hay Solicitudes registradas.</p>
+                ) : (
+                  metricasSolicitudes.recientes.map((solicitud) => (
+                    <button
+                      className="queue-item"
+                      key={solicitud.id_solicitud}
+                      onClick={() => abrirSolicitudDesdeBandeja(solicitud)}
+                    >
+                      <div>
+                        <strong>{solicitud.numero_solicitud}</strong>
+                        <p>{solicitud.procedencia} · {solicitud.establecimiento}</p>
+                      </div>
+                      <span className="badge blue">{solicitud.estado}</span>
+                    </button>
+                  ))
+                )}
               </div>
             </section>
 
             <section className="card">
-              <h3>Actividad reciente</h3>
+              <div className="card-title">
+                <h3>Expedientes derivados recientes</h3>
+                <button className="link" onClick={() => setPantalla('expedientes')}>Ver Expedientes</button>
+              </div>
               <ExpedientesTabla expedientes={metricas.recientes} abrir={cargarDetalle} />
             </section>
           </>
@@ -1310,7 +1455,8 @@ function App() {
           <section>
             {errorSolicitudes && <div className="notice error">{errorSolicitudes}</div>}
 
-            <div className="solicitudes-layout">
+            <div className={`solicitudes-layout ${solicitudSeleccionada ? 'detail-only' : ''}`}>
+              {!solicitudSeleccionada && (
               <form className="card" onSubmit={crearSolicitud}>
                 <div className="card-title">
                   <h3>Registrar Solicitud</h3>
@@ -1318,16 +1464,22 @@ function App() {
                 </div>
 
                 <label>Número de solicitud</label>
-                <input
-                  value={solicitudNumero}
-                  onChange={(e) => setSolicitudNumero(e.target.value)}
-                />
+                <p className="muted">
+                  Se asignará automáticamente al registrar la Solicitud
+                </p>
 
                 <label>Procedencia</label>
-                <input
+                <select
                   value={solicitudProcedencia}
                   onChange={(e) => setSolicitudProcedencia(e.target.value)}
-                />
+                >
+                  <option value="">Seleccionar procedencia</option>
+                  {procedenciasDisponibles.map((procedencia) => (
+                    <option key={procedencia} value={procedencia}>
+                      {procedencia}
+                    </option>
+                  ))}
+                </select>
 
                 <label>ID SUNA</label>
                 <input
@@ -1371,6 +1523,7 @@ function App() {
                   {guardandoSolicitud ? 'Registrando...' : 'Registrar solicitud'}
                 </button>
               </form>
+              )}
 
               <div>
                 <section className="card solicitudes-table">
@@ -1422,7 +1575,6 @@ function App() {
                         <dt>Solicitante</dt><dd>{solicitudSeleccionada.solicitante}</dd>
                         <dt>Prioridad</dt><dd>{solicitudSeleccionada.prioridad}</dd>
                         <dt>Motivo</dt><dd>{solicitudSeleccionada.motivo}</dd>
-                        <dt>ID técnico</dt><dd>{solicitudSeleccionada.id_solicitud}</dd>
                       </dl>
 
                       <section className="subcard">
@@ -1551,16 +1703,38 @@ function App() {
                             <label>Resultado</label>
                             <select
                               value={decisionResultado}
-                              onChange={(e) => setDecisionResultado(e.target.value)}
+                              onChange={(e) => {
+                                const resultado = e.target.value;
+                                setDecisionResultado(resultado);
+                                if (resultado !== 'Aprobar intervención') {
+                                  setDecisionFondoInterviniente('');
+                                  setDecisionDescripcionFondo('');
+                                  setErrorDecisiones('');
+                                }
+                              }}
                               disabled={catalogoResultadosDecision.length === 0}
                             >
                               <option value="">
                                 {catalogoResultadosDecision.length === 0 ? 'No disponible' : 'Seleccionar resultado'}
                               </option>
                               {catalogoResultadosDecision.map((resultado) => (
-                                <option key={resultado} value={resultado}>{resultado}</option>
+                                <option
+                                  disabled={
+                                    resultado === 'Aprobar intervención'
+                                    && solicitudYaAprobada
+                                  }
+                                  key={resultado}
+                                  value={resultado}
+                                >
+                                  {resultado}
+                                </option>
                               ))}
                             </select>
+                            {solicitudYaAprobada && (
+                              <div className="notice info">
+                                La intervención ya fue aprobada.
+                              </div>
+                            )}
 
                             <label>Fundamento</label>
                             <textarea
@@ -1571,15 +1745,18 @@ function App() {
                             <label>Fondo Interviniente</label>
                             <select
                               value={decisionFondoInterviniente}
-                              onChange={(e) => setDecisionFondoInterviniente(e.target.value)}
-                              disabled={catalogoFondosIntervinientes.length === 0}
+                              onChange={(e) => {
+                                setDecisionFondoInterviniente(e.target.value);
+                                setErrorDecisiones('');
+                              }}
+                              disabled={decisionResultado !== 'Aprobar intervención'}
                             >
                               <option value="">
-                                {catalogoFondosIntervinientes.length === 0
-                                  ? 'No disponible'
-                                  : 'Seleccionar Fondo'}
+                                {decisionResultado !== 'Aprobar intervención'
+                                  ? 'Disponible para decisiones aprobatorias'
+                                  : 'Seleccionar fondo'}
                               </option>
-                              {catalogoFondosIntervinientes.map((fondo) => (
+                              {fondosIntervinientesDisponibles.map((fondo) => (
                                 <option key={fondo} value={fondo}>
                                   {etiquetaFondoInterviniente(fondo)}
                                 </option>
@@ -1632,7 +1809,17 @@ function App() {
                                   );
 
                                   return (
-                                    <article key={decision.id_decision}>
+                                    <article
+                                      className={
+                                        decisionRecienCreadaId === decision.id_decision
+                                          ? 'decision-newly-created'
+                                          : ''
+                                      }
+                                      key={decision.id_decision}
+                                    >
+                                      {decisionRecienCreadaId === decision.id_decision && (
+                                        <span className="badge green">Decisión recién registrada</span>
+                                      )}
                                       <strong>{decision.fecha_decision}</strong>
                                       <p>Autoridad: {decision.autoridad_decisora}</p>
                                       <p>Resultado: {decision.resultado}</p>
@@ -1645,7 +1832,6 @@ function App() {
                                       )}
                                       <p>Registrada por: {decision.usuario_registrante}</p>
                                       <p>{decision.fundamento}</p>
-                                      <small>ID técnico: {decision.id_decision}</small>
 
                                       {decision.resultado === 'Aprobar intervención'
                                         && decision.fondo_interviniente === 'FONDO_COMPENSADOR' && (
@@ -1709,7 +1895,7 @@ function App() {
                                               decision.id_decision,
                                             )}
                                           >
-                                            <h4>Crear expediente</h4>
+                                            <h4>Crear Expediente derivado</h4>
 
                                             {errorExpedienteDecision && (
                                               <div className="notice error">
@@ -1793,36 +1979,8 @@ function App() {
                 <div className="expediente-identity-grid">
                   <div>
                     <span>Número GDEBA</span>
-                    <strong>{seleccionado.numero_gdeba || 'Sin número GDEBA'}</strong>
+                    <strong>{seleccionado.numero_gdeba || 'No disponible'}</strong>
                   </div>
-                  <div>
-                    <span>Tipo de trámite</span>
-                    <strong>{seleccionado.tipo_tramite === 'FONDO_COMPENSADOR' ? 'Fondo Compensador' : seleccionado.tipo_tramite}</strong>
-                  </div>
-                  <div>
-                    <span>Establecimiento</span>
-                    <strong>{seleccionado.establecimiento || '-'}</strong>
-                  </div>
-                  <div>
-                    <span>Objeto</span>
-                    <strong>{seleccionado.objeto || '-'}</strong>
-                  </div>
-                  {decisionOrigenExpediente && (
-                    <>
-                      <div>
-                        <span>Fondo Interviniente</span>
-                        <strong>
-                          {etiquetaFondoInterviniente(
-                            decisionOrigenExpediente.fondo_interviniente,
-                          )}
-                        </strong>
-                      </div>
-                      <div>
-                        <span>Autoridad decisora</span>
-                        <strong>{decisionOrigenExpediente.autoridad_decisora}</strong>
-                      </div>
-                    </>
-                  )}
                 </div>
               </div>
 
@@ -1830,21 +1988,123 @@ function App() {
                 <span className={estadoAdministrativo(seleccionado, historial).clase}>
                   {estadoAdministrativo(seleccionado, historial).texto}
                 </span>
+              </div>
+            </div>
 
-                {!seleccionado.solicitud_intervencion_id ? (
-                  <small>Sin Solicitud de Intervención asociada</small>
-                ) : solicitudOrigenExpediente ? (
-                  <>
-                    <small>Origen: Solicitud {solicitudOrigenExpediente.numero_solicitud}</small>
+            <section className="card expediente-origin-section">
+              <h3>Origen del Expediente</h3>
+              <div className="expediente-origin-grid">
+                <div>
+                  <h4>Solicitud de Intervención origen</h4>
+                  <div className="expediente-identity-grid">
+                    <div>
+                      <span>Número de Solicitud</span>
+                      <strong>{solicitudOrigenExpediente?.numero_solicitud || 'No disponible'}</strong>
+                    </div>
+                    <div>
+                      <span>ID SUNA</span>
+                      <strong>{solicitudOrigenExpediente?.id_suna || 'No disponible'}</strong>
+                    </div>
+                    <div>
+                      <span>Establecimiento</span>
+                      <strong>{solicitudOrigenExpediente?.establecimiento || 'No disponible'}</strong>
+                    </div>
+                  </div>
+                  {solicitudOrigenExpediente && (
                     <button className="small-button" type="button" onClick={abrirSolicitudOrigen}>
                       Abrir Solicitud
                     </button>
-                  </>
-                ) : (
-                  <small>No se pudo recuperar la Solicitud asociada</small>
+                  )}
+                </div>
+
+                <div>
+                  <h4>Decisión Administrativa origen</h4>
+                  <div className="expediente-identity-grid">
+                    <div>
+                      <span>Fecha</span>
+                      <strong>{decisionOrigenExpediente?.fecha_decision || 'No disponible'}</strong>
+                    </div>
+                    <div>
+                      <span>Autoridad</span>
+                      <strong>{decisionOrigenExpediente?.autoridad_decisora || 'No disponible'}</strong>
+                    </div>
+                    <div>
+                      <span>Resultado</span>
+                      <strong>{decisionOrigenExpediente?.resultado || 'No disponible'}</strong>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <h4>Fondo Interviniente</h4>
+                  <strong>
+                    {decisionOrigenExpediente?.fondo_interviniente
+                      ? etiquetaFondoInterviniente(decisionOrigenExpediente.fondo_interviniente)
+                      : 'No disponible'}
+                  </strong>
+                </div>
+              </div>
+            </section>
+
+            <section className="card">
+              <h3>Datos Generales</h3>
+              <div className="expediente-identity-grid">
+                <div>
+                  <span>Tipo de trámite</span>
+                  <strong>
+                    {seleccionado.tipo_tramite === 'FONDO_COMPENSADOR'
+                      ? 'Fondo Compensador'
+                      : seleccionado.tipo_tramite || 'No disponible'}
+                  </strong>
+                </div>
+                <div>
+                  <span>Establecimiento</span>
+                  <strong>{seleccionado.establecimiento || 'No disponible'}</strong>
+                </div>
+                <div>
+                  <span>Objeto</span>
+                  <strong>{seleccionado.objeto || 'No disponible'}</strong>
+                </div>
+              </div>
+            </section>
+
+            <section className="card">
+              <h3>Preparación Administrativa</h3>
+              <div className="checklist-grid">
+                {controlesPreparacionAdministrativa.map((control) => (
+                  <div className="administrative-preparation-item" key={control.texto}>
+                    <span aria-hidden="true">{control.completo ? '✓' : '○'}</span>
+                    <span>{control.texto}</span>
+                    <strong>{control.completo ? 'Completo' : 'Pendiente'}</strong>
+                  </div>
+                ))}
+              </div>
+              <div className="notice info">
+                {preparacionAdministrativaCompleta
+                  ? 'El Expediente está listo para iniciar la Validación Administrativa.'
+                  : 'Complete los datos indicados antes de continuar.'}
+              </div>
+
+              <div
+                className={`next-recommended-action ${
+                  preparacionAdministrativaCompleta ? 'complete' : ''
+                }`}
+              >
+                <h4>Próxima acción recomendada</h4>
+                <p>
+                  {preparacionAdministrativaCompleta
+                    ? 'El Expediente está preparado para iniciar la Validación Administrativa.'
+                    : 'Complete los datos pendientes para poder iniciar la Validación Administrativa.'}
+                </p>
+                {!preparacionAdministrativaCompleta && (
+                  <ul>
+                    {controlesPreparacionPendientes.map((control) => (
+                      <li key={control.texto}>{control.accion}</li>
+                    ))}
+                  </ul>
                 )}
               </div>
-            </div>
+            </section>
 
             <div className="workflow-steps" aria-label="Etapas del trámite">
               {workflowSteps.map((etapa, indice) => (
