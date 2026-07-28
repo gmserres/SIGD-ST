@@ -58,7 +58,7 @@ class DisposicionDocxService:
         normal.font.size = Pt(11)
 
     def _agregar_disposicion(self, doc: Document, borrador, expediente) -> None:
-        texto = self._documento_completo(borrador)
+        texto = self.construir_texto_emitido(borrador)
 
         for bloque in texto.split("\n\n"):
             bloque = bloque.strip()
@@ -74,7 +74,7 @@ class DisposicionDocxService:
 
         self._agregar_pie(doc, expediente)
 
-    def _documento_completo(self, borrador) -> str:
+    def construir_texto_emitido(self, borrador) -> str:
         partes = [
             borrador.visto.strip(),
             borrador.considerando.strip(),

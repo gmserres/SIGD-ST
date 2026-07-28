@@ -6,7 +6,11 @@ from app.core.storage import guardar_upload
 from app.domain.estados import EstadoExpediente
 from app.schemas.analisis_op import AnalisisOPRead
 from app.schemas.documento import DocumentoCreate, DocumentoRead
-from app.schemas.disposicion import DisposicionRead, DisposicionUpdate
+from app.schemas.disposicion import (
+    DisposicionEmitidaRead,
+    DisposicionRead,
+    DisposicionUpdate,
+)
 from app.schemas.checklist_fisico import ChecklistFisicoCreate, ChecklistFisicoRead
 from app.schemas.expediente import ExpedienteCreate, ExpedienteRead, ExpedienteUpdate
 from app.schemas.historial import HistorialRead
@@ -15,12 +19,27 @@ from app.schemas.texto_documento import TextoDocumentoRead
 from app.schemas.validacion import ValidacionExpedienteRead
 from app.schemas.validacion_observada import ValidacionObservadaCreate
 from app.composition.analisis_op import analisis_op_service
+from app.composition.disposicion import (
+    consulta_disposicion_service,
+    emision_disposicion_service,
+)
 from app.services.analisis_op import (
     ConfiguracionUCHistoricaNoEncontradaError,
 )
 from app.services.documentos import documento_service
 from app.services.disposiciones import disposicion_service
 from app.services.disposicion_docx import disposicion_docx_service
+from app.repositories.disposicion_repository import (
+    DisposicionYaRegistradaError,
+)
+from app.repositories.emitir_disposicion_persistence import (
+    EstadoExpedienteIncompatibleError,
+    ExpedienteNoEncontradoAlEmitirError,
+)
+from app.services.consulta_disposicion import (
+    DisposicionEmitidaNoEncontradaError,
+)
+from app.services.emision_disposicion import EmisionDisposicionError
 from app.services.checklist_fisico import checklist_fisico_service
 from app.composition.expediente import expediente_service
 from app.services.historial import historial_service
@@ -376,28 +395,42 @@ def exportar_borrador_disposicion_texto(expediente_id: str):
 
 @router.post("/{expediente_id}/generar-disposicion", response_model=ExpedienteRead)
 def generar_disposicion(expediente_id: str):
-    expediente = obtener_expediente(expediente_id)
-    _verificar_op_legible_para_disposicion(expediente_id)
-    errores = validacion_service.errores_bloqueantes(expediente_id)
-    if errores:
-        historial_service.registrar(expediente_id, "GENERACION_DISPOSICION_BLOQUEADA", detalle=" | ".join(errores))
+    try:
+        expediente = emision_disposicion_service.emitir(expediente_id)
+    except ExpedienteNoEncontradoAlEmitirError as exc:
         raise HTTPException(
-            status_code=409,
-            detail={"mensaje": "No se puede generar la disposición. Existen errores críticos.", "errores": errores},
+            status_code=404,
+            detail="Expediente no encontrado",
+        ) from exc
+    except (
+        DisposicionYaRegistradaError,
+        EstadoExpedienteIncompatibleError,
+        EmisionDisposicionError,
+    ) as exc:
+        historial_service.registrar(
+            expediente_id,
+            "GENERACION_DISPOSICION_BLOQUEADA",
+            detalle=str(exc),
         )
-    if expediente.estado != EstadoExpediente.VALIDADO:
-        historial_service.registrar(expediente_id, "GENERACION_DISPOSICION_BLOQUEADA", detalle="El expediente no está validado.")
-        raise HTTPException(
-            status_code=409,
-            detail={
-                "mensaje": "No se puede generar la disposición. El expediente debe estar validado.",
-                "errores": ["El expediente debe estar VALIDADO antes de generar la disposición."],
-            },
-        )
-
-    expediente = expediente_service.cambiar_estado(expediente_id, EstadoExpediente.DISPOSICION_EMITIDA)
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     historial_service.registrar(expediente_id, "DISPOSICION_GENERADA")
     return expediente
+
+
+@router.get(
+    "/{expediente_id}/disposicion",
+    response_model=DisposicionEmitidaRead,
+)
+def obtener_disposicion_emitida(expediente_id: str):
+    try:
+        return consulta_disposicion_service.obtener_por_expediente(
+            expediente_id
+        )
+    except DisposicionEmitidaNoEncontradaError as exc:
+        raise HTTPException(
+            status_code=404,
+            detail="Disposición emitida no encontrada",
+        ) from exc
 
 
 @router.get("/{expediente_id}/historial", response_model=list[HistorialRead])
