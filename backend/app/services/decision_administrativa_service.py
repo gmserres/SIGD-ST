@@ -2,6 +2,12 @@ from dataclasses import asdict
 from uuid import uuid4
 
 from app.domain.decision_administrativa import DecisionAdministrativa
+from app.repositories.decision_administrativa_in_memory_repository import (
+    InMemoryDecisionAdministrativaRepository,
+)
+from app.repositories.decision_administrativa_repository import (
+    DecisionAdministrativaRepository,
+)
 from app.schemas.decision_administrativa import (
     DecisionAdministrativaCreate,
     DecisionAdministrativaRead,
@@ -13,8 +19,15 @@ class DecisionAprobatoriaDuplicadaError(ValueError):
 
 
 class DecisionAdministrativaService:
-    def __init__(self) -> None:
-        self._decisiones: dict[str, DecisionAdministrativa] = {}
+    def __init__(
+        self,
+        repository: DecisionAdministrativaRepository | None = None,
+    ) -> None:
+        self._repository = (
+            repository
+            if repository is not None
+            else InMemoryDecisionAdministrativaRepository()
+        )
 
     def crear(
         self,
@@ -23,10 +36,10 @@ class DecisionAdministrativaService:
         if (
             data.resultado == "Aprobar intervención"
             and any(
-                decision.solicitud_intervencion_id
-                == data.solicitud_intervencion_id
-                and decision.resultado == "Aprobar intervención"
-                for decision in self._decisiones.values()
+                decision.resultado == "Aprobar intervención"
+                for decision in self._repository.listar(
+                    solicitud_intervencion_id=data.solicitud_intervencion_id
+                )
             )
         ):
             raise DecisionAprobatoriaDuplicadaError(
@@ -45,21 +58,20 @@ class DecisionAdministrativaService:
             descripcion_fondo=data.descripcion_fondo,
             usuario_registrante=data.usuario_registrante,
         )
-        self._decisiones[decision_id] = decision
+        self._repository.guardar(decision)
         return DecisionAdministrativaRead(**asdict(decision))
 
     def obtener_por_id(
         self,
         decision_id: str,
     ) -> DecisionAdministrativaRead:
-        decision = self._decisiones[decision_id]
+        decision = self._repository.obtener_por_id(decision_id)
+        if decision is None:
+            raise KeyError(decision_id)
         return DecisionAdministrativaRead(**asdict(decision))
 
     def listar(self) -> list[DecisionAdministrativaRead]:
         return [
             DecisionAdministrativaRead(**asdict(decision))
-            for decision in self._decisiones.values()
+            for decision in self._repository.listar()
         ]
-
-
-decision_administrativa_service = DecisionAdministrativaService()

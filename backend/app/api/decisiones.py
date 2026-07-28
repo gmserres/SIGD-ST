@@ -1,5 +1,8 @@
 from fastapi import APIRouter, HTTPException, status
 
+from app.composition.decision_administrativa import (
+    decision_administrativa_service,
+)
 from app.composition.solicitud_intervencion import solicitud_intervencion_service
 from app.schemas.decision_expediente import CrearExpedienteDesdeDecision
 from app.schemas.decision_administrativa import (
@@ -9,7 +12,6 @@ from app.schemas.decision_administrativa import (
 from app.schemas.expediente import ExpedienteCreate, ExpedienteRead
 from app.services.decision_administrativa_service import (
     DecisionAprobatoriaDuplicadaError,
-    decision_administrativa_service,
 )
 from app.composition.expediente import expediente_service
 
@@ -48,7 +50,7 @@ def crear_expediente_desde_decision(
     except KeyError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Decisión Administrativa no encontrada",
+            detail="Decisión sobre la Intervención no encontrada",
         ) from exc
 
     if decision.resultado != "Aprobar intervención":
@@ -107,5 +109,5 @@ def obtener_decision(decision_id: str) -> DecisionAdministrativaRead:
     except KeyError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="Decisión Administrativa no encontrada",
+            detail="Decisión sobre la Intervención no encontrada",
         ) from exc
