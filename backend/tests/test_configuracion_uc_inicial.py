@@ -66,9 +66,80 @@ class ConfiguracionUCInicialTest(unittest.TestCase):
         )
         self.assertLessEqual(len(CONFIGURACION_UC_INICIAL_ID), 64)
 
-    def test_bloquea_datos_normativos_pendientes(self) -> None:
-        with self.assertRaises(DatosNormativosPendientesError):
-            crear_configuracion_uc_inicial()
+    def test_construye_configuracion_inicial_aprobada(self) -> None:
+        configuracion = crear_configuracion_uc_inicial()
+
+        self.assertEqual(
+            configuracion.id_configuracion,
+            CONFIGURACION_UC_INICIAL_ID,
+        )
+        self.assertEqual(
+            configuracion.fecha_inicio_vigencia,
+            date(2025, 3, 13),
+        )
+        self.assertIsNone(configuracion.fecha_fin_vigencia)
+        self.assertEqual(configuracion.valor_uc, Decimal("1677"))
+        self.assertEqual(configuracion.moneda, "ARS")
+        self.assertEqual(
+            configuracion.resolucion,
+            "Resolución OPC 54/2025",
+        )
+        self.assertEqual(
+            configuracion.organismo_emisor,
+            "Organismo Provincial de Contrataciones",
+        )
+        self.assertEqual(configuracion.estado, "VIGENTE")
+
+        self.assertEqual(
+            configuracion.rangos,
+            (
+                RangoProcedimientoUC(
+                    id_rango="rango-uc-factura-conformada-001",
+                    configuracion_uc_id=CONFIGURACION_UC_INICIAL_ID,
+                    limite_inferior=Decimal("0"),
+                    limite_superior=Decimal("10000"),
+                    limite_inferior_inclusivo=True,
+                    limite_superior_inclusivo=True,
+                    procedimiento="Factura Conformada",
+                    articulo="18",
+                    inciso="C",
+                    referencia_normativa="Ley 13.981",
+                ),
+                RangoProcedimientoUC(
+                    id_rango="rango-uc-procedimiento-abreviado-002",
+                    configuracion_uc_id=CONFIGURACION_UC_INICIAL_ID,
+                    limite_inferior=Decimal("10000"),
+                    limite_superior=Decimal("50000"),
+                    limite_inferior_inclusivo=False,
+                    limite_superior_inclusivo=True,
+                    procedimiento="Procedimiento Abreviado",
+                    articulo="18",
+                    inciso="B",
+                    referencia_normativa="Ley 13.981",
+                ),
+                RangoProcedimientoUC(
+                    id_rango="rango-uc-contratacion-menor-003",
+                    configuracion_uc_id=CONFIGURACION_UC_INICIAL_ID,
+                    limite_inferior=Decimal("50000"),
+                    limite_superior=Decimal("100000"),
+                    limite_inferior_inclusivo=False,
+                    limite_superior_inclusivo=True,
+                    procedimiento="Contratación menor por monto",
+                    articulo="18",
+                    inciso="A",
+                    referencia_normativa="Ley 13.981",
+                ),
+            ),
+        )
+
+    def test_bloquea_si_falta_un_dato_normativo(self) -> None:
+        with patch(
+            "app.initial_data.configuracion_uc_inicial."
+            "FECHA_INICIO_VIGENCIA",
+            None,
+        ):
+            with self.assertRaises(DatosNormativosPendientesError):
+                crear_configuracion_uc_inicial()
 
     def test_construye_agregado_cuando_los_datos_estan_completos(
         self,
