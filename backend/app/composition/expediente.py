@@ -7,6 +7,6 @@ from app.services.expedientes import ExpedienteService
 
 
 _engine = crear_motor(get_database_url())
-_session_factory = crear_fabrica_sesiones(_engine)
-expediente_repository = PostgresExpedienteRepository(_session_factory)
+session_factory = crear_fabrica_sesiones(_engine)
+expediente_repository = PostgresExpedienteRepository(session_factory)
 expediente_service = ExpedienteService(expediente_repository)

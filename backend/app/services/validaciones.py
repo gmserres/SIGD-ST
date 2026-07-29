@@ -1,6 +1,6 @@
 from app.domain.estados import EstadoExpediente
 from app.schemas.validacion import ControlValidacion, ValidacionExpedienteRead
-from app.services.documentos import documento_service
+from app.composition.documento import documento_service
 from app.composition.expediente import expediente_service
 from app.services.historial import historial_service
 from app.services.checklist_fisico import checklist_fisico_service

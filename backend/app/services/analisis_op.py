@@ -4,6 +4,7 @@ from pathlib import Path
 from app.application.configuracion_uc.determinar_procedimiento_contratacion import (
     DeterminarProcedimientoContratacion,
 )
+from app.composition.documento import documento_service
 from app.domain.configuracion_uc import ConfiguracionUCId
 from app.modules.documentos.extractor_datos import extraer_datos_op_desde_pdf
 from app.modules.inteligencia.comparador import comparar_total_facturas
@@ -13,7 +14,6 @@ from app.repositories.configuracion_uc_repository import (
     ConfiguracionUCRepository,
 )
 from app.schemas.analisis_op import AnalisisOPRead, DocumentoComercialExtraido, RetencionExtraida
-from app.services.documentos import documento_service
 from app.composition.expediente import expediente_service
 
 

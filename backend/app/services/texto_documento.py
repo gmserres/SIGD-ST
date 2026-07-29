@@ -1,8 +1,8 @@
 from pathlib import Path
 
+from app.composition.documento import documento_service
 from app.modules.documentos.extractor_pdf import extraer_texto_pdf
 from app.schemas.texto_documento import TextoDocumentoRead
-from app.services.documentos import documento_service
 
 
 class TextoDocumentoService:

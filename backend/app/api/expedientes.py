@@ -26,7 +26,7 @@ from app.composition.disposicion import (
 from app.services.analisis_op import (
     ConfiguracionUCHistoricaNoEncontradaError,
 )
-from app.services.documentos import documento_service
+from app.composition.documento import documento_service
 from app.services.disposiciones import disposicion_service
 from app.services.disposicion_docx import disposicion_docx_service
 from app.repositories.disposicion_repository import (
@@ -48,6 +48,14 @@ from app.services.texto_documento import texto_documento_service
 from app.services.validaciones import validacion_service
 
 router = APIRouter()
+
+
+def _eliminar_archivo_guardado(ruta_relativa: str) -> None:
+    ruta = Path(__file__).resolve().parents[3] / ruta_relativa
+    try:
+        ruta.unlink(missing_ok=True)
+    except OSError:
+        pass
 
 
 @router.get("/administracion/parametros", response_model=ParametrosInstitucionalesRead)
@@ -108,17 +116,21 @@ async def subir_documento(
 ):
     obtener_expediente(expediente_id)
     nombre_original, ruta_relativa, tamano_bytes, mime_type = await guardar_upload(expediente_id, file, tipo.lower())
-    documento = documento_service.agregar(
-        expediente_id,
-        DocumentoCreate(
-            tipo=tipo,
-            nombre_archivo=nombre_original,
-            ruta=ruta_relativa,
-            observaciones=observaciones,
-            tamano_bytes=tamano_bytes,
-            mime_type=mime_type,
-        ),
-    )
+    try:
+        documento = documento_service.agregar(
+            expediente_id,
+            DocumentoCreate(
+                tipo=tipo,
+                nombre_archivo=nombre_original,
+                ruta=ruta_relativa,
+                observaciones=observaciones,
+                tamano_bytes=tamano_bytes,
+                mime_type=mime_type,
+            ),
+        )
+    except Exception:
+        _eliminar_archivo_guardado(ruta_relativa)
+        raise
     historial_service.registrar(expediente_id, "DOCUMENTO_CARGADO", detalle=f"{tipo}: {nombre_original}")
     return documento
 
