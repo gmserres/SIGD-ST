@@ -1,9 +1,14 @@
 import unittest
 from datetime import datetime
+from io import BytesIO
+from unittest.mock import AsyncMock, patch
+
+from fastapi import HTTPException, UploadFile
 from sqlalchemy import create_engine
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 
+from app.api.expedientes import cargar_op
 from app.domain.estados import EstadoExpediente
 from app.infrastructure.database.base import Base
 from app.infrastructure.database.mappers.documento_mapper import (
@@ -169,3 +174,66 @@ class DocumentoPersistenciaTest(unittest.TestCase):
             tamano_bytes=100,
             mime_type="application/pdf",
         )
+
+class DocumentoEndpointTest(unittest.IsolatedAsyncioTestCase):
+    async def test_op_inexistente_devuelve_404_controlado(
+        self,
+    ) -> None:
+        archivo = UploadFile(
+            filename="op.pdf",
+            file=BytesIO(b"PDF"),
+        )
+
+        with patch(
+            "app.api.expedientes.obtener_expediente",
+            side_effect=HTTPException(
+                status_code=404,
+                detail="Expediente no encontrado",
+            ),
+        ):
+            with self.assertRaises(HTTPException) as contexto:
+                await cargar_op("EXP-INEXISTENTE", archivo)
+
+        self.assertEqual(contexto.exception.status_code, 404)
+
+    async def test_op_elimina_archivo_si_falla_operacion_coordinada(
+        self,
+    ) -> None:
+        archivo = UploadFile(
+            filename="op.pdf",
+            file=BytesIO(b"PDF"),
+        )
+        with (
+            patch("app.api.expedientes.obtener_expediente"),
+            patch(
+                "app.api.expedientes.guardar_upload",
+                new=AsyncMock(
+                    return_value=(
+                        "op.pdf",
+                        "storage/expedientes/EXP-1/op.pdf",
+                        100,
+                        "application/pdf",
+                    )
+                ),
+            ),
+            patch(
+                "app.api.expedientes.documento_service.agregar_op",
+                side_effect=RuntimeError("Fallo de base"),
+            ),
+            patch(
+                "app.api.expedientes._eliminar_archivo_guardado"
+            ) as eliminar,
+        ):
+            with self.assertRaisesRegex(
+                RuntimeError,
+                "Fallo de base",
+            ):
+                await cargar_op("EXP-1", archivo)
+
+        eliminar.assert_called_once_with(
+            "storage/expedientes/EXP-1/op.pdf"
+        )
+
+
+if __name__ == "__main__":
+    unittest.main()

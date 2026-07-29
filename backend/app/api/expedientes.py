@@ -21,6 +21,7 @@ from app.schemas.validacion_observada import ValidacionObservadaCreate
 from app.composition.analisis_op import analisis_op_service
 from app.composition.disposicion import (
     consulta_disposicion_service,
+    disposicion_docx_service,
     emision_disposicion_service,
 )
 from app.services.analisis_op import (
@@ -28,7 +29,6 @@ from app.services.analisis_op import (
 )
 from app.composition.documento import documento_service
 from app.services.disposiciones import disposicion_service
-from app.services.disposicion_docx import disposicion_docx_service
 from app.repositories.disposicion_repository import (
     DisposicionYaRegistradaError,
 )
@@ -40,12 +40,12 @@ from app.services.consulta_disposicion import (
     DisposicionEmitidaNoEncontradaError,
 )
 from app.services.emision_disposicion import EmisionDisposicionError
-from app.services.checklist_fisico import checklist_fisico_service
+from app.composition.checklist_fisico import checklist_fisico_service
 from app.composition.expediente import expediente_service
+from app.composition.validacion import validacion_service
 from app.services.historial import historial_service
 from app.services.parametros import parametros_institucionales_service
 from app.services.texto_documento import texto_documento_service
-from app.services.validaciones import validacion_service
 
 router = APIRouter()
 
@@ -177,23 +177,27 @@ def extraer_texto_documento(expediente_id: str, documento_id: str):
 
 @router.post("/{expediente_id}/documentos/op", response_model=DocumentoRead)
 async def cargar_op(expediente_id: str, file: UploadFile = File(...)):
-    try:
-        expediente_service.cambiar_estado(expediente_id, EstadoExpediente.DOCUMENTACION_EN_CARGA)
-    except KeyError as exc:
-        raise HTTPException(status_code=404, detail="Expediente no encontrado") from exc
+    obtener_expediente(expediente_id)
 
     nombre_original, ruta_relativa, tamano_bytes, mime_type = await guardar_upload(expediente_id, file, "op")
-    documento = documento_service.agregar(
-        expediente_id,
-        DocumentoCreate(
-            tipo="OP",
-            nombre_archivo=nombre_original,
-            ruta=ruta_relativa,
-            observaciones="Orden de Pago cargada desde la ficha del expediente.",
-            tamano_bytes=tamano_bytes,
-            mime_type=mime_type,
-        ),
-    )
+    try:
+        documento = documento_service.agregar_op(
+            expediente_id,
+            DocumentoCreate(
+                tipo="OP",
+                nombre_archivo=nombre_original,
+                ruta=ruta_relativa,
+                observaciones=(
+                    "Orden de Pago cargada desde la ficha "
+                    "del expediente."
+                ),
+                tamano_bytes=tamano_bytes,
+                mime_type=mime_type,
+            ),
+        )
+    except Exception:
+        _eliminar_archivo_guardado(ruta_relativa)
+        raise
     historial_service.registrar(expediente_id, "OP_CARGADA", detalle=documento.nombre_archivo)
     return documento
 
@@ -306,7 +310,11 @@ def validar_expediente(expediente_id: str):
             },
         )
 
-    expediente = expediente_service.cambiar_estado(expediente_id, EstadoExpediente.VALIDADO)
+    expediente = validacion_service.registrar(
+        validacion_calculada=resultado,
+        resultado="VALIDADA",
+        usuario="Secretario Técnico",
+    )
     historial_service.registrar(expediente_id, "EXPEDIENTE_VALIDADO")
     return expediente
 
@@ -333,7 +341,12 @@ def validar_expediente_con_observaciones(expediente_id: str, data: ValidacionObs
     if resultado.advertencias:
         detalle += " | Observaciones: " + " | ".join(resultado.advertencias)
 
-    expediente = expediente_service.cambiar_estado(expediente_id, EstadoExpediente.VALIDADO)
+    expediente = validacion_service.registrar(
+        validacion_calculada=resultado,
+        resultado="VALIDADA_CON_OBSERVACIONES",
+        usuario=data.usuario,
+        motivo_observacion=data.motivo,
+    )
     historial_service.registrar(
         expediente_id,
         "EXPEDIENTE_VALIDADO_CON_OBSERVACIONES",
@@ -417,7 +430,6 @@ def generar_disposicion(expediente_id: str):
     except (
         DisposicionYaRegistradaError,
         EstadoExpedienteIncompatibleError,
-        EmisionDisposicionError,
     ) as exc:
         historial_service.registrar(
             expediente_id,
@@ -425,6 +437,27 @@ def generar_disposicion(expediente_id: str):
             detalle=str(exc),
         )
         raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except EmisionDisposicionError as exc:
+        historial_service.registrar(
+            expediente_id,
+            "GENERACION_DISPOSICION_BLOQUEADA",
+            detalle=str(exc),
+        )
+        if exc.habilitacion is None:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "habilitada": False,
+                "motivos": [
+                    {
+                        "codigo": motivo.codigo,
+                        "descripcion": motivo.descripcion,
+                    }
+                    for motivo in exc.habilitacion.motivos
+                ],
+            },
+        ) from exc
     historial_service.registrar(expediente_id, "DISPOSICION_GENERADA")
     return expediente
 

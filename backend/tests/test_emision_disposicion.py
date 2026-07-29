@@ -3,6 +3,7 @@ from dataclasses import replace
 from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
@@ -19,6 +20,11 @@ from app.services.consulta_disposicion import (
 from app.services.emision_disposicion import (
     EmisionDisposicionError,
     EmisionDisposicionService,
+)
+from app.services.habilitacion_disposicion import (
+    ContextoEmisionDisposicion,
+    HabilitacionDisposicion,
+    MotivoNoHabilitacion,
 )
 
 
@@ -81,18 +87,22 @@ class EmisionDisposicionServiceTest(unittest.TestCase):
         self.borradores.obtener.return_value = SimpleNamespace()
         self.docx = MagicMock()
         self.docx.construir_texto_emitido.return_value = "Texto final"
-        self.validacion = MagicMock()
-        self.validacion.errores_bloqueantes.return_value = []
+        self.evaluador = MagicMock()
+        self.evaluador.evaluar_para_emision.return_value = (
+            HabilitacionDisposicion(True, ()),
+            ContextoEmisionDisposicion(
+                expediente=SimpleNamespace(**self.expediente.__dict__),
+                decision=self.decisiones.obtener_por_id.return_value,
+                analisis_op=self.analisis.analizar.return_value,
+            ),
+        )
         self.persistence = FakeEmitirDisposicionPersistence(
             self.expediente
         )
         self.service = EmisionDisposicionService(
-            self.expedientes,
-            self.decisiones,
-            self.analisis,
+            self.evaluador,
             self.borradores,
             self.docx,
-            self.validacion,
             self.persistence,
             now=lambda: self.fecha,
         )
@@ -125,33 +135,102 @@ class EmisionDisposicionServiceTest(unittest.TestCase):
             EstadoExpediente.DISPOSICION_EMITIDA,
         )
 
-    def test_validaciones_impiden_docx_y_persistencia(self):
-        casos = (
-            (self.decisiones.obtener_por_id.return_value, "fondo_interviniente"),
-            (self.analisis.analizar.return_value, "orden_pago"),
-            (self.analisis.analizar.return_value, "proveedor"),
-            (self.analisis.analizar.return_value, "cuit"),
-            (self.analisis.analizar.return_value, "importe_bruto"),
-            (self.analisis.analizar.return_value, "valor_uc"),
-            (self.analisis.analizar.return_value, "cantidad_uc"),
-            (self.analisis.analizar.return_value, "procedimiento"),
-            (self.analisis.analizar.return_value, "norma_uc"),
+    def test_no_habilitado_impide_docx_y_persistencia(self):
+        habilitacion = HabilitacionDisposicion(
+            False,
+            (
+                MotivoNoHabilitacion(
+                    "PENDIENTE_REVALIDACION",
+                    "El Expediente requiere revalidación.",
+                ),
+            ),
         )
-        for objeto, atributo in casos:
-            with self.subTest(atributo=atributo):
-                original = getattr(objeto, atributo)
-                setattr(objeto, atributo, None)
-                with self.assertRaises(EmisionDisposicionError):
-                    self.service.emitir("EXP-1")
-                self.docx.generar_docx.assert_not_called()
-                self.assertEqual(self.persistence.disposiciones, [])
-                setattr(objeto, atributo, original)
+        self.evaluador.evaluar_para_emision.return_value = (
+            habilitacion,
+            ContextoEmisionDisposicion(
+                expediente=self.expediente,
+                decision=None,
+                analisis_op=None,
+            ),
+        )
+        with self.assertRaises(EmisionDisposicionError) as contexto:
+            self.service.emitir("EXP-1")
+        self.assertIs(contexto.exception.habilitacion, habilitacion)
+        self.docx.generar_docx.assert_not_called()
+        self.borradores.obtener.assert_not_called()
+        self.assertEqual(self.persistence.disposiciones, [])
+        self.evaluador.evaluar_para_emision.assert_called_once_with(
+            "EXP-1"
+        )
 
     def test_fallo_docx_no_llama_persistencia(self):
         self.docx.generar_docx.side_effect = RuntimeError("DOCX")
         with self.assertRaisesRegex(RuntimeError, "DOCX"):
             self.service.emitir("EXP-1")
         self.assertEqual(self.persistence.disposiciones, [])
+
+    def test_docx_fuera_de_storage_se_elimina_y_no_persiste(self):
+        with TemporaryDirectory() as temporal:
+            raiz = Path(temporal)
+            storage = raiz / "storage"
+            storage.mkdir()
+            externo = raiz / "externo.docx"
+            externo.write_bytes(b"DOCX")
+            self.docx.generar_docx.return_value = externo
+            with patch(
+                "app.services.emision_disposicion.STORAGE_DIR",
+                storage,
+            ):
+                with self.assertRaisesRegex(
+                    EmisionDisposicionError,
+                    "fuera del almacenamiento",
+                ):
+                    self.service.emitir("EXP-1")
+            self.assertFalse(externo.exists())
+            self.assertEqual(self.persistence.disposiciones, [])
+
+    def test_fallo_persistencia_elimina_docx_generado(self):
+        self.persistence.error = RuntimeError("SQL")
+        with TemporaryDirectory() as temporal:
+            storage = Path(temporal) / "storage"
+            salida = (
+                storage
+                / "exports"
+                / "EXP-1"
+                / "disposicion.docx"
+            )
+            salida.parent.mkdir(parents=True)
+            salida.write_bytes(b"DOCX")
+            self.docx.generar_docx.return_value = salida
+            with patch(
+                "app.services.emision_disposicion.STORAGE_DIR",
+                storage,
+            ):
+                with self.assertRaisesRegex(RuntimeError, "SQL"):
+                    self.service.emitir("EXP-1")
+            self.assertFalse(salida.exists())
+
+    def test_normaliza_componentes_relativos_dentro_de_storage(self):
+        with TemporaryDirectory() as temporal:
+            storage = Path(temporal) / "storage"
+            salida = (
+                storage
+                / "exports"
+                / "temporal"
+                / ".."
+                / "EXP-1"
+                / "disposicion.docx"
+            )
+            self.docx.generar_docx.return_value = salida
+            with patch(
+                "app.services.emision_disposicion.STORAGE_DIR",
+                storage,
+            ):
+                self.service.emitir("EXP-1")
+            self.assertEqual(
+                self.persistence.disposiciones[0].ruta_docx,
+                "exports/EXP-1/disposicion.docx",
+            )
 
     def test_error_persistence_se_propaga(self):
         self.persistence.error = RuntimeError("SQL")

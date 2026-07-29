@@ -10,9 +10,11 @@ from app.infrastructure.database.base import Base
 from app.infrastructure.database.models import decision_administrativa_model
 from app.infrastructure.database.models import disposicion_model
 from app.infrastructure.database.models import documento_model
+from app.infrastructure.database.models import checklist_fisico_model
 from app.infrastructure.database.models import configuracion_uc_model
 from app.infrastructure.database.models import expediente_model
 from app.infrastructure.database.models import solicitud_intervencion_model
+from app.infrastructure.database.models import validacion_administrativa_model
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

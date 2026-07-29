@@ -23,6 +23,9 @@ class DisposicionDocxService:
     ajuste fino de estilos, encabezados y logos.
     """
 
+    def __init__(self, export_dir: Path) -> None:
+        self._export_dir = export_dir.resolve()
+
     def generar_docx(self, expediente_id: str) -> Path:
         expediente = expediente_service.obtener(expediente_id)
         borrador = disposicion_service.obtener(expediente_id)
@@ -31,7 +34,7 @@ class DisposicionDocxService:
         self._configurar_documento(doc)
         self._agregar_disposicion(doc, borrador, expediente)
 
-        out_dir = Path(__file__).resolve().parents[3] / "storage" / "exports" / expediente_id
+        out_dir = self._export_dir / expediente_id
         out_dir.mkdir(parents=True, exist_ok=True)
         safe_numero = re.sub(r"[^0-9A-Za-z_-]+", "_", expediente.numero_disposicion or expediente_id)
         salida = out_dir / f"DISPOSICION_{safe_numero}.docx"
@@ -193,6 +196,3 @@ class DisposicionDocxService:
         run2.font.name = "Times New Roman"
         run2.font.size = Pt(11)
         run2.bold = True
-
-
-disposicion_docx_service = DisposicionDocxService()

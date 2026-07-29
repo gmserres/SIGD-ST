@@ -1,15 +1,26 @@
 from datetime import datetime
 
+from app.repositories.checklist_fisico_repository import (
+    ChecklistFisicoRepository,
+)
+from app.repositories.actualizar_checklist_persistence import (
+    ActualizarChecklistPersistence,
+)
 from app.schemas.checklist_fisico import ChecklistFisicoCreate, ChecklistFisicoRead
 from app.services.historial import historial_service
 
 
 class ChecklistFisicoService:
-    def __init__(self) -> None:
-        self._items: dict[str, ChecklistFisicoRead] = {}
+    def __init__(
+        self,
+        repository: ChecklistFisicoRepository,
+        persistence: ActualizarChecklistPersistence | None = None,
+    ) -> None:
+        self._repository = repository
+        self._persistence = persistence
 
     def obtener(self, expediente_id: str) -> ChecklistFisicoRead | None:
-        return self._items.get(expediente_id)
+        return self._repository.obtener_por_expediente(expediente_id)
 
     def guardar(self, expediente_id: str, data: ChecklistFisicoCreate) -> ChecklistFisicoRead:
         checklist = ChecklistFisicoRead(
@@ -23,7 +34,10 @@ class ChecklistFisicoService:
             usuario=data.usuario,
             fecha=datetime.now(),
         )
-        self._items[expediente_id] = checklist
+        if self._persistence is None:
+            checklist = self._repository.guardar(checklist)
+        else:
+            checklist = self._persistence.guardar(checklist)
 
         acreditados: list[str] = []
         if checklist.factura:
@@ -48,6 +62,3 @@ class ChecklistFisicoService:
             detalle=detalle,
         )
         return checklist
-
-
-checklist_fisico_service = ChecklistFisicoService()

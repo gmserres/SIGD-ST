@@ -1,12 +1,35 @@
-from app.domain.estados import EstadoExpediente
-from app.schemas.validacion import ControlValidacion, ValidacionExpedienteRead
+from datetime import datetime
+from typing import Literal
+
 from app.composition.documento import documento_service
+from app.domain.estados import EstadoExpediente
+from app.repositories.validacion_administrativa_repository import (
+    ValidacionAdministrativaRepository,
+)
+from app.repositories.validar_expediente_persistence import (
+    ValidarExpedientePersistence,
+)
+from app.schemas.expediente import ExpedienteRead
+from app.schemas.validacion import (
+    ControlValidacion,
+    ControlValidacionSnapshotRead,
+    ValidacionAdministrativaRead,
+    ValidacionExpedienteRead,
+)
 from app.composition.expediente import expediente_service
 from app.services.historial import historial_service
-from app.services.checklist_fisico import checklist_fisico_service
+from app.composition.checklist_fisico import checklist_fisico_service
 
 
 class ValidacionService:
+    def __init__(
+        self,
+        repository: ValidacionAdministrativaRepository | None = None,
+        persistence: ValidarExpedientePersistence | None = None,
+    ) -> None:
+        self._repository = repository
+        self._persistence = persistence
+
     def validar(self, expediente_id: str, registrar_historial: bool = True) -> ValidacionExpedienteRead:
         expediente = expediente_service.obtener(expediente_id)
         documentos = documento_service.listar_por_expediente(expediente_id)
@@ -105,5 +128,70 @@ class ValidacionService:
         documentos = documento_service.listar_por_expediente(expediente_id)
         return any(doc.tipo == "OP" for doc in documentos)
 
+    def registrar(
+        self,
+        validacion_calculada: ValidacionExpedienteRead,
+        resultado: Literal[
+            "VALIDADA",
+            "VALIDADA_CON_OBSERVACIONES",
+        ],
+        usuario: str,
+        motivo_observacion: str | None = None,
+    ) -> ExpedienteRead:
+        if self._persistence is None:
+            raise RuntimeError(
+                "La persistencia de validaciones no está configurada."
+            )
+        validacion = ValidacionAdministrativaRead(
+            expediente_id=validacion_calculada.expediente_id,
+            resultado=resultado,
+            usuario=usuario,
+            fecha_validacion=datetime.now(),
+            motivo_observacion=motivo_observacion,
+            estado_expediente=EstadoExpediente.VALIDADO.value,
+            controles=[
+                ControlValidacionSnapshotRead(
+                    orden=orden,
+                    codigo=control.control,
+                    estado=control.estado,
+                    observacion=control.observacion,
+                )
+                for orden, control in enumerate(
+                    validacion_calculada.controles
+                )
+            ],
+        )
+        expediente, _ = self._persistence.validar(validacion)
+        return ExpedienteRead(**expediente.__dict__)
 
-validacion_service = ValidacionService()
+    def obtener_ultima(
+        self,
+        expediente_id: str,
+    ) -> ValidacionAdministrativaRead | None:
+        if self._repository is None:
+            raise RuntimeError(
+                "El repositorio de validaciones no está configurado."
+            )
+        return self._repository.obtener_ultima_por_expediente(
+            expediente_id
+        )
+
+    def obtener_vigente(
+        self,
+        expediente_id: str,
+    ) -> ValidacionAdministrativaRead | None:
+        if self._repository is None:
+            raise RuntimeError(
+                "El repositorio de validaciones no está configurado."
+            )
+        return self._repository.obtener_vigente(expediente_id)
+
+    def listar_actos(
+        self,
+        expediente_id: str,
+    ) -> list[ValidacionAdministrativaRead]:
+        if self._repository is None:
+            raise RuntimeError(
+                "El repositorio de validaciones no está configurado."
+            )
+        return self._repository.listar_por_expediente(expediente_id)

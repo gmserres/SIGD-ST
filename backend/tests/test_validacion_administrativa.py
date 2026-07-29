@@ -5,11 +5,11 @@ from unittest.mock import patch
 from fastapi import HTTPException
 
 from app.api.expedientes import generar_borrador_disposicion
+from app.composition.documento import documento_service
 from app.domain.estados import EstadoExpediente
 from app.schemas.checklist_fisico import ChecklistFisicoRead
 from app.schemas.expediente import ExpedienteRead
-from app.services.checklist_fisico import checklist_fisico_service
-from app.composition.documento import documento_service
+from app.composition.checklist_fisico import checklist_fisico_service
 from app.composition.expediente import expediente_service
 from app.services.validaciones import ValidacionService
 
