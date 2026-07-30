@@ -7,19 +7,6 @@ router = APIRouter()
 
 # Catálogos temporales de demostración.
 # Sus valores no representan definiciones funcionales definitivas.
-EVALUADORES_TEMPORALES = [
-    "Secretario Técnico",
-    "Tesorero",
-    "Secretaria Administrativa",
-    "Presidente",
-]
-
-RESULTADOS_EVALUACION_TEMPORALES = [
-    "Pendiente",
-    "Favorable",
-    "Desfavorable",
-]
-
 AUTORIDADES_DECISORAS_TEMPORALES = [
     "Secretario Técnico",
     "Tesorero",
@@ -54,14 +41,6 @@ def crear_establecimiento(data: EstablecimientoCreate):
 @router.get("/establecimientos", response_model=list[EstablecimientoRead])
 def listar_establecimientos():
     return catalogo_service.listar_establecimientos()
-
-@router.get("/evaluadores", response_model=list[str])
-def listar_evaluadores():
-    return EVALUADORES_TEMPORALES
-
-@router.get("/resultados-evaluacion", response_model=list[str])
-def listar_resultados_evaluacion():
-    return RESULTADOS_EVALUACION_TEMPORALES
 
 @router.get("/autoridades-decisoras", response_model=list[str])
 def listar_autoridades_decisoras():
