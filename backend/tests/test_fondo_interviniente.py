@@ -15,6 +15,31 @@ from app.services.decision_administrativa_service import (
 
 
 class FondoIntervinienteTest(unittest.TestCase):
+    def test_conserva_decision_que_solicita_informacion_adicional(self) -> None:
+        service = DecisionAdministrativaService()
+
+        decision = service.crear(
+            DecisionAdministrativaCreate(
+                solicitud_intervencion_id="solicitud-1",
+                autoridad_decisora="Secretario Técnico",
+                fecha_decision=date(2026, 7, 24),
+                resultado="Solicitar información adicional",
+                fundamento="Se requiere documentación complementaria.",
+                fondo_interviniente=None,
+                usuario_registrante="Secretario Técnico",
+            )
+        )
+
+        self.assertEqual(
+            decision.resultado,
+            "Solicitar información adicional",
+        )
+        self.assertIsNone(decision.fondo_interviniente)
+        self.assertEqual(
+            decision.fundamento,
+            "Se requiere documentación complementaria.",
+        )
+
     def test_conserva_fondo_autoridad_y_usuario_registrante(self) -> None:
         service = DecisionAdministrativaService()
         decision = service.crear(

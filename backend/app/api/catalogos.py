@@ -30,7 +30,7 @@ AUTORIDADES_DECISORAS_TEMPORALES = [
 RESULTADOS_DECISION_TEMPORALES = [
     "Aprobar intervención",
     "Rechazar intervención",
-    "Pendiente de fondos",
+    "Solicitar información adicional",
 ]
 
 FONDOS_INTERVINIENTES_TEMPORALES = [
