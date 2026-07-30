@@ -24,6 +24,9 @@ from app.composition.disposicion import (
     disposicion_docx_service,
     emision_disposicion_service,
 )
+from app.application.configuracion_uc.obtener_configuracion_uc_vigente import (
+    ConfiguracionUCVigenteNoEncontradaError,
+)
 from app.services.analisis_op import (
     ConfiguracionUCHistoricaNoEncontradaError,
 )
@@ -205,6 +208,17 @@ async def cargar_op(expediente_id: str, file: UploadFile = File(...)):
 def _analizar_op_o_conflicto(expediente_id: str) -> AnalisisOPRead:
     try:
         return analisis_op_service.analizar(expediente_id)
+    except ConfiguracionUCVigenteNoEncontradaError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "mensaje": str(exc),
+                "errores": [
+                    "No existe una Configuración UC vigente para analizar "
+                    "la Orden de Pago."
+                ],
+            },
+        ) from exc
     except ConfiguracionUCHistoricaNoEncontradaError as exc:
         raise HTTPException(
             status_code=409,

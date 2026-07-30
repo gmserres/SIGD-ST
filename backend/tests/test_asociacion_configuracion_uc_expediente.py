@@ -5,8 +5,14 @@ from decimal import Decimal
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
+from fastapi import HTTPException
+
+from app.api.expedientes import _analizar_op_o_conflicto
 from app.application.configuracion_uc.determinar_procedimiento_contratacion import (
     ResultadoDeterminacionProcedimiento,
+)
+from app.application.configuracion_uc.obtener_configuracion_uc_vigente import (
+    ConfiguracionUCVigenteNoEncontradaError,
 )
 from app.domain.configuracion_uc import ConfiguracionUC, RangoProcedimientoUC
 from app.modules.documentos.extractor_datos import DatosOPExtraidos
@@ -49,6 +55,54 @@ class MotorFalso:
 
 
 class AsociacionConfiguracionUCExpedienteTest(unittest.TestCase):
+    def test_api_traduce_configuracion_vigente_inexistente(self) -> None:
+        error = ConfiguracionUCVigenteNoEncontradaError(
+            date(2026, 7, 29)
+        )
+
+        with patch(
+            "app.api.expedientes.analisis_op_service.analizar",
+            side_effect=error,
+        ):
+            with self.assertRaises(HTTPException) as contexto:
+                _analizar_op_o_conflicto("EXP-1")
+
+        self.assertEqual(contexto.exception.status_code, 409)
+        self.assertEqual(
+            contexto.exception.detail,
+            {
+                "mensaje": str(error),
+                "errores": [
+                    "No existe una Configuración UC vigente para analizar "
+                    "la Orden de Pago."
+                ],
+            },
+        )
+        self.assertIs(contexto.exception.__cause__, error)
+
+    def test_api_mantiene_traduccion_configuracion_historica(self) -> None:
+        error = ConfiguracionUCHistoricaNoEncontradaError(
+            "configuracion-inexistente"
+        )
+
+        with patch(
+            "app.api.expedientes.analisis_op_service.analizar",
+            side_effect=error,
+        ):
+            with self.assertRaises(HTTPException) as contexto:
+                _analizar_op_o_conflicto("EXP-1")
+
+        self.assertEqual(contexto.exception.status_code, 409)
+        self.assertEqual(contexto.exception.detail["mensaje"], str(error))
+        self.assertEqual(
+            contexto.exception.detail["errores"],
+            [
+                "La referencia histórica de Configuración UC "
+                "no pudo ser recuperada."
+            ],
+        )
+        self.assertIs(contexto.exception.__cause__, error)
+
     def test_primer_analisis_asocia_mediante_servicio_especifico(
         self,
     ) -> None:
