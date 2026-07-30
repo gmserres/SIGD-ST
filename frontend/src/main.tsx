@@ -17,6 +17,7 @@ const fondosIntervinientesDisponibles = [
 
 type Pantalla = 'inicio' | 'nuevo' | 'expedientes' | 'detalle' | 'solicitudes' | 'administracion';
 type TabDetalle = 'workflow' | 'documentos' | 'ia' | 'validacion' | 'disposicion' | 'historial';
+type TabGestionSolicitud = 'tramitacion' | 'historial';
 
 const CONTROLES_OBLIGATORIOS_VALIDACION = new Set([
   'Expediente interno',
@@ -52,14 +53,6 @@ type SolicitudIntervencion = {
   estado: string;
 };
 
-type EvaluacionAdministrativa = {
-  id_evaluacion: string;
-  solicitud_intervencion_id: string;
-  fecha_inicio: string;
-  evaluador: string;
-  observaciones: string;
-};
-
 type DecisionAdministrativa = {
   id_decision: string;
   solicitud_intervencion_id: string;
@@ -71,6 +64,20 @@ type DecisionAdministrativa = {
   descripcion_fondo: string | null;
   usuario_registrante: string;
 };
+
+type EventoHistorialSolicitud =
+  | {
+      tipo: 'solicitud';
+      id: string;
+      fecha: string;
+      solicitud: SolicitudIntervencion;
+    }
+  | {
+      tipo: 'decision';
+      id: string;
+      fecha: string;
+      decision: DecisionAdministrativa;
+    };
 
 type Documento = {
   id: string;
@@ -152,6 +159,21 @@ type AnalisisOP = {
 function moneda(valor: number | null | undefined) {
   if (valor === null || valor === undefined) return '-';
   return valor.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' });
+}
+
+function formatearFechaHora(valor: string) {
+  const fechaSinHora = /^(\d{4})-(\d{2})-(\d{2})$/.exec(valor);
+  if (fechaSinHora) {
+    const [, anio, mes, dia] = fechaSinHora;
+    return new Intl.DateTimeFormat('es-AR').format(
+      new Date(Number(anio), Number(mes) - 1, Number(dia)),
+    );
+  }
+
+  return new Intl.DateTimeFormat('es-AR', {
+    dateStyle: 'short',
+    timeStyle: 'short',
+  }).format(new Date(valor));
 }
 
 function bytes(valor?: number | null) {
@@ -353,7 +375,7 @@ async function obtenerMensajeError(res: Response) {
 }
 
 function App() {
-  const [pantalla, setPantalla] = useState<Pantalla>('inicio');
+  const [pantalla, setPantalla] = useState<Pantalla>('solicitudes');
   const [tabDetalle, setTabDetalle] = useState<TabDetalle>('workflow');
   const [expedientes, setExpedientes] = useState<Expediente[]>([]);
   const [seleccionado, setSeleccionado] = useState<Expediente | null>(null);
@@ -368,19 +390,14 @@ function App() {
   const [mensajeTipo, setMensajeTipo] = useState<'ok' | 'error' | 'info'>('info');
   const [solicitudes, setSolicitudes] = useState<SolicitudIntervencion[]>([]);
   const [solicitudSeleccionada, setSolicitudSeleccionada] = useState<SolicitudIntervencion | null>(null);
+  const [mostrarFormularioSolicitud, setMostrarFormularioSolicitud] = useState(false);
+  const [tabGestionSolicitud, setTabGestionSolicitud] = useState<TabGestionSolicitud>('tramitacion');
+  const [informacionAdministrativaExpandida, setInformacionAdministrativaExpandida] = useState(true);
   const [solicitudOrigenExpediente, setSolicitudOrigenExpediente] = useState<SolicitudIntervencion | null>(null);
   const [decisionOrigenExpediente, setDecisionOrigenExpediente] = useState<DecisionAdministrativa | null>(null);
   const [cargandoSolicitudes, setCargandoSolicitudes] = useState(false);
   const [guardandoSolicitud, setGuardandoSolicitud] = useState(false);
   const [errorSolicitudes, setErrorSolicitudes] = useState('');
-
-  const [evaluaciones, setEvaluaciones] = useState<EvaluacionAdministrativa[]>([]);
-  const [cargandoEvaluaciones, setCargandoEvaluaciones] = useState(false);
-  const [guardandoEvaluacion, setGuardandoEvaluacion] = useState(false);
-  const [errorEvaluaciones, setErrorEvaluaciones] = useState('');
-  const [evaluacionFechaInicio, setEvaluacionFechaInicio] = useState('');
-  const [evaluacionEvaluador, setEvaluacionEvaluador] = useState('');
-  const [evaluacionObservaciones, setEvaluacionObservaciones] = useState('');
 
   const [decisiones, setDecisiones] = useState<DecisionAdministrativa[]>([]);
   const [cargandoDecisiones, setCargandoDecisiones] = useState(false);
@@ -392,7 +409,7 @@ function App() {
   const [decisionFundamento, setDecisionFundamento] = useState('');
   const [decisionFondoInterviniente, setDecisionFondoInterviniente] = useState('');
   const [decisionDescripcionFondo, setDecisionDescripcionFondo] = useState('');
-  const [decisionUsuarioRegistrante, setDecisionUsuarioRegistrante] = useState('');
+  const [decisionUsuarioRegistrante] = useState('Secretario Técnico');
   const [decisionRecienCreadaId, setDecisionRecienCreadaId] = useState<string | null>(null);
 
   const [decisionExpedienteActiva, setDecisionExpedienteActiva] = useState<string | null>(null);
@@ -401,7 +418,6 @@ function App() {
   const [guardandoExpedienteDecision, setGuardandoExpedienteDecision] = useState(false);
   const [errorExpedienteDecision, setErrorExpedienteDecision] = useState('');
 
-  const [catalogoEvaluadores, setCatalogoEvaluadores] = useState<string[]>([]);
   const [catalogoAutoridadesDecisoras, setCatalogoAutoridadesDecisoras] = useState<string[]>([]);
   const [catalogoResultadosDecision, setCatalogoResultadosDecision] = useState<string[]>([]);
 
@@ -458,6 +474,50 @@ function App() {
     };
   }, [solicitudes, expedientes]);
 
+  const historialSolicitud = useMemo<EventoHistorialSolicitud[]>(() => {
+    if (!solicitudSeleccionada) {
+      return [];
+    }
+
+    const decisionesSolicitud = decisiones.filter(
+      (decision) =>
+        decision.solicitud_intervencion_id ===
+        solicitudSeleccionada.id_solicitud,
+    );
+    const eventos: EventoHistorialSolicitud[] = [
+      {
+        tipo: 'solicitud',
+        id: solicitudSeleccionada.id_solicitud,
+        fecha: solicitudSeleccionada.fecha_ingreso,
+        solicitud: solicitudSeleccionada,
+      },
+      ...decisionesSolicitud.map(
+        (decision): EventoHistorialSolicitud => ({
+          tipo: 'decision',
+          id: decision.id_decision,
+          fecha: decision.fecha_decision,
+          decision,
+        }),
+      ),
+    ];
+
+    return eventos.sort((eventoA, eventoB) => {
+      if (eventoA.fecha !== eventoB.fecha) {
+        return eventoA.fecha < eventoB.fecha ? -1 : 1;
+      }
+
+      if (eventoA.tipo !== eventoB.tipo) {
+        return eventoA.tipo === 'solicitud' ? -1 : 1;
+      }
+
+      if (eventoA.id === eventoB.id) {
+        return 0;
+      }
+
+      return eventoA.id < eventoB.id ? -1 : 1;
+    });
+  }, [solicitudSeleccionada, decisiones]);
+
   function avisar(texto: string, tipo: 'ok' | 'error' | 'info' = 'info') {
     setMensaje(texto);
     setMensajeTipo(tipo);
@@ -478,7 +538,6 @@ function App() {
     }
 
     await Promise.all([
-      cargarCatalogo('/catalogos/evaluadores', setCatalogoEvaluadores),
       cargarCatalogo('/catalogos/autoridades-decisoras', setCatalogoAutoridadesDecisoras),
       cargarCatalogo('/catalogos/resultados-decision', setCatalogoResultadosDecision),
     ]);
@@ -504,32 +563,6 @@ function App() {
       setErrorSolicitudes('No se pudo conectar con el backend para consultar las solicitudes.');
     } finally {
       setCargandoSolicitudes(false);
-    }
-  }
-
-  async function cargarEvaluaciones(solicitudId: string) {
-    setCargandoEvaluaciones(true);
-    setErrorEvaluaciones('');
-
-    try {
-      const res = await fetch(`${API_URL}/evaluaciones`);
-      if (!res.ok) {
-        setErrorEvaluaciones(await obtenerMensajeError(res));
-        return;
-      }
-
-      const disponibles: EvaluacionAdministrativa[] = await res.json();
-      setEvaluaciones(
-        disponibles.filter(
-          (evaluacion) => evaluacion.solicitud_intervencion_id === solicitudId,
-        ),
-      );
-    } catch {
-      setErrorEvaluaciones(
-        'No se pudo conectar con el backend para consultar las evaluaciones.',
-      );
-    } finally {
-      setCargandoEvaluaciones(false);
     }
   }
 
@@ -561,26 +594,22 @@ function App() {
 
   async function abrirSolicitudes() {
     setPantalla('solicitudes');
+    setMostrarFormularioSolicitud(false);
+    setSolicitudSeleccionada(null);
+    setTabGestionSolicitud('tramitacion');
+    setInformacionAdministrativaExpandida(true);
     setMensaje('');
-    await Promise.all([
-      cargarSolicitudes(),
-      solicitudSeleccionada
-        ? cargarEvaluaciones(solicitudSeleccionada.id_solicitud)
-        : Promise.resolve(),
-      solicitudSeleccionada
-        ? cargarDecisiones(solicitudSeleccionada.id_solicitud)
-        : Promise.resolve(),
-    ]);
+    await cargarSolicitudes();
   }
 
   async function seleccionarSolicitud(solicitud: SolicitudIntervencion) {
     setPantalla('solicitudes');
+    setMostrarFormularioSolicitud(false);
+    setTabGestionSolicitud('tramitacion');
+    setInformacionAdministrativaExpandida(true);
     setSolicitudSeleccionada(solicitud);
     setMensaje('');
-    await Promise.all([
-      cargarEvaluaciones(solicitud.id_solicitud),
-      cargarDecisiones(solicitud.id_solicitud),
-    ]);
+    await cargarDecisiones(solicitud.id_solicitud);
   }
 
   async function abrirSolicitudDesdeBandeja(
@@ -589,10 +618,17 @@ function App() {
     await seleccionarSolicitud(solicitud);
   }
 
+  function volverASolicitudes() {
+    setSolicitudSeleccionada(null);
+    setDecisiones([]);
+    setTabGestionSolicitud('tramitacion');
+    setInformacionAdministrativaExpandida(true);
+  }
+
   async function abrirNuevaSolicitud() {
     setPantalla('solicitudes');
+    setMostrarFormularioSolicitud(true);
     setSolicitudSeleccionada(null);
-    setEvaluaciones([]);
     setDecisiones([]);
     setSolicitudProcedencia('');
     setSolicitudIdSuna('');
@@ -604,6 +640,11 @@ function App() {
     setErrorSolicitudes('');
     setMensaje('');
     await cargarSolicitudes();
+  }
+
+  function cancelarNuevaSolicitud() {
+    setMostrarFormularioSolicitud(false);
+    setErrorSolicitudes('');
   }
 
   async function crearSolicitud(evento: React.FormEvent<HTMLFormElement>) {
@@ -647,10 +688,8 @@ function App() {
       const creada: SolicitudIntervencion = await res.json();
       setSolicitudes((actuales) => [...actuales, creada]);
       setSolicitudSeleccionada(creada);
-      await Promise.all([
-        cargarEvaluaciones(creada.id_solicitud),
-        cargarDecisiones(creada.id_solicitud),
-      ]);
+      setMostrarFormularioSolicitud(false);
+      await cargarDecisiones(creada.id_solicitud);
       setSolicitudProcedencia('');
       setSolicitudIdSuna('');
       setSolicitudFechaIngreso('');
@@ -663,45 +702,6 @@ function App() {
       setErrorSolicitudes('No se pudo conectar con el backend para registrar la solicitud.');
     } finally {
       setGuardandoSolicitud(false);
-    }
-  }
-
-  async function crearEvaluacion(evento: React.FormEvent<HTMLFormElement>) {
-    evento.preventDefault();
-    if (!solicitudSeleccionada) return;
-
-    setGuardandoEvaluacion(true);
-    setErrorEvaluaciones('');
-    setMensaje('');
-
-    try {
-      const res = await fetch(`${API_URL}/evaluaciones`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          solicitud_intervencion_id: solicitudSeleccionada.id_solicitud,
-          fecha_inicio: evaluacionFechaInicio,
-          evaluador: evaluacionEvaluador,
-          observaciones: evaluacionObservaciones,
-        }),
-      });
-
-      if (!res.ok) {
-        setErrorEvaluaciones(await obtenerMensajeError(res));
-        return;
-      }
-
-      await cargarEvaluaciones(solicitudSeleccionada.id_solicitud);
-      setEvaluacionFechaInicio('');
-      setEvaluacionEvaluador('');
-      setEvaluacionObservaciones('');
-      avisar('Evaluación administrativa registrada correctamente.', 'ok');
-    } catch {
-      setErrorEvaluaciones(
-        'No se pudo conectar con el backend para registrar la evaluación.',
-      );
-    } finally {
-      setGuardandoEvaluacion(false);
     }
   }
 
@@ -727,6 +727,17 @@ function App() {
       return;
     }
 
+    if (
+      decisionResultado === 'Aprobar intervención'
+      && decisionFondoInterviniente === 'OTRO'
+      && !decisionDescripcionFondo.trim()
+    ) {
+      setErrorDecisiones(
+        'Debe describir el Fondo Interviniente seleccionado.',
+      );
+      return;
+    }
+
     setGuardandoDecision(true);
     setErrorDecisiones('');
     setMensaje('');
@@ -741,8 +752,15 @@ function App() {
           fecha_decision: decisionFecha,
           resultado: decisionResultado,
           fundamento: decisionFundamento,
-          fondo_interviniente: decisionFondoInterviniente || null,
-          descripcion_fondo: decisionDescripcionFondo || null,
+          fondo_interviniente:
+            decisionResultado === 'Aprobar intervención'
+              ? decisionFondoInterviniente || null
+              : null,
+          descripcion_fondo:
+            decisionResultado === 'Aprobar intervención'
+              && decisionFondoInterviniente === 'OTRO'
+              ? decisionDescripcionFondo || null
+              : null,
           usuario_registrante: decisionUsuarioRegistrante,
         }),
       });
@@ -755,20 +773,20 @@ function App() {
       const creada: DecisionAdministrativa = await res.json();
       await cargarDecisiones(solicitudSeleccionada.id_solicitud);
       setDecisionRecienCreadaId(creada.id_decision);
-      setDecisionExpedienteActiva(
-        creada.resultado === 'Aprobar intervención'
-          && creada.fondo_interviniente === 'FONDO_COMPENSADOR'
-          ? creada.id_decision
-          : null,
-      );
+      setDecisionExpedienteActiva(null);
       setDecisionAutoridad('');
       setDecisionFecha('');
       setDecisionResultado('');
       setDecisionFundamento('');
       setDecisionFondoInterviniente('');
       setDecisionDescripcionFondo('');
-      setDecisionUsuarioRegistrante('');
-      avisar('Decisión administrativa registrada correctamente.', 'ok');
+      avisar(
+        creada.resultado === 'Aprobar intervención'
+          && creada.fondo_interviniente === 'FONDO_COMPENSADOR'
+          ? '✓ Decisión registrada correctamente. Próxima etapa disponible: Expediente.'
+          : '✓ Decisión registrada correctamente.',
+        'ok',
+      );
     } catch {
       setErrorDecisiones(
         'No se pudo conectar con el backend para registrar la decisión.',
@@ -1172,8 +1190,8 @@ function App() {
       completo: Boolean(solicitudOrigenExpediente),
     },
     {
-      texto: 'Decisión Administrativa registrada.',
-      accion: 'Registrar Decisión Administrativa.',
+      texto: 'Decisión sobre la Intervención registrada.',
+      accion: 'Registrar Decisión sobre la Intervención.',
       completo: Boolean(decisionOrigenExpediente),
     },
     {
@@ -1340,8 +1358,6 @@ function App() {
           <div><h1>SIGD-ST</h1><p>Consejo Escolar<br />General Alvarado</p></div>
         </div>
 
-        <button className="new-button" onClick={abrirNuevaSolicitud}>+ Nueva Solicitud</button>
-
         <nav>
           <button className={pantalla === 'inicio' ? 'active' : ''} onClick={() => setPantalla('inicio')}>Bandeja</button>
           <button className={pantalla === 'expedientes' ? 'active' : ''} onClick={() => setPantalla('expedientes')}>Expedientes</button>
@@ -1357,13 +1373,19 @@ function App() {
       </aside>
 
       <section className="content">
+        {!(pantalla === 'solicitudes' && solicitudSeleccionada) && (
         <header className="topbar">
           <div>
-            <h2>{pantalla === 'inicio' ? 'Dashboard de Solicitudes de Intervención' : pantalla === 'nuevo' ? 'Nuevo Expediente' : pantalla === 'detalle' ? 'Expediente Inteligente' : pantalla === 'solicitudes' ? 'Solicitudes de Intervención' : pantalla === 'administracion' ? 'Administración' : 'Expedientes'}</h2>
-            <span>Secretaría Técnica</span>
+            <h2>{pantalla === 'inicio' ? 'Dashboard de Solicitudes de Intervención' : pantalla === 'nuevo' ? 'Nuevo Expediente' : pantalla === 'detalle' ? 'Expediente Inteligente' : pantalla === 'solicitudes' ? solicitudSeleccionada ? 'Gestión de la Solicitud' : 'Solicitudes de Intervención' : pantalla === 'administracion' ? 'Administración' : 'Expedientes'}</h2>
+            <span>
+              {pantalla === 'solicitudes'
+                ? `${solicitudes.length} solicitudes registradas`
+                : 'Secretaría Técnica'}
+            </span>
           </div>
           <div className="user">Gonzalo · Secretario Técnico</div>
         </header>
+        )}
 
         {mensaje && <div className={`notice ${mensajeTipo}`}>{mensaje}</div>}
 
@@ -1438,6 +1460,9 @@ function App() {
 
         {pantalla === 'nuevo' && (
           <section className="card form-card">
+            <button className="secondary" type="button" onClick={abrirSolicitudes}>
+              ← Volver a Solicitudes
+            </button>
             <h3>Datos iniciales del expediente</h3>
             <label>Tipo de trámite</label>
             <select defaultValue="FONDO_COMPENSADOR">
@@ -1476,14 +1501,44 @@ function App() {
         )}
 
         {pantalla === 'solicitudes' && (
-          <section>
+          <section className="solicitudes-page">
+            {!solicitudSeleccionada ? (
+              <>
+            <div className="solicitudes-toolbar">
+              <button
+                className="secondary"
+                type="button"
+                onClick={() => setPantalla('nuevo')}
+              >
+                Nuevo expediente manual
+              </button>
+              <button
+                className="secondary"
+                type="button"
+                onClick={cargarSolicitudes}
+                disabled={cargandoSolicitudes}
+              >
+                Actualizar
+              </button>
+              {!mostrarFormularioSolicitud && (
+                <button className="primary" type="button" onClick={abrirNuevaSolicitud}>
+                  + Nueva Solicitud
+                </button>
+              )}
+            </div>
+
             {errorSolicitudes && <div className="notice error">{errorSolicitudes}</div>}
 
-            <div className={`solicitudes-layout ${solicitudSeleccionada ? 'detail-only' : ''}`}>
-              {!solicitudSeleccionada && (
-              <form className="card" onSubmit={crearSolicitud}>
+            <div
+              className={`solicitud-create-region ${
+                mostrarFormularioSolicitud ? 'open' : ''
+              }`}
+              aria-hidden={!mostrarFormularioSolicitud}
+            >
+              <div>
+              <form className="card solicitud-create-panel" onSubmit={crearSolicitud}>
                 <div className="card-title">
-                  <h3>Registrar Solicitud</h3>
+                  <h3>Nueva Solicitud</h3>
                   <span className="badge blue">Nueva intervención</span>
                 </div>
 
@@ -1543,19 +1598,31 @@ function App() {
                   onChange={(e) => setSolicitudPrioridad(e.target.value)}
                 />
 
-                <button className="primary" type="submit" disabled={guardandoSolicitud}>
-                  {guardandoSolicitud ? 'Registrando...' : 'Registrar solicitud'}
-                </button>
+                <div className="actions">
+                  <button
+                    className="secondary"
+                    type="button"
+                    onClick={cancelarNuevaSolicitud}
+                    disabled={guardandoSolicitud}
+                  >
+                    Cancelar
+                  </button>
+                  <button className="primary" type="submit" disabled={guardandoSolicitud}>
+                    {guardandoSolicitud ? 'Registrando...' : 'Registrar solicitud'}
+                  </button>
+                </div>
               </form>
-              )}
+              </div>
+            </div>
 
-              <div>
+            <div
+              className={`solicitudes-management ${
+                solicitudSeleccionada ? 'has-selection' : 'without-selection'
+              }`}
+            >
                 <section className="card solicitudes-table">
                   <div className="card-title">
                     <h3>Solicitudes registradas</h3>
-                    <button className="small-button" onClick={cargarSolicitudes} disabled={cargandoSolicitudes}>
-                      Actualizar
-                    </button>
                   </div>
 
                   {cargandoSolicitudes ? (
@@ -1565,13 +1632,30 @@ function App() {
                   ) : (
                     <table>
                       <thead>
-                        <tr><th>Número</th><th>Procedencia</th><th>Estado</th><th></th></tr>
+                        <tr>
+                          <th>Número</th>
+                          <th>Establecimiento</th>
+                          <th>Motivo</th>
+                          <th>Prioridad</th>
+                          <th>Estado</th>
+                          <th></th>
+                        </tr>
                       </thead>
                       <tbody>
                         {solicitudes.map((solicitud) => (
                           <tr key={solicitud.id_solicitud}>
-                            <td>{solicitud.numero_solicitud}</td>
-                            <td>{solicitud.procedencia}</td>
+                            <td>
+                              <strong className="solicitud-number">
+                                {solicitud.numero_solicitud}
+                              </strong>
+                            </td>
+                            <td>{solicitud.establecimiento}</td>
+                            <td>
+                              <span className="solicitud-reason" title={solicitud.motivo}>
+                                {solicitud.motivo}
+                              </span>
+                            </td>
+                            <td>{solicitud.prioridad}</td>
                             <td><span className="badge blue">{solicitud.estado}</span></td>
                             <td>
                               <button className="small-button" onClick={() => seleccionarSolicitud(solicitud)}>
@@ -1584,108 +1668,173 @@ function App() {
                     </table>
                   )}
                 </section>
+              </div>
+              </>
+            ) : (
+              <div className="solicitud-case-page">
+                <div className="solicitud-case-topbar">
+                  <button className="secondary" type="button" onClick={volverASolicitudes}>
+                    ← Volver a Solicitudes
+                  </button>
+                  <h3>Gestión de la Solicitud</h3>
+                  <button className="secondary" type="button" disabled>
+                    Acciones
+                  </button>
+                </div>
 
-                <section className="card">
-                  <h3>Detalle de la solicitud</h3>
-                  {solicitudSeleccionada ? (
-                    <>
-                      <dl className="data-list">
-                        <dt>Número</dt><dd>{solicitudSeleccionada.numero_solicitud}</dd>
-                        <dt>Estado</dt><dd><span className="badge blue">{solicitudSeleccionada.estado}</span></dd>
-                        <dt>Procedencia</dt><dd>{solicitudSeleccionada.procedencia}</dd>
-                        <dt>ID SUNA</dt><dd>{solicitudSeleccionada.id_suna || '-'}</dd>
-                        <dt>Fecha de ingreso</dt><dd>{solicitudSeleccionada.fecha_ingreso}</dd>
-                        <dt>Establecimiento</dt><dd>{solicitudSeleccionada.establecimiento}</dd>
-                        <dt>Solicitante</dt><dd>{solicitudSeleccionada.solicitante}</dd>
-                        <dt>Prioridad</dt><dd>{solicitudSeleccionada.prioridad}</dd>
-                        <dt>Motivo</dt><dd>{solicitudSeleccionada.motivo}</dd>
-                      </dl>
+                <section className="card solicitud-case-header">
+                  <div className="solicitud-case-title">
+                    <span className="eyebrow">Número de Solicitud</span>
+                    <h3>{solicitudSeleccionada.numero_solicitud}</h3>
+                  </div>
+                  <div className="solicitud-case-id-suna">
+                    <span>ID SUNA</span>
+                    <strong>{solicitudSeleccionada.id_suna || 'No disponible'}</strong>
+                  </div>
+                </section>
 
-                      <section className="subcard">
+                <section
+                  className={`card solicitud-administrative-info ${
+                    informacionAdministrativaExpandida ? 'expanded' : 'collapsed'
+                  }`}
+                >
+                  <button
+                    className="solicitud-administrative-info-toggle"
+                    type="button"
+                    aria-expanded={informacionAdministrativaExpandida}
+                    aria-controls="solicitud-informacion-administrativa"
+                    onClick={() => setInformacionAdministrativaExpandida(
+                      (expandida) => !expandida,
+                    )}
+                  >
+                    <span>
+                      <strong>Información administrativa</strong>
+                    </span>
+                    <span aria-hidden="true">
+                      {informacionAdministrativaExpandida ? '−' : '+'}
+                    </span>
+                  </button>
+
+                  {informacionAdministrativaExpandida && (
+                    <div
+                      className="solicitud-administrative-info-grid"
+                      id="solicitud-informacion-administrativa"
+                    >
+                      <article>
+                        <span>Motivo</span>
+                        <strong>{solicitudSeleccionada.motivo}</strong>
+                      </article>
+                      <article>
+                        <span>Establecimiento</span>
+                        <strong>{solicitudSeleccionada.establecimiento}</strong>
+                      </article>
+                      <article>
+                        <span>Procedencia</span>
+                        <strong>{solicitudSeleccionada.procedencia}</strong>
+                      </article>
+                      <article>
+                        <span>Solicitante</span>
+                        <strong>{solicitudSeleccionada.solicitante}</strong>
+                      </article>
+                      <article>
+                        <span>Estado</span>
+                        <strong>
+                          <span className="badge blue">{solicitudSeleccionada.estado}</span>
+                        </strong>
+                      </article>
+                      <article>
+                        <span>Prioridad</span>
+                        <strong>{solicitudSeleccionada.prioridad}</strong>
+                      </article>
+                      <article>
+                        <span>Fondo Interviniente</span>
+                        <strong>
+                          {decisiones.find((decision) => decision.resultado === 'Aprobar intervención')?.fondo_interviniente
+                            ? etiquetaFondoInterviniente(
+                              decisiones.find((decision) => decision.resultado === 'Aprobar intervención')!.fondo_interviniente!,
+                            )
+                            : 'No determinado'}
+                        </strong>
+                      </article>
+                      <article>
+                        <span>Fecha de ingreso</span>
+                        <strong>{solicitudSeleccionada.fecha_ingreso}</strong>
+                      </article>
+                    </div>
+                  )}
+                </section>
+
+                <div className="solicitud-case-workflow" aria-label="Etapas de la gestión">
+                  {[
+                    'Solicitud',
+                    'Decisión',
+                    'Expediente',
+                    'Preparación',
+                    'Validación',
+                    'Orden de Pago',
+                    'Disposición',
+                    'Finalizada',
+                  ].map((etapa, indice) => (
+                    <div
+                      className={`solicitud-case-step ${
+                        indice === 0 ? 'completed' : indice === 1 ? 'current' : 'future'
+                      }`}
+                      key={etapa}
+                    >
+                      <span>{indice === 0 ? '✓' : indice + 1}</span>
+                      <strong>{etapa}</strong>
+                    </div>
+                  ))}
+                </div>
+
+                <section className="solicitud-executive-grid" aria-label="Panel ejecutivo">
+                  <article className="card solicitud-executive-primary">
+                    <span>Próxima acción</span>
+                    <strong>Continuar gestión administrativa</strong>
+                    <small>Revise la información disponible para avanzar con el trámite.</small>
+                  </article>
+                  <article className="card">
+                    <span>Responsable</span>
+                    <strong>Secretaría Técnica</strong>
+                  </article>
+                  <article className="card">
+                    <span>Bloqueos</span>
+                    <strong>Sin bloqueos informados</strong>
+                  </article>
+                  <article className="card">
+                    <span>Pendientes</span>
+                    <strong>Revisar documentación</strong>
+                  </article>
+                </section>
+
+                <nav className="solicitud-case-tabs" aria-label="Secciones de la solicitud">
+                  {[
+                    ['tramitacion', 'Tramitación'],
+                    ['historial', 'Historial'],
+                  ].map(([id, texto]) => (
+                    <button
+                      className={tabGestionSolicitud === id ? 'active' : ''}
+                      type="button"
+                      key={id}
+                      onClick={() => setTabGestionSolicitud(id as TabGestionSolicitud)}
+                    >
+                      {texto}
+                    </button>
+                  ))}
+                </nav>
+
+                <section className="card solicitud-detail">
+                  {tabGestionSolicitud === 'tramitacion' && (
+                      <>
+                      <section className="subcard solicitud-analysis-block">
                         <div className="card-title">
-                          <h4>Evaluaciones Administrativas</h4>
-                          <button
-                            className="small-button"
-                            onClick={() => cargarEvaluaciones(solicitudSeleccionada.id_solicitud)}
-                            disabled={cargandoEvaluaciones}
-                          >
-                            Actualizar
-                          </button>
-                        </div>
-
-                        {errorEvaluaciones && (
-                          <div className="notice error">{errorEvaluaciones}</div>
-                        )}
-
-                        <div className="evaluaciones-grid">
-                          <form onSubmit={crearEvaluacion}>
-                            <h4>Registrar evaluación</h4>
-
-                            <label>Fecha de inicio</label>
-                            <input
-                              type="date"
-                              value={evaluacionFechaInicio}
-                              onChange={(e) => setEvaluacionFechaInicio(e.target.value)}
-                            />
-
-                            <label>Evaluador</label>
-                            <select
-                              value={evaluacionEvaluador}
-                              onChange={(e) => setEvaluacionEvaluador(e.target.value)}
-                              disabled={catalogoEvaluadores.length === 0}
-                            >
-                              <option value="">
-                                {catalogoEvaluadores.length === 0 ? 'No disponible' : 'Seleccionar evaluador'}
-                              </option>
-                              {catalogoEvaluadores.map((evaluador) => (
-                                <option key={evaluador} value={evaluador}>{evaluador}</option>
-                              ))}
-                            </select>
-
-                            <label>Observaciones</label>
-                            <textarea
-                              value={evaluacionObservaciones}
-                              onChange={(e) => setEvaluacionObservaciones(e.target.value)}
-                            />
-
-                            <button
-                              className="primary"
-                              type="submit"
-                              disabled={guardandoEvaluacion}
-                            >
-                              {guardandoEvaluacion
-                                ? 'Registrando...'
-                                : 'Registrar evaluación'}
-                            </button>
-                          </form>
-
                           <div>
-                            <h4>Evaluaciones registradas</h4>
-                            {cargandoEvaluaciones ? (
-                              <p className="empty">Cargando evaluaciones...</p>
-                            ) : evaluaciones.length === 0 ? (
-                              <p className="empty">
-                                Todavía no hay evaluaciones para esta solicitud.
-                              </p>
-                            ) : (
-                              <div className="evaluaciones-list">
-                                {evaluaciones.map((evaluacion) => (
-                                  <article key={evaluacion.id_evaluacion}>
-                                    <strong>{evaluacion.fecha_inicio}</strong>
-                                    <p>Evaluador: {evaluacion.evaluador}</p>
-                                    <p>{evaluacion.observaciones}</p>
-                                    <small>ID técnico: {evaluacion.id_evaluacion}</small>
-                                  </article>
-                                ))}
-                              </div>
-                            )}
+                            <span className="eyebrow">Tramitación</span>
+                            <h3>Decisión sobre la Intervención</h3>
+                            <p className="solicitud-analysis-intro">
+                              Registre la decisión adoptada por la autoridad competente.
+                            </p>
                           </div>
-                        </div>
-                      </section>
-
-                      <section className="subcard">
-                        <div className="card-title">
-                          <h4>Decisiones Administrativas</h4>
                           <button
                             className="small-button"
                             onClick={() => cargarDecisiones(solicitudSeleccionada.id_solicitud)}
@@ -1700,122 +1849,138 @@ function App() {
                         )}
 
                         <div className="decisiones-grid">
-                          <form onSubmit={crearDecision}>
-                            <h4>Registrar decisión</h4>
+                          <form
+                            className="decision-intervention-form"
+                            onSubmit={crearDecision}
+                          >
+                            <h4>Nueva decisión</h4>
 
-                            <label>Autoridad decisora</label>
-                            <select
-                              value={decisionAutoridad}
-                              onChange={(e) => setDecisionAutoridad(e.target.value)}
-                              disabled={catalogoAutoridadesDecisoras.length === 0}
-                            >
-                              <option value="">
-                                {catalogoAutoridadesDecisoras.length === 0 ? 'No disponible' : 'Seleccionar autoridad'}
-                              </option>
-                              {catalogoAutoridadesDecisoras.map((autoridad) => (
-                                <option key={autoridad} value={autoridad}>{autoridad}</option>
-                              ))}
-                            </select>
-
-                            <label>Fecha de decisión</label>
-                            <input
-                              type="date"
-                              value={decisionFecha}
-                              onChange={(e) => setDecisionFecha(e.target.value)}
-                            />
-
-                            <label>Resultado</label>
-                            <select
-                              value={decisionResultado}
-                              onChange={(e) => {
-                                const resultado = e.target.value;
-                                setDecisionResultado(resultado);
-                                if (resultado !== 'Aprobar intervención') {
-                                  setDecisionFondoInterviniente('');
-                                  setDecisionDescripcionFondo('');
-                                  setErrorDecisiones('');
-                                }
-                              }}
-                              disabled={catalogoResultadosDecision.length === 0}
-                            >
-                              <option value="">
-                                {catalogoResultadosDecision.length === 0 ? 'No disponible' : 'Seleccionar resultado'}
-                              </option>
-                              {catalogoResultadosDecision.map((resultado) => (
-                                <option
-                                  disabled={
-                                    resultado === 'Aprobar intervención'
-                                    && solicitudYaAprobada
-                                  }
-                                  key={resultado}
-                                  value={resultado}
+                            <div className="decision-brief-fields">
+                              <div className="decision-field">
+                                <label>Autoridad decisora</label>
+                                <select
+                                  value={decisionAutoridad}
+                                  onChange={(e) => setDecisionAutoridad(e.target.value)}
+                                  disabled={catalogoAutoridadesDecisoras.length === 0}
                                 >
-                                  {resultado}
-                                </option>
-                              ))}
-                            </select>
-                            {solicitudYaAprobada && (
-                              <div className="notice info">
-                                La intervención ya fue aprobada.
+                                  <option value="">
+                                    {catalogoAutoridadesDecisoras.length === 0 ? 'No disponible' : 'Seleccionar autoridad'}
+                                  </option>
+                                  {catalogoAutoridadesDecisoras.map((autoridad) => (
+                                    <option key={autoridad} value={autoridad}>{autoridad}</option>
+                                  ))}
+                                </select>
                               </div>
-                            )}
 
-                            <label>Fundamento</label>
-                            <textarea
-                              value={decisionFundamento}
-                              onChange={(e) => setDecisionFundamento(e.target.value)}
-                            />
+                              <div className="decision-field">
+                                <label>Fecha de decisión</label>
+                                <input
+                                  type="date"
+                                  value={decisionFecha}
+                                  onChange={(e) => setDecisionFecha(e.target.value)}
+                                />
+                              </div>
 
-                            <label>Fondo Interviniente</label>
-                            <select
-                              value={decisionFondoInterviniente}
-                              onChange={(e) => {
-                                setDecisionFondoInterviniente(e.target.value);
-                                setErrorDecisiones('');
-                              }}
-                              disabled={decisionResultado !== 'Aprobar intervención'}
-                            >
-                              <option value="">
-                                {decisionResultado !== 'Aprobar intervención'
-                                  ? 'Disponible para decisiones aprobatorias'
-                                  : 'Seleccionar fondo'}
-                              </option>
-                              {fondosIntervinientesDisponibles.map((fondo) => (
-                                <option key={fondo} value={fondo}>
-                                  {etiquetaFondoInterviniente(fondo)}
-                                </option>
-                              ))}
-                            </select>
+                              <div className="decision-field">
+                                <label>Resultado</label>
+                                <select
+                                  value={decisionResultado}
+                                  onChange={(e) => {
+                                    const resultado = e.target.value;
+                                    setDecisionResultado(resultado);
+                                    if (resultado !== 'Aprobar intervención') {
+                                      setDecisionFondoInterviniente('');
+                                      setDecisionDescripcionFondo('');
+                                      setErrorDecisiones('');
+                                    }
+                                  }}
+                                  disabled={catalogoResultadosDecision.length === 0}
+                                >
+                                  <option value="">
+                                    {catalogoResultadosDecision.length === 0 ? 'No disponible' : 'Seleccionar resultado'}
+                                  </option>
+                                  {catalogoResultadosDecision.map((resultado) => (
+                                    <option
+                                      disabled={
+                                        resultado === 'Aprobar intervención'
+                                        && solicitudYaAprobada
+                                      }
+                                      key={resultado}
+                                      value={resultado}
+                                    >
+                                      {resultado}
+                                    </option>
+                                  ))}
+                                </select>
+                                {solicitudYaAprobada && (
+                                  <div className="notice info">
+                                    La intervención ya fue aprobada.
+                                  </div>
+                                )}
+                              </div>
+
+                              <div className="decision-field">
+                                <label>Fondo Interviniente</label>
+                                <select
+                                  value={decisionFondoInterviniente}
+                                  onChange={(e) => {
+                                    const fondo = e.target.value;
+                                    setDecisionFondoInterviniente(fondo);
+                                    if (fondo !== 'OTRO') {
+                                      setDecisionDescripcionFondo('');
+                                    }
+                                    setErrorDecisiones('');
+                                  }}
+                                  disabled={decisionResultado !== 'Aprobar intervención'}
+                                >
+                                  <option value="">
+                                    {decisionResultado !== 'Aprobar intervención'
+                                      ? 'Disponible para decisiones aprobatorias'
+                                      : 'Seleccionar fondo'}
+                                  </option>
+                                  {fondosIntervinientesDisponibles.map((fondo) => (
+                                    <option key={fondo} value={fondo}>
+                                      {etiquetaFondoInterviniente(fondo)}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                            </div>
 
                             {decisionFondoInterviniente === 'OTRO' && (
-                              <>
+                              <div className="decision-field decision-field-wide">
                                 <label>Descripción del Fondo</label>
                                 <input
                                   value={decisionDescripcionFondo}
                                   onChange={(e) => setDecisionDescripcionFondo(e.target.value)}
                                 />
-                              </>
+                              </div>
                             )}
 
-                            <label>Usuario registrante</label>
-                            <input
-                              value={decisionUsuarioRegistrante}
-                              onChange={(e) => setDecisionUsuarioRegistrante(e.target.value)}
-                            />
+                            <div className="decision-field decision-field-wide decision-foundation">
+                              <label>Fundamento</label>
+                              <textarea
+                                rows={3}
+                                value={decisionFundamento}
+                                onChange={(e) => setDecisionFundamento(e.target.value)}
+                              />
+                            </div>
 
-                            <button
-                              className="primary"
-                              type="submit"
-                              disabled={guardandoDecision}
-                            >
-                              {guardandoDecision
-                                ? 'Registrando...'
-                                : 'Registrar decisión'}
-                            </button>
+                            <div className="decision-submit-row">
+                              <button
+                                className="primary"
+                                type="submit"
+                                disabled={guardandoDecision}
+                              >
+                                {guardandoDecision
+                                  ? 'Guardando...'
+                                  : 'Guardar decisión'}
+                              </button>
+                            </div>
                           </form>
 
                           <div>
-                            <h4>Decisiones registradas</h4>
+                            <h4>Decisiones sobre la intervención</h4>
                             {cargandoDecisiones ? (
                               <p className="empty">Cargando decisiones...</p>
                             ) : decisiones.length === 0 ? (
@@ -1984,13 +2149,130 @@ function App() {
                           </div>
                         </div>
                       </section>
-                    </>
-                  ) : (
-                    <p className="empty">Seleccioná una solicitud para ver su detalle.</p>
+
+                      <section className="solicitud-future-stages" aria-label="Etapas posteriores de la tramitación">
+                        {[
+                          'Expediente',
+                          'Contratación',
+                          'Ejecución',
+                          'Orden de Pago',
+                          'Disposición',
+                        ].map((etapa) => (
+                          <article key={etapa}>
+                            <span aria-hidden="true">○</span>
+                            <strong>{etapa}</strong>
+                            <small>Etapa futura</small>
+                          </article>
+                        ))}
+                      </section>
+                      </>
+                  )}
+
+                  {tabGestionSolicitud === 'historial' && (
+                    <section
+                      className="solicitud-history"
+                      aria-live="polite"
+                    >
+                      <div className="solicitud-history-heading">
+                        <h3>Historial</h3>
+                        <p>
+                          Cronología de la Solicitud y sus Decisiones registradas.
+                        </p>
+                      </div>
+
+                      {cargandoDecisiones ? (
+                        <p className="empty">Cargando historial...</p>
+                      ) : errorDecisiones ? (
+                        <div className="notice error">{errorDecisiones}</div>
+                      ) : historialSolicitud.length === 0 ? (
+                        <p className="empty">No existen eventos registrados.</p>
+                      ) : (
+                        <ol className="solicitud-history-list">
+                          {historialSolicitud.map((evento) => (
+                            <li
+                              className="solicitud-history-event"
+                              key={`${evento.tipo}-${evento.id}`}
+                            >
+                              <div
+                                className={`solicitud-history-marker ${evento.tipo}`}
+                                aria-hidden="true"
+                              />
+
+                              <article>
+                                <time dateTime={evento.fecha}>
+                                  {formatearFechaHora(evento.fecha)}
+                                </time>
+
+                                {evento.tipo === 'solicitud' ? (
+                                  <>
+                                    <h4>Solicitud registrada</h4>
+                                    <p>
+                                      Número de Solicitud:{' '}
+                                      <strong>
+                                        {evento.solicitud.numero_solicitud}
+                                      </strong>
+                                    </p>
+                                    <p>
+                                      Procedencia: {evento.solicitud.procedencia}
+                                    </p>
+                                    {evento.solicitud.solicitante && (
+                                      <p>
+                                        Solicitante:{' '}
+                                        {evento.solicitud.solicitante}
+                                      </p>
+                                    )}
+                                  </>
+                                ) : (
+                                  <>
+                                    <h4>Decisión registrada</h4>
+                                    <p>
+                                      Resultado: {evento.decision.resultado}
+                                    </p>
+                                    <p>
+                                      Autoridad decisora:{' '}
+                                      {evento.decision.autoridad_decisora}
+                                    </p>
+                                    {evento.decision.fondo_interviniente && (
+                                      <p>
+                                        Fondo Interviniente:{' '}
+                                        {etiquetaFondoInterviniente(
+                                          evento.decision.fondo_interviniente,
+                                        )}
+                                      </p>
+                                    )}
+                                    {evento.decision.descripcion_fondo && (
+                                      <p>
+                                        Descripción del Fondo:{' '}
+                                        {evento.decision.descripcion_fondo}
+                                      </p>
+                                    )}
+                                    <p>
+                                      Fundamento: {evento.decision.fundamento}
+                                    </p>
+                                    {evento.decision.usuario_registrante && (
+                                      <p>
+                                        Registrada por:{' '}
+                                        {evento.decision.usuario_registrante}
+                                      </p>
+                                    )}
+                                  </>
+                                )}
+                              </article>
+                            </li>
+                          ))}
+                        </ol>
+                      )}
+                    </section>
                   )}
                 </section>
+
+                <div className="solicitud-case-actions">
+                  <button className="secondary" type="button" disabled>Imprimir Resumen</button>
+                  <button className="secondary" type="button" disabled>Más acciones</button>
+                  <button className="primary" type="button" disabled>Guardar y continuar</button>
+                </div>
               </div>
-            </div>
+            )}
           </section>
         )}
 
@@ -2656,55 +2938,37 @@ function App() {
         {pantalla === 'administracion' && (
           <section className="card">
             <div className="card-title">
-              <h3>Administración institucional</h3>
-              <span className="badge blue">Parámetros del sistema</span>
+              <h3>Administración</h3>
+              <span className="badge blue">Consulta informativa</span>
             </div>
 
-            {parametrosInstitucionales ? (
-              <>
-                <div className="admin-grid">
-                  <div>
-                    <strong>Unidad de Contratación</strong>
-                    <label>Valor UC</label>
-                    <input type="number" value={parametrosInstitucionales.valor_uc} onChange={(e) => setParametrosInstitucionales({ ...parametrosInstitucionales, valor_uc: Number(e.target.value) })} />
-                    <label>Norma UC vigente</label>
-                    <input value={parametrosInstitucionales.norma_uc} onChange={(e) => setParametrosInstitucionales({ ...parametrosInstitucionales, norma_uc: e.target.value })} />
-                    <label>Fecha de vigencia</label>
-                    <input value={parametrosInstitucionales.fecha_vigencia_uc} onChange={(e) => setParametrosInstitucionales({ ...parametrosInstitucionales, fecha_vigencia_uc: e.target.value })} />
-                  </div>
+            <p>
+              Este módulo centralizará la configuración institucional y los
+              catálogos del sistema.
+            </p>
+            <p className="muted">
+              Actualmente la información se encuentra disponible únicamente
+              para consulta.
+            </p>
 
-                  <div>
-                    <strong>Ejercicio y numeración</strong>
-                    <label>Ejercicio</label>
-                    <input type="number" value={parametrosInstitucionales.ejercicio} onChange={(e) => setParametrosInstitucionales({ ...parametrosInstitucionales, ejercicio: Number(e.target.value) })} />
-                    <label>Próxima disposición</label>
-                    <input type="number" value={parametrosInstitucionales.proxima_disposicion} onChange={(e) => setParametrosInstitucionales({ ...parametrosInstitucionales, proxima_disposicion: Number(e.target.value) })} />
-                  </div>
-
-                  <div>
-                    <strong>Datos institucionales</strong>
-                    <label>Organismo</label>
-                    <input value={parametrosInstitucionales.organismo} onChange={(e) => setParametrosInstitucionales({ ...parametrosInstitucionales, organismo: e.target.value })} />
-                    <label>Distrito</label>
-                    <input value={parametrosInstitucionales.distrito} onChange={(e) => setParametrosInstitucionales({ ...parametrosInstitucionales, distrito: e.target.value })} />
-                    <label>Localidad</label>
-                    <input value={parametrosInstitucionales.localidad} onChange={(e) => setParametrosInstitucionales({ ...parametrosInstitucionales, localidad: e.target.value })} />
-                  </div>
-
-                  <div>
-                    <strong>Plantillas</strong>
-                    <p>Disposición FC 2026.2 activa.</p>
-                    <p className="muted">El versionado y la carga de nuevas plantillas quedan preparados para próximos sprints.</p>
-                  </div>
-                </div>
-
-                <div className="actions">
-                  <button className="primary" onClick={guardarParametrosInstitucionales}>Guardar parámetros</button>
-                </div>
-              </>
-            ) : (
-              <p className="empty">Cargando parámetros institucionales...</p>
-            )}
+            <div className="admin-grid">
+              <div>
+                <strong>Parámetros institucionales</strong>
+                <p>Datos del organismo, distrito y localidad.</p>
+              </div>
+              <div>
+                <strong>Catálogos administrativos</strong>
+                <p>Autoridades, resultados y datos auxiliares.</p>
+              </div>
+              <div>
+                <strong>Fondos y Unidad de Contratación</strong>
+                <p>Configuración de fondos y valores anuales de UC.</p>
+              </div>
+              <div>
+                <strong>Usuarios y plantillas</strong>
+                <p>Permisos y plantillas documentales institucionales.</p>
+              </div>
+            </div>
           </section>
         )}
       </section>

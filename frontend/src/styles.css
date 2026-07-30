@@ -116,15 +116,98 @@ th { color: #64748b; font-weight: 700; }
 .data-list dt { color: #64748b; }
 .data-list dd { margin: 0; font-weight: 600; }
 .empty { color: #64748b; font-style: italic; }
-.solicitudes-layout { display: grid; grid-template-columns: minmax(320px, .8fr) minmax(520px, 1.4fr); gap: 16px; align-items: start; }
-.solicitudes-layout.detail-only { grid-template-columns: 1fr; }
+.solicitudes-page { display: grid; gap: 16px; }
+.solicitudes-toolbar { display: flex; justify-content: flex-end; gap: 10px; }
+.solicitud-create-region { display: grid; grid-template-rows: 0fr; opacity: 0; visibility: hidden; transition: grid-template-rows 180ms ease, opacity 180ms ease, visibility 0s linear 180ms; }
+.solicitud-create-region.open { grid-template-rows: 1fr; opacity: 1; visibility: visible; transition: grid-template-rows 180ms ease, opacity 180ms ease; }
+.solicitud-create-region > div { min-height: 0; overflow: hidden; }
+.solicitud-create-panel { width: 100%; margin: 0; }
+.solicitudes-management { display: grid; grid-template-columns: 1fr; gap: 16px; align-items: start; }
 .solicitudes-table { overflow-x: auto; }
-.evaluaciones-grid { display: grid; grid-template-columns: minmax(240px, .8fr) minmax(280px, 1fr); gap: 18px; align-items: start; }
-.evaluaciones-list { display: grid; gap: 10px; }
-.evaluaciones-list article { border: 1px solid #e2e8f0; background: #fff; border-radius: 12px; padding: 12px; }
-.evaluaciones-list p { margin: 6px 0; color: #334155; }
-.evaluaciones-list small { display: block; margin-top: 8px; color: #64748b; overflow-wrap: anywhere; }
+.solicitudes-table th, .solicitudes-table td { padding: 8px 9px; }
+.solicitudes-table .badge { padding: 4px 7px; font-size: 11px; }
+.solicitud-number { color: #0f172a; font-size: 15px; white-space: nowrap; }
+.solicitud-reason { display: block; max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.solicitud-detail { min-width: 0; }
+.solicitud-detail.empty { min-height: 0; }
+.solicitud-empty-detail { display: grid; gap: 5px; color: #64748b; }
+.solicitud-empty-detail strong { color: #334155; font-size: 14px; }
+.solicitud-empty-detail span { font-size: 13px; line-height: 1.4; }
+.solicitud-detail .decisiones-grid { grid-template-columns: 1fr; }
+.solicitud-case-page { display: grid; gap: 12px; }
+.solicitud-case-topbar { display: grid; grid-template-columns: 1fr auto 1fr; gap: 16px; align-items: center; min-height: 46px; }
+.solicitud-case-topbar h3 { margin: 0; text-align: center; font-size: 18px; }
+.solicitud-case-topbar > :last-child { justify-self: end; }
+.solicitud-case-header { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 28px; align-items: center; margin: 0; padding: 16px 20px; border-radius: 18px; background: linear-gradient(135deg, #fff 55%, #f5f9ff); box-shadow: 0 5px 18px rgba(15,23,42,.07); }
+.solicitud-case-title { min-width: 0; }
+.solicitud-case-title h3 { margin: 3px 0 0; color: #0f172a; font-size: clamp(28px, 2.5vw, 36px); line-height: 1.05; letter-spacing: -.035em; overflow-wrap: anywhere; }
+.solicitud-case-id-suna { display: grid; gap: 4px; min-width: 150px; text-align: right; }
+.solicitud-case-id-suna span { color: #64748b; font-size: 11px; text-transform: uppercase; letter-spacing: .045em; }
+.solicitud-case-id-suna strong { color: #172033; overflow-wrap: anywhere; }
+.solicitud-administrative-info { margin: 0; padding: 0; overflow: hidden; border-radius: 14px; box-shadow: 0 2px 8px rgba(15,23,42,.04); }
+.solicitud-administrative-info-toggle { display: flex; justify-content: space-between; align-items: center; width: 100%; padding: 12px 16px; border: 0; border-radius: 0; background: #fff; color: #172033; text-align: left; }
+.solicitud-administrative-info-toggle:hover { background: #f8fafc; }
+.solicitud-administrative-info-toggle > span:first-child { display: grid; gap: 2px; }
+.solicitud-administrative-info-toggle > span:last-child { display: inline-grid; place-items: center; width: 25px; height: 25px; border: 1px solid #cbd5e1; border-radius: 50%; color: #475569; font-size: 18px; line-height: 1; }
+.solicitud-administrative-info-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; padding: 12px 16px 15px; border-top: 1px solid #e2e8f0; }
+.solicitud-administrative-info-grid article { display: grid; gap: 4px; min-width: 0; }
+.solicitud-administrative-info-grid article span { color: #64748b; font-size: 12px; text-transform: uppercase; letter-spacing: .035em; }
+.solicitud-administrative-info-grid article strong { color: #172033; overflow-wrap: anywhere; }
+.solicitud-case-workflow { display: grid; grid-template-columns: repeat(8, minmax(112px, 1fr)); overflow-x: auto; background: #fff; border: 1px solid #dbe1ea; border-radius: 14px; padding: 8px 10px; box-shadow: 0 2px 8px rgba(15,23,42,.04); }
+.solicitud-case-step { position: relative; display: grid; justify-items: center; align-content: start; gap: 5px; min-height: 52px; padding: 5px 8px; color: #64748b; font-size: 11px; text-align: center; }
+.solicitud-case-step:not(:last-child)::after { content: ''; position: absolute; top: 16px; right: -14%; width: 28%; height: 1px; background: #cbd5e1; }
+.solicitud-case-step > span { display: inline-grid; place-items: center; width: 23px; height: 23px; border-radius: 50%; background: #e2e8f0; color: #475569; font-weight: 800; }
+.solicitud-case-step.completed, .solicitud-case-step.current { color: #0f4c81; }
+.solicitud-case-step.completed > span { background: #dcfce7; color: #166534; }
+.solicitud-case-step.current > span { background: #2563eb; color: #fff; box-shadow: 0 0 0 4px #dbeafe; }
+.solicitud-case-step.future { opacity: .68; }
+.solicitud-executive-grid { display: grid; grid-template-columns: minmax(280px, 1.6fr) repeat(3, minmax(0, 1fr)); gap: 10px; }
+.solicitud-executive-grid .card { display: grid; align-content: center; gap: 6px; min-height: 94px; margin: 0; padding: 14px 16px; border-radius: 14px; box-shadow: 0 2px 8px rgba(15,23,42,.04); }
+.solicitud-executive-grid span { color: #64748b; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; }
+.solicitud-executive-grid .solicitud-executive-primary { border-color: #f4cf76; background: linear-gradient(135deg, #fffaf0, #fff); box-shadow: 0 5px 16px rgba(180,120,0,.09); }
+.solicitud-executive-primary strong { color: #0f172a; font-size: 18px; }
+.solicitud-executive-primary small { color: #64748b; line-height: 1.35; }
+.solicitud-case-tabs { display: flex; gap: 8px; overflow-x: auto; border-bottom: 1px solid #dbe1ea; padding-top: 2px; }
+.solicitud-case-tabs button { position: relative; border: 0; border-bottom: 3px solid transparent; border-radius: 0; padding: 11px 16px; background: transparent; color: #64748b; font-weight: 700; white-space: nowrap; }
+.solicitud-case-tabs button:hover { color: #0f4c81; background: #f8fafc; }
+.solicitud-case-tabs button.active { border-bottom-color: #2563eb; color: #075ccf; background: linear-gradient(180deg, transparent, #eff6ff); }
+.solicitud-detail { margin: 0; padding: 16px 18px; border-radius: 14px; box-shadow: 0 2px 8px rgba(15,23,42,.04); }
+.solicitud-case-placeholder { min-height: 120px; display: grid; align-content: center; justify-items: center; color: #64748b; text-align: center; }
+.solicitud-case-placeholder h3, .solicitud-case-placeholder p { margin: 4px 0; }
+.solicitud-history { display: grid; gap: 18px; }
+.solicitud-history-heading h3 { margin: 0; }
+.solicitud-history-heading p { margin: 6px 0 0; color: #64748b; }
+.solicitud-history-list { display: grid; gap: 0; margin: 0; padding: 0; list-style: none; }
+.solicitud-history-event { position: relative; display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: 12px; padding-bottom: 18px; }
+.solicitud-history-event:not(:last-child)::before { content: ''; position: absolute; top: 18px; bottom: 0; left: 7px; width: 2px; background: #dbe1ea; }
+.solicitud-history-event article { min-width: 0; padding: 13px 15px; border: 1px solid #e2e8f0; border-radius: 12px; background: #fff; }
+.solicitud-history-event time { color: #64748b; font-size: 12px; font-weight: 700; }
+.solicitud-history-event h4 { margin: 4px 0 10px; color: #172033; }
+.solicitud-history-event p { margin: 5px 0; color: #334155; overflow-wrap: anywhere; }
+.solicitud-history-marker { position: relative; z-index: 1; width: 16px; height: 16px; margin-top: 12px; border: 3px solid #fff; border-radius: 50%; box-shadow: 0 0 0 1px #cbd5e1; }
+.solicitud-history-marker.solicitud { background: #2563eb; }
+.solicitud-history-marker.decision { background: #16a34a; }
+.solicitud-case-actions { display: flex; justify-content: flex-end; gap: 10px; padding: 8px 0 2px; border-top: 1px solid #e2e8f0; }
+.solicitud-analysis-block { margin: 0; border-color: #dbe1ea; background: #fff; }
+.solicitud-analysis-block .card-title { align-items: start; margin-bottom: 12px; }
+.solicitud-analysis-block h3 { margin: 3px 0 0; font-size: 21px; }
+.solicitud-analysis-intro { margin: 6px 0 0; color: #64748b; line-height: 1.45; }
+.solicitud-future-stages { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; margin-top: 8px; }
+.solicitud-future-stages article { display: grid; grid-template-columns: auto 1fr; gap: 2px 7px; align-items: center; min-height: 64px; padding: 10px 12px; border: 1px solid #e2e8f0; border-radius: 10px; background: #fafbfc; box-shadow: none; }
+.solicitud-future-stages span { grid-row: 1 / span 2; color: #94a3b8; font-size: 15px; }
+.solicitud-future-stages strong { color: #64748b; font-size: 13px; font-weight: 700; }
+.solicitud-future-stages small { color: #94a3b8; font-size: 11px; }
 .decisiones-grid { display: grid; grid-template-columns: minmax(240px, .8fr) minmax(280px, 1fr); gap: 18px; align-items: start; }
+.decision-intervention-form { min-width: 0; }
+.decision-intervention-form > h4 { margin-bottom: 10px; }
+.decision-brief-fields { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; align-items: start; }
+.decision-field { min-width: 0; }
+.decision-field label { margin-top: 0; }
+.decision-field input, .decision-field select, .decision-field textarea { min-width: 0; width: 100%; }
+.decision-field-wide { margin-top: 10px; }
+.decision-foundation textarea { min-height: 72px; resize: vertical; }
+.decision-submit-row { display: flex; justify-content: flex-start; margin-top: 10px; }
+.decision-submit-row .primary { margin-top: 0; }
 .decisiones-list { display: grid; gap: 10px; }
 .decisiones-list article { border: 1px solid #e2e8f0; background: #fff; border-radius: 12px; padding: 12px; }
 .decisiones-list p { margin: 6px 0; color: #334155; }
@@ -163,7 +246,14 @@ th { color: #64748b; font-weight: 700; }
 @media (max-width: 1000px) {
   .app-shell { display: block; }
   .sidebar { width: 100%; }
-  .metrics, .dashboard-grid, .upload-grid, .workflow-layout, .solicitudes-layout, .evaluaciones-grid, .decisiones-grid, .analysis-grid, .admin-grid, .validation-columns, .checklist-grid, .intelligence-grid, .evidence-grid, .disposition-editor { grid-template-columns: 1fr; }
+  .metrics, .dashboard-grid, .upload-grid, .workflow-layout, .solicitudes-management, .decisiones-grid, .analysis-grid, .admin-grid, .validation-columns, .checklist-grid, .intelligence-grid, .evidence-grid, .disposition-editor { grid-template-columns: 1fr; }
+  .solicitud-case-header { grid-template-columns: 1fr; }
+  .solicitud-case-id-suna { justify-items: start; min-width: 0; text-align: left; }
+  .solicitud-administrative-info-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .solicitud-executive-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .solicitud-executive-primary { grid-column: 1 / -1; }
+  .solicitud-future-stages { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .decision-brief-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .expediente-header { display: block; }
   .expediente-header-status { justify-items: start; text-align: left; margin-top: 16px; }
   .expediente-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -178,10 +268,31 @@ th { color: #64748b; font-weight: 700; }
 
 @media (max-width: 720px) {
   .content { padding: 18px 14px; }
+  .solicitudes-toolbar { display: grid; grid-template-columns: 1fr; }
+  .solicitudes-toolbar .primary, .solicitudes-toolbar .secondary { width: 100%; }
+  .solicitud-case-topbar { grid-template-columns: 1fr; }
+  .solicitud-case-topbar h3 { text-align: left; }
+  .solicitud-case-topbar > :last-child { justify-self: stretch; }
+  .solicitud-executive-grid { grid-template-columns: 1fr; }
+  .solicitud-administrative-info-grid { grid-template-columns: 1fr; }
+  .solicitud-case-header { padding: 18px; }
+  .solicitud-case-title h3 { font-size: 30px; }
+  .solicitud-executive-primary { grid-column: auto; }
+  .solicitud-future-stages { grid-template-columns: 1fr; }
+  .decision-brief-fields { grid-template-columns: 1fr; }
+  .decision-submit-row .primary { width: 100%; }
+  .solicitud-case-actions { display: grid; grid-template-columns: 1fr; }
   .workflow-steps { grid-template-columns: 1fr; gap: 3px; }
   .workflow-step { justify-content: flex-start; text-align: left; }
   .workflow-step:not(:last-child)::after { display: none; }
   .workflow-active-status, .expediente-identity-grid, .expediente-summary-grid, .administrative-preparation-grid { grid-template-columns: 1fr; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .solicitud-create-region,
+  .solicitud-create-region.open {
+    transition: none;
+  }
 }
 
 
