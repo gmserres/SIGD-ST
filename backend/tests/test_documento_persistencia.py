@@ -8,7 +8,11 @@ from sqlalchemy import create_engine
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 
-from app.api.expedientes import cargar_op
+from app.api.expedientes import (
+    cargar_op,
+    listar_documentos,
+    subir_documento,
+)
 from app.domain.estados import EstadoExpediente
 from app.infrastructure.database.base import Base
 from app.infrastructure.database.mappers.documento_mapper import (
@@ -175,7 +179,57 @@ class DocumentoPersistenciaTest(unittest.TestCase):
             mime_type="application/pdf",
         )
 
+
 class DocumentoEndpointTest(unittest.IsolatedAsyncioTestCase):
+    async def test_upload_conserva_contrato_actual(self) -> None:
+        esperado = DocumentoRead(
+            id="DOC-000001",
+            expediente_id="EXP-1",
+            tipo="FACTURA",
+            nombre_archivo="factura.pdf",
+            ruta="storage/expedientes/EXP-1/factura.pdf",
+            fecha_carga=datetime(2026, 7, 29, 10),
+            observaciones="Observación",
+            tamano_bytes=100,
+            mime_type="application/pdf",
+        )
+        archivo = UploadFile(
+            filename="factura.pdf",
+            file=BytesIO(b"PDF"),
+        )
+
+        with (
+            patch(
+                "app.api.expedientes.obtener_expediente"
+            ),
+            patch(
+                "app.api.expedientes.guardar_upload",
+                new=AsyncMock(
+                    return_value=(
+                        esperado.nombre_archivo,
+                        esperado.ruta,
+                        esperado.tamano_bytes,
+                        esperado.mime_type,
+                    )
+                ),
+            ),
+            patch(
+                "app.api.expedientes.documento_service.agregar",
+                return_value=esperado,
+            ),
+            patch(
+                "app.api.expedientes.historial_service.registrar"
+            ),
+        ):
+            resultado = await subir_documento(
+                "EXP-1",
+                "FACTURA",
+                "Observación",
+                archivo,
+            )
+
+        self.assertEqual(resultado, esperado)
+
     async def test_op_inexistente_devuelve_404_controlado(
         self,
     ) -> None:
@@ -233,6 +287,81 @@ class DocumentoEndpointTest(unittest.IsolatedAsyncioTestCase):
         eliminar.assert_called_once_with(
             "storage/expedientes/EXP-1/op.pdf"
         )
+
+    async def test_elimina_archivo_si_falla_persistencia(
+        self,
+    ) -> None:
+        archivo = UploadFile(
+            filename="factura.pdf",
+            file=BytesIO(b"PDF"),
+        )
+
+        with (
+            patch(
+                "app.api.expedientes.obtener_expediente"
+            ),
+            patch(
+                "app.api.expedientes.guardar_upload",
+                new=AsyncMock(
+                    return_value=(
+                        "factura.pdf",
+                        "storage/expedientes/EXP-1/factura.pdf",
+                        100,
+                        "application/pdf",
+                    )
+                ),
+            ),
+            patch(
+                "app.api.expedientes.documento_service.agregar",
+                side_effect=RuntimeError("Error controlado"),
+            ),
+            patch(
+                "app.api.expedientes._eliminar_archivo_guardado"
+            ) as eliminar,
+        ):
+            with self.assertRaisesRegex(
+                RuntimeError,
+                "Error controlado",
+            ):
+                await subir_documento(
+                    "EXP-1",
+                    "FACTURA",
+                    None,
+                    archivo,
+                )
+
+        eliminar.assert_called_once_with(
+            "storage/expedientes/EXP-1/factura.pdf"
+        )
+
+    def test_listado_conserva_respuesta_documental(self) -> None:
+        esperado = [
+            DocumentoRead(
+                id="DOC-000001",
+                expediente_id="EXP-1",
+                tipo="OP",
+                nombre_archivo="op.pdf",
+                ruta="storage/expedientes/EXP-1/op.pdf",
+                fecha_carga=datetime(2026, 7, 29, 10),
+                observaciones=None,
+                tamano_bytes=100,
+                mime_type="application/pdf",
+            )
+        ]
+
+        with (
+            patch(
+                "app.api.expedientes.obtener_expediente"
+            ),
+            patch(
+                "app.api.expedientes.documento_service."
+                "listar_por_expediente",
+                return_value=esperado,
+            ),
+        ):
+            resultado = listar_documentos("EXP-1")
+
+        self.assertEqual(resultado, esperado)
 
 
 if __name__ == "__main__":
