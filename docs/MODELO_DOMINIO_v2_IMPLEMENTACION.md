@@ -12,8 +12,7 @@ No constituye un plan de migración ni autoriza cambios sobre el sistema.
 Los lineamientos comprenden:
 
 - Solicitud de Intervención;
-- Evaluación Administrativa;
-- Decisión Administrativa;
+- Decisión sobre la Intervención;
 - Fondo Interviniente;
 - Expediente;
 - documentos;
@@ -27,12 +26,9 @@ Los lineamientos comprenden:
 La Solicitud de Intervención deberá ser la entidad raíz de toda nueva
 intervención administrativa.
 
-El sistema deberá permitir registrarla sin que exista previamente:
-
-- una Evaluación Administrativa;
-- una Decisión Administrativa;
-- un Fondo Interviniente determinado;
-- un Expediente.
+El sistema deberá permitir registrarla sin que exista previamente una
+Decisión sobre la Intervención, un Fondo Interviniente determinado o un
+Expediente.
 
 ### Datos mínimos documentados
 
@@ -50,35 +46,37 @@ El sistema deberá permitir registrarla sin que exista previamente:
 Cuando la procedencia sea `SUNA`, `id_suna` será obligatorio. No se establecen
 en este documento otros valores de procedencia ni reglas adicionales.
 
-## 4. Evaluación Administrativa
+## 4. Decisión sobre la Intervención
 
-La Evaluación Administrativa deberá vincularse con la Solicitud de
-Intervención correspondiente.
-
-Deberá permitir conservar las consultas, análisis, antecedentes y
-verificaciones que sean registrados durante la etapa previa a la decisión.
-
-Los tipos de evaluación, sus campos obligatorios, estados y reglas de cierre
-permanecen pendientes de definición funcional.
-
-## 5. Decisión Administrativa
-
-La Decisión Administrativa deberá vincularse de forma permanente con la
+La Decisión sobre la Intervención deberá vincularse de forma permanente con la
 Solicitud de Intervención.
+
+El análisis previo de la Solicitud forma parte del proceso de decisión y no
+constituye una entidad administrativa autónoma. La actuación registrada es la
+Decisión sobre la Intervención.
 
 ### Datos mínimos documentados
 
+- `id_decision`
 - `solicitud_intervencion_id`
-- `fondo_interviniente`
-- `autoridad_decisora`
 - `fecha_decision`
+- `autoridad_decisora`
+- `resultado`
 - `fundamento`
-- `observaciones`
+- `fondo_interviniente`
+- `descripcion_fondo`
+- `usuario_registrante`
+
+Actualmente existen Solicitudes y Decisiones persistentes en PostgreSQL, así
+como la creación de Expediente desde una Decisión aprobatoria de Fondo
+Compensador. La creación requiere que la Decisión tenga un Fondo Interviniente
+determinado. El alta directa de Expediente continúa disponible por
+compatibilidad.
 
 La determinación del Fondo Interviniente no deberá producirse implícitamente
 durante el registro de la solicitud.
 
-## 6. Fondo Interviniente
+## 5. Fondo Interviniente
 
 El Fondo Interviniente deberá representarse separadamente del procedimiento de
 contratación.
@@ -91,11 +89,11 @@ Continúa pendiente decidir si su representación será:
 Hasta que esta decisión sea aprobada, no corresponde fijar una estructura
 definitiva de almacenamiento ni comportamiento específico.
 
-## 7. Expediente
+## 6. Expediente
 
 El Expediente deberá:
 
-- crearse como consecuencia de una Decisión Administrativa;
+- crearse como consecuencia de una Decisión sobre la Intervención;
 - mantener una referencia permanente a la Solicitud de Intervención de origen;
 - conservar sus relaciones actuales con documentos, validaciones, historial y
   disposiciones;
@@ -106,7 +104,7 @@ No se define en este documento una regla automática para crear el expediente ni
 una equivalencia entre sus estados actuales y los estados futuros de la
 solicitud.
 
-## 8. Separación de conceptos
+## 7. Separación de conceptos
 
 La implementación deberá utilizar conceptos diferentes para:
 
@@ -116,14 +114,13 @@ La implementación deberá utilizar conceptos diferentes para:
 
 La selección o detección de uno no deberá determinar implícitamente el otro.
 
-## 9. Trazabilidad
+## 8. Trazabilidad
 
 La implementación deberá permitir reconstruir:
 
 ```text
 Solicitud de Intervención
-→ Evaluación Administrativa
-→ Decisión Administrativa
+→ Decisión sobre la Intervención
 → Fondo Interviniente
 → Expediente
 → Disposición
@@ -132,12 +129,11 @@ Solicitud de Intervención
 La trazabilidad deberá conservar:
 
 - origen;
-- evaluaciones;
 - decisiones;
 - responsables;
 - resultado de la intervención.
 
-## 10. Consultas
+## 9. Consultas
 
 La implementación deberá permitir localizar y recorrer la intervención por:
 
@@ -150,46 +146,46 @@ La implementación deberá permitir localizar y recorrer la intervención por:
 Una consulta deberá permitir acceder a las relaciones administrativas
 derivadas, sin considerar cada identificador como un registro aislado.
 
-## 11. Compatibilidad con el modelo anterior
+## 10. Compatibilidad con el modelo anterior
 
 Los expedientes existentes deberán continuar siendo administrables durante la
 transición.
 
 La incorporación del Modelo de Dominio v2 no deberá interpretar
-retroactivamente datos inexistentes ni inventar solicitudes, evaluaciones,
-decisiones o autoridades decisoras.
+retroactivamente datos inexistentes ni inventar solicitudes, decisiones o
+autoridades decisoras.
 
 La estrategia para vincular expedientes anteriores con solicitudes deberá
 definirse y aprobarse antes de ejecutar una migración de datos.
 
-## 12. Correspondencia con componentes actuales
+## 11. Correspondencia con componentes actuales
 
 Los componentes actuales relacionados con expedientes, documentos, historial,
 validación, análisis de OP y disposiciones representan funcionalidades
 existentes que deberán evaluarse dentro del nuevo flujo.
 
+Solicitudes y Decisiones ya poseen persistencia PostgreSQL y se vinculan con
+la creación de Expedientes. El historial completo del Expediente todavía
+conserva componentes en memoria.
+
 Su existencia no convierte al Expediente en entidad raíz ni autoriza a utilizar
 `tipo_tramite` como reemplazo del Fondo Interviniente o del procedimiento de
 contratación.
 
-## 13. Decisiones pendientes antes de implementar
+## 12. Decisiones funcionales y arquitectónicas pendientes
 
 Requieren definición funcional o arquitectónica previa:
 
 1. representación definitiva del Fondo Interviniente;
 2. estados y transiciones de la Solicitud de Intervención;
-3. estructura y ciclo de vida de la Evaluación Administrativa;
-4. condiciones para registrar y modificar una Decisión Administrativa;
-5. mecanismo de identificación y numeración de solicitudes;
-6. cardinalidad de evaluaciones y decisiones por solicitud;
-7. tratamiento de rectificaciones o reemplazos de decisiones;
-8. creación manual o automática del expediente;
-9. estrategia de vinculación de expedientes preexistentes;
-10. permisos asociados a operadores y autoridades decisoras.
+3. condiciones para modificar una Decisión sobre la Intervención;
+4. tratamiento de rectificaciones o reemplazos de decisiones;
+5. estrategia de vinculación de expedientes preexistentes;
+6. permisos asociados a operadores y autoridades decisoras.
 
 Estas cuestiones no deberán resolverse mediante supuestos técnicos.
 
-## 14. Restricciones de implementación
+## 13. Restricciones de implementación
 
 - No crear un expediente antes de la decisión administrativa en el nuevo flujo.
 - No exigir Fondo Interviniente al registrar la solicitud.
@@ -200,10 +196,10 @@ Estas cuestiones no deberán resolverse mediante supuestos técnicos.
 - No perder la trazabilidad entre entidades.
 - No incorporar reglas de negocio que no estén documentadas y aprobadas.
 
-## 15. Condición previa a la migración
+## 14. Condición para migraciones futuras
 
-Antes de modificar backend, frontend o persistencia deberá existir un plan de
-migración aprobado que:
+Antes de realizar nuevas migraciones que afecten este modelo deberá existir un
+plan aprobado que:
 
 - identifique componentes afectados;
 - ordene las fases;

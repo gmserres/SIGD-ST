@@ -29,28 +29,36 @@ Si la procedencia de la solicitud es `SUNA`, el campo `id_suna` es obligatorio. 
 
 El registro inicial de la solicitud no implica la determinación anticipada de un Fondo Interviniente.
 
-## 3. Evaluación Administrativa
+## 3. Decisión sobre la Intervención
 
-La Evaluación Administrativa es la etapa previa a la decisión. Puede comprender consultas, análisis técnicos, antecedentes, verificaciones y otras actividades administrativas necesarias para determinar el Fondo Interviniente.
+La Decisión sobre la Intervención representa la determinación adoptada por la autoridad competente respecto de una Solicitud de Intervención.
 
-## 4. Decisión Administrativa
+El análisis previo de la Solicitud forma parte del proceso de decisión y no constituye una entidad administrativa autónoma. La actuación administrativa registrada es la Decisión sobre la Intervención. No corresponde persistir evaluador, fecha de inicio ni antecedentes de evaluación.
 
-La Decisión Administrativa representa la determinación competente adoptada después del registro y de la Evaluación Administrativa de la Solicitud de Intervención.
+La decisión puede aprobar la intervención, rechazarla o solicitar información adicional. Cuando sea aprobatoria podrá determinar el Fondo Interviniente.
 
 El operador registra la Solicitud de Intervención. La determinación del Fondo Interviniente constituye una decisión administrativa reservada a la autoridad competente.
 
 ### Campos mínimos
 
+- `id_decision`
 - `solicitud_intervencion_id`
-- `fondo_interviniente`
-- `autoridad_decisora`
 - `fecha_decision`
+- `autoridad_decisora`
+- `resultado`
 - `fundamento`
-- `observaciones`
+- `fondo_interviniente`
+- `descripcion_fondo`
+- `usuario_registrante`
+
+`descripcion_fondo` es obligatorio cuando el Fondo Interviniente es `OTRO`.
+Los valores visibles de resultado y autoridad decisora provienen actualmente
+de catálogos temporales. El backend recibe texto y todavía no aplica una
+enumeración de dominio cerrada para esos campos.
 
 La denominación oficial del concepto será siempre **Fondo Interviniente**. No deberá utilizarse la expresión “procedimiento elegido” para representar esta decisión.
 
-## 5. Separación conceptual
+## 4. Separación conceptual
 
 SIGD-ST distingue dos conceptos administrativos diferentes.
 
@@ -79,7 +87,7 @@ Ejemplos:
 
 La determinación del Fondo Interviniente no equivale a la definición del procedimiento de contratación. Ambos conceptos deben modelarse y registrarse de forma independiente.
 
-## 6. Decisión pendiente de arquitectura
+## 5. Decisión pendiente de arquitectura
 
 Se encuentra pendiente definir la representación definitiva del Fondo Interviniente.
 
@@ -119,22 +127,30 @@ El Fondo Interviniente se representa como una entidad con identidad, atributos, 
 
 La decisión entre ambas alternativas permanece abierta y deberá resolverse según las necesidades funcionales verificadas.
 
-## 7. Expediente
+## 6. Expediente
 
 El Expediente ya no es la entidad raíz del sistema.
 
-Es una consecuencia de la Decisión Administrativa adoptada sobre una Solicitud de Intervención. Su creación ocurre después de determinar el Fondo Interviniente y debe mantener un vínculo permanente con la solicitud que le dio origen.
+Es una consecuencia de la Decisión sobre la Intervención adoptada respecto de una Solicitud de Intervención. Su creación ocurre después de determinar el Fondo Interviniente y debe mantener un vínculo permanente con la solicitud que le dio origen.
+
+Una Solicitud puede registrar múltiples Decisiones, pero solo una Decisión
+aprobatoria efectiva puede habilitar la creación operativa del Expediente. La
+creación desde una Decisión requiere un Fondo Interviniente y actualmente está
+operativa para Fondo Compensador. El alta directa de Expediente continúa
+disponible como mecanismo compatible o excepcional.
 
 Los expedientes existentes podrán continuar siendo administrados durante la transición al nuevo modelo.
 
-## 8. Flujo general
+La Validación Administrativa del Expediente ocurre sobre el Expediente,
+controla su documentación y puede utilizar el checklist de existencia física.
+No reemplaza ni recrea la antigua Evaluación Administrativa de la Solicitud.
+
+## 7. Flujo general
 
 ```text
 Solicitud de Intervención
           ↓
-Evaluación Administrativa
-          ↓
-Decisión Administrativa
+Decisión sobre la Intervención
           ↓
  Fondo Interviniente
           ↓
@@ -149,16 +165,13 @@ Decisión Administrativa
         Archivo
 ```
 
-## 9. Diagrama general del dominio
+## 8. Diagrama general del dominio
 
 ```text
 Solicitud de Intervención
           │
           ▼
-Evaluación Administrativa
-          │
-          ▼
-Decisión Administrativa
+Decisión sobre la Intervención
           │
           ▼
  Fondo Interviniente
@@ -175,22 +188,21 @@ Decisión Administrativa
                 Archivo
 ```
 
-## 10. Trazabilidad
+## 9. Trazabilidad
 
 SIGD-ST debe conservar de manera permanente el siguiente vínculo:
 
 ```text
 Solicitud de Intervención
-→ Evaluación Administrativa
-→ Decisión Administrativa
+→ Decisión sobre la Intervención
 → Fondo Interviniente
 → Expediente
 → Disposición
 ```
 
-La trazabilidad debe permitir reconstruir el origen, las evaluaciones, las decisiones, los responsables y el resultado de cada intervención administrativa.
+La trazabilidad debe permitir reconstruir el origen, las decisiones, las autoridades responsables y el resultado de cada intervención administrativa.
 
-## 11. Consultas futuras
+## 10. Consultas futuras
 
 El sistema deberá permitir búsquedas y consultas por:
 
@@ -202,11 +214,11 @@ El sistema deberá permitir búsquedas y consultas por:
 
 Las consultas deberán permitir recorrer la relación completa entre la Solicitud de Intervención y los elementos administrativos derivados.
 
-## 12. Decisiones arquitectónicas
+## 11. Decisiones arquitectónicas
 
 ### DA-001: La Solicitud de Intervención es la entidad raíz del dominio
 
-Toda intervención administrativa comienza con una Solicitud de Intervención. El Expediente y los documentos posteriores son entidades derivadas de la Evaluación Administrativa y de la Decisión Administrativa.
+Toda intervención administrativa comienza con una Solicitud de Intervención. El Expediente y los documentos posteriores son entidades derivadas de la Decisión sobre la Intervención.
 
 Esta decisión permite registrar solicitudes antes de conocer el Fondo Interviniente y conservar su trazabilidad desde el ingreso.
 

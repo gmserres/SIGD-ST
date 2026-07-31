@@ -26,8 +26,7 @@ El flujo general documentado es:
 
 ```text
 Solicitud de Intervención
-→ Evaluación Administrativa
-→ Decisión Administrativa
+→ Decisión sobre la Intervención
 → Fondo Interviniente
 → Expediente
 → Documentos
@@ -37,8 +36,12 @@ Solicitud de Intervención
 ```
 
 El Expediente no es la entidad raíz del dominio. Su creación es consecuencia
-de una Decisión Administrativa adoptada respecto de una Solicitud de
+de una Decisión sobre la Intervención adoptada respecto de una Solicitud de
 Intervención.
+
+La Decisión sobre la Intervención registra la autoridad decisora, la fecha, el
+resultado, el fundamento, el Fondo Interviniente cuando corresponda y el
+usuario registrante.
 
 ## 4. Principios funcionales
 
@@ -49,11 +52,14 @@ Intervención.
    reservada a la autoridad competente.
 4. Fondo Interviniente y procedimiento de contratación son conceptos
    diferentes y deben registrarse de forma independiente.
-5. El vínculo entre solicitud, evaluación, decisión, fondo, expediente y
+5. El vínculo entre solicitud, decisión, fondo, expediente y
    disposición debe conservarse permanentemente.
-6. Los expedientes existentes deben poder continuar administrándose durante
+6. El análisis previo de la Solicitud forma parte del proceso de decisión y no
+   constituye una entidad administrativa autónoma. La actuación registrada es
+   la Decisión sobre la Intervención.
+7. Los expedientes existentes deben poder continuar administrándose durante
    la transición al nuevo modelo.
-7. Las reglas funcionales no documentadas requieren definición y aprobación
+8. Las reglas funcionales no documentadas requieren definición y aprobación
    antes de implementarse.
 
 ## 5. Documentos normativos del proyecto
