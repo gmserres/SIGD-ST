@@ -384,6 +384,9 @@ function App() {
   const [analisis, setAnalisis] = useState<AnalisisOP | null>(null);
   const [validacion, setValidacion] = useState<Validacion | null>(null);
   const [disposicionBorrador, setDisposicionBorrador] = useState<Disposicion | null>(null);
+  const [numeroDisposicionEditable, setNumeroDisposicionEditable] = useState('');
+  const [guardandoNumeroDisposicion, setGuardandoNumeroDisposicion] = useState(false);
+  const [errorNumeroDisposicion, setErrorNumeroDisposicion] = useState('');
   const [checklistFisico, setChecklistFisico] = useState<ChecklistFisico>({ factura: false, remito_conformidad: false, cae: false, arca: false, arba: false, observaciones: '' });
   const [mostrarChecklistFisico, setMostrarChecklistFisico] = useState(false);
   const [mensaje, setMensaje] = useState('');
@@ -1072,18 +1075,66 @@ function App() {
   }
 
   async function prepararDisposicion(regenerar = false) {
-    if (!seleccionado) return;
+    if (!seleccionado) return false;
     const res = await fetch(`${API_URL}/expedientes/${seleccionado.id}/disposicion/borrador?regenerar=${regenerar}`, { method: 'POST' });
 
     if (!res.ok) {
       avisar(await obtenerMensajeError(res), 'error');
-      return;
+      return false;
     }
 
     const data = await res.json();
     setDisposicionBorrador(data);
     setTabDetalle('disposicion');
     avisar('Borrador de disposición generado correctamente.', 'ok');
+    return true;
+  }
+
+  async function guardarNumeroDisposicion() {
+    if (!seleccionado) return;
+
+    const numeroNormalizado = numeroDisposicionEditable.trim();
+    if (!numeroNormalizado) {
+      setErrorNumeroDisposicion('Ingresá un número de Disposición antes de guardarlo.');
+      return;
+    }
+
+    setGuardandoNumeroDisposicion(true);
+    setErrorNumeroDisposicion('');
+
+    try {
+      const res = await fetch(`${API_URL}/expedientes/${seleccionado.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ numero_disposicion: numeroNormalizado }),
+      });
+
+      if (!res.ok) {
+        setErrorNumeroDisposicion(await obtenerMensajeError(res));
+        return;
+      }
+
+      const actualizado: Expediente = await res.json();
+      setSeleccionado(actualizado);
+      setNumeroDisposicionEditable(actualizado.numero_disposicion || '');
+      await cargarExpedientes();
+
+      if (disposicionBorrador) {
+        const regenerado = await prepararDisposicion(true);
+        if (!regenerado) {
+          const mensajeRegeneracion = 'El número de Disposición se guardó, pero no pudo regenerarse el borrador.';
+          setErrorNumeroDisposicion(mensajeRegeneracion);
+          avisar(mensajeRegeneracion, 'error');
+          return;
+        }
+      }
+
+      avisar('Número de Disposición guardado correctamente.', 'ok');
+    } catch {
+      setErrorNumeroDisposicion('No se pudo conectar con el backend para guardar el número de Disposición.');
+    } finally {
+      setGuardandoNumeroDisposicion(false);
+    }
   }
 
   async function guardarBorradorDisposicion() {
@@ -1111,6 +1162,12 @@ function App() {
 
   async function generarDisposicion() {
     if (!seleccionado) return;
+    if (!seleccionado.numero_disposicion?.trim()) {
+      const mensajeNumero = 'Ingresá y guardá el número de Disposición antes de emitir.';
+      setErrorNumeroDisposicion(mensajeNumero);
+      avisar(mensajeNumero, 'error');
+      return;
+    }
     const res = await fetch(`${API_URL}/expedientes/${seleccionado.id}/generar-disposicion`, { method: 'POST' });
 
     if (!res.ok) {
@@ -1145,6 +1202,11 @@ function App() {
     cargarSolicitudes();
     cargarCatalogosIntervencion();
   }, []);
+
+  useEffect(() => {
+    setNumeroDisposicionEditable(seleccionado?.numero_disposicion || '');
+    setErrorNumeroDisposicion('');
+  }, [seleccionado?.id, seleccionado?.numero_disposicion]);
 
   const diag = diagnosticoIA(analisis);
   const comparacion = comparacionDocumental(analisis);
@@ -2804,6 +2866,39 @@ function App() {
                     <div className="card-title">
                       <h3>Editor de disposición</h3>
                       <span className="badge yellow">{disposicionBorrador?.estado || 'BORRADOR PLANTILLA'}</span>
+                    </div>
+
+                    <div className="observation-box">
+                      <h4>Número de Disposición</h4>
+                      {disposicionEmitida ? (
+                        <p><strong>{seleccionado.numero_disposicion || 'No informado'}</strong></p>
+                      ) : (
+                        <>
+                          <label htmlFor="numero-disposicion-expediente">Número asignado</label>
+                          <input
+                            id="numero-disposicion-expediente"
+                            value={numeroDisposicionEditable}
+                            onChange={(e) => {
+                              setNumeroDisposicionEditable(e.target.value);
+                              setErrorNumeroDisposicion('');
+                            }}
+                            placeholder="Ejemplo: 75/2026"
+                          />
+                          <div className="actions">
+                            <button
+                              className="secondary"
+                              type="button"
+                              onClick={guardarNumeroDisposicion}
+                              disabled={guardandoNumeroDisposicion}
+                            >
+                              {guardandoNumeroDisposicion ? 'Guardando...' : 'Guardar número'}
+                            </button>
+                          </div>
+                          {errorNumeroDisposicion && (
+                            <div className="notice error">{errorNumeroDisposicion}</div>
+                          )}
+                        </>
+                      )}
                     </div>
 
                     {!disposicionBorrador ? (
