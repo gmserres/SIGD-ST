@@ -160,13 +160,22 @@ definirse y aprobarse antes de ejecutar una migración de datos.
 
 ## 11. Correspondencia con componentes actuales
 
-Los componentes actuales relacionados con expedientes, documentos, historial,
-validación, análisis de OP y disposiciones representan funcionalidades
-existentes que deberán evaluarse dentro del nuevo flujo.
+Actualmente se encuentran integrados Solicitudes, Decisiones, creación de
+Expediente desde una Decisión aprobatoria, alta directa compatible de
+Expedientes, Documentos, Checklist de existencia física, Configuración UC,
+análisis de OP, Validaciones Administrativas y Disposiciones emitidas.
 
-Solicitudes y Decisiones ya poseen persistencia PostgreSQL y se vinculan con
-la creación de Expedientes. El historial completo del Expediente todavía
-conserva componentes en memoria.
+Solicitudes, Decisiones, Expedientes, Configuraciones UC y sus asociaciones,
+metadatos documentales, checklists, Validaciones Administrativas y
+Disposiciones emitidas poseen persistencia PostgreSQL. El análisis de OP se
+calcula bajo demanda. La evolución del esquema se administra mediante las
+migraciones Alembic incluidas en el repositorio.
+
+Los metadatos y resultados administrativos se conservan en PostgreSQL; los
+archivos cargados y documentos generados se almacenan en el filesystem. Los
+borradores de Disposición y el historial operativo del Expediente permanecen
+en memoria. El historial de la Solicitud puede reconstruirse desde la
+Solicitud y sus Decisiones persistidas.
 
 Su existencia no convierte al Expediente en entidad raíz ni autoriza a utilizar
 `tipo_tramite` como reemplazo del Fondo Interviniente o del procedimiento de

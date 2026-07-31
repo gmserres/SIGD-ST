@@ -78,23 +78,32 @@ Modelo de Dominio v2.
 
 ## 6. Estado de la implementación actual
 
-La implementación existente corresponde al modelo anterior y está organizada
-alrededor de Expediente.
+SIGD-ST implementa progresivamente el Modelo de Dominio v2. Actualmente
+conviven componentes del nuevo circuito con funcionalidades anteriores
+organizadas alrededor del Expediente. La Solicitud de Intervención y la
+Decisión ya forman parte de la implementación, mientras que el alta directa de
+Expedientes se preserva como mecanismo compatible.
 
-Actualmente existen funcionalidades para:
+De manera sintética, actualmente existen funcionalidades para:
 
+- solicitudes de intervención;
+- decisiones y creación de Expediente desde una Decisión aprobatoria;
 - expedientes;
-- documentos;
+- documentos y órdenes de pago;
 - proveedores y establecimientos;
-- historial;
-- checklist físico;
+- checklist de existencia física;
+- Configuración UC, sus rangos y su asociación al Expediente;
 - análisis de órdenes de pago;
-- validación;
-- generación de disposiciones;
+- validaciones administrativas;
+- generación de borradores y emisión de disposiciones;
 - parámetros institucionales.
 
-La existencia de estas funcionalidades no modifica el modelo funcional
-objetivo definido para la migración.
+Solicitudes, Decisiones, Expedientes, Configuraciones UC, metadatos
+documentales, checklists, validaciones y Disposiciones emitidas se conservan en
+PostgreSQL. Los archivos cargados y los DOCX generados se almacenan en el
+filesystem. Los borradores de Disposición y el historial operativo del
+Expediente permanecen en memoria; el historial de la Solicitud puede
+reconstruirse desde la Solicitud y sus Decisiones persistidas.
 
 ## 7. Decisiones pendientes
 
