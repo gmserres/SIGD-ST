@@ -1,6 +1,7 @@
-from datetime import datetime
+from datetime import date, datetime
 
 from sqlalchemy import (
+    Date,
     DateTime,
     ForeignKey,
     Index,
@@ -61,3 +62,9 @@ class ExpedienteModel(Base):
         String(255), nullable=True
     )
     creado: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    fecha_firma: Mapped[date | None] = mapped_column(
+        Date, nullable=True
+    )
+    usuario_registro_firma: Mapped[str | None] = mapped_column(
+        String(255), nullable=True
+    )

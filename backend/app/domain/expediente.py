@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 
 from app.domain.estados import EstadoExpediente
 
@@ -19,3 +19,5 @@ class Expediente:
     objeto: str | None
     numero_disposicion: str | None
     creado: datetime
+    fecha_firma: date | None = None
+    usuario_registro_firma: str | None = None

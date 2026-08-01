@@ -1,5 +1,3 @@
-from pathlib import Path
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -9,10 +7,7 @@ from app.api.decisiones import router as decisiones_router
 from app.api.expedientes import router as expedientes_router
 from app.api.solicitudes import router as solicitudes_router
 from app.api.sistema import router as sistema_router
-from app.core.settings import APP_STATE, APP_VERSION
-
-BASE_DIR = Path(__file__).resolve().parents[2]
-STORAGE_DIR = BASE_DIR / "storage"
+from app.core.settings import APP_STATE, APP_VERSION, STORAGE_DIR
 
 app = FastAPI(
     title="SIGD-ST API",

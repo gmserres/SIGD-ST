@@ -13,6 +13,7 @@ from app.schemas.disposicion import (
 )
 from app.schemas.checklist_fisico import ChecklistFisicoCreate, ChecklistFisicoRead
 from app.schemas.expediente import ExpedienteCreate, ExpedienteRead, ExpedienteUpdate
+from app.schemas.firma import RegistroFirmaCreate
 from app.schemas.historial import HistorialRead
 from app.schemas.parametros import ParametrosInstitucionalesRead, ParametrosInstitucionalesUpdate
 from app.schemas.texto_documento import TextoDocumentoRead
@@ -23,6 +24,7 @@ from app.composition.disposicion import (
     consulta_disposicion_service,
     disposicion_docx_service,
     emision_disposicion_service,
+    registro_firma_service,
 )
 from app.application.configuracion_uc.obtener_configuracion_uc_vigente import (
     ConfiguracionUCVigenteNoEncontradaError,
@@ -43,6 +45,14 @@ from app.services.consulta_disposicion import (
     DisposicionEmitidaNoEncontradaError,
 )
 from app.services.emision_disposicion import EmisionDisposicionError
+from app.repositories.registrar_firma_persistence import (
+    DisposicionEmitidaNoEncontradaAlFirmarError,
+    EstadoExpedienteIncompatibleParaFirmaError,
+    ExpedienteNoEncontradoAlRegistrarFirmaError,
+    FechaFirmaAnteriorAEmisionError,
+    FirmaYaRegistradaError,
+)
+from app.services.registro_firma import FechaFirmaFuturaError
 from app.composition.checklist_fisico import checklist_fisico_service
 from app.composition.expediente import expediente_service
 from app.composition.validacion import validacion_service
@@ -490,6 +500,37 @@ def obtener_disposicion_emitida(expediente_id: str):
             status_code=404,
             detail="Disposición emitida no encontrada",
         ) from exc
+
+
+@router.post(
+    "/{expediente_id}/registrar-firma",
+    response_model=ExpedienteRead,
+)
+def registrar_firma(
+    expediente_id: str,
+    data: RegistroFirmaCreate,
+):
+    try:
+        return registro_firma_service.registrar(
+            expediente_id,
+            data.fecha_firma,
+        )
+    except ExpedienteNoEncontradoAlRegistrarFirmaError as exc:
+        raise HTTPException(
+            status_code=404,
+            detail="Expediente no encontrado",
+        ) from exc
+    except (
+        EstadoExpedienteIncompatibleParaFirmaError,
+        FirmaYaRegistradaError,
+        DisposicionEmitidaNoEncontradaAlFirmarError,
+    ) as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except (
+        FechaFirmaFuturaError,
+        FechaFirmaAnteriorAEmisionError,
+    ) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.get("/{expediente_id}/historial", response_model=list[HistorialRead])

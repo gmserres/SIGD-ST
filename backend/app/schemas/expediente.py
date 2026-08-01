@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import Optional
 
 from pydantic import BaseModel, Field
@@ -40,3 +40,5 @@ class ExpedienteRead(BaseModel):
     objeto: Optional[str]
     numero_disposicion: Optional[str]
     creado: datetime
+    fecha_firma: date | None = None
+    usuario_registro_firma: str | None = None

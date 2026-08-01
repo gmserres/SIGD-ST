@@ -35,6 +35,8 @@ type Expediente = {
   establecimiento?: string | null;
   objeto?: string | null;
   numero_disposicion?: string | null;
+  fecha_firma?: string | null;
+  usuario_registro_firma?: string | null;
   solicitud_intervencion_id?: string | null;
   decision_administrativa_id?: string | null;
   creado: string;
@@ -196,6 +198,11 @@ function formatearFechaHora(valor: string) {
     dateStyle: 'short',
     timeStyle: 'short',
   }).format(new Date(valor));
+}
+
+function formatearFecha(valor: string) {
+  const [anio, mes, dia] = valor.split('-');
+  return anio && mes && dia ? `${dia}/${mes}/${anio}` : valor;
 }
 
 function bytes(valor?: number | null) {
@@ -409,6 +416,8 @@ function App() {
   const [disposicionEmitidaDetalle, setDisposicionEmitidaDetalle] = useState<DisposicionEmitida | null>(null);
   const [cargandoDisposicionEmitida, setCargandoDisposicionEmitida] = useState(false);
   const [errorDisposicionEmitida, setErrorDisposicionEmitida] = useState('');
+  const [fechaFirma, setFechaFirma] = useState('');
+  const [registrandoFirma, setRegistrandoFirma] = useState(false);
   const [numeroDisposicionEditable, setNumeroDisposicionEditable] = useState('');
   const [guardandoNumeroDisposicion, setGuardandoNumeroDisposicion] = useState(false);
   const [errorNumeroDisposicion, setErrorNumeroDisposicion] = useState('');
@@ -881,7 +890,7 @@ function App() {
     setErrorDisposicionEmitida('');
     setCargandoDisposicionEmitida(false);
 
-    if (expediente.estado !== 'DISPOSICION_EMITIDA') return;
+    if (!['DISPOSICION_EMITIDA', 'FIRMADO'].includes(expediente.estado)) return;
 
     setDisposicionBorrador(null);
     setCargandoDisposicionEmitida(true);
@@ -1256,6 +1265,43 @@ function App() {
     window.open(`${API_URL}/storage/${ruta}`, '_blank');
   }
 
+  async function registrarFirma() {
+    if (!seleccionado || !fechaFirma) {
+      avisar('Debe indicar la fecha de firma.', 'error');
+      return;
+    }
+    if (!window.confirm('¿Confirma el registro de la firma ológrafa?')) return;
+
+    setRegistrandoFirma(true);
+    try {
+      const res = await fetch(
+        `${API_URL}/expedientes/${seleccionado.id}/registrar-firma`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fecha_firma: fechaFirma }),
+        },
+      );
+      if (!res.ok) {
+        avisar(await obtenerMensajeError(res), 'error');
+        return;
+      }
+      const actualizado: Expediente = await res.json();
+      setSeleccionado(actualizado);
+      setExpedientes((actuales) =>
+        actuales.map((expediente) =>
+          expediente.id === actualizado.id ? actualizado : expediente,
+        ),
+      );
+      setFechaFirma('');
+      avisar('Firma ológrafa registrada correctamente.', 'ok');
+    } catch {
+      avisar('No se pudo conectar con el backend para registrar la firma.', 'error');
+    } finally {
+      setRegistrandoFirma(false);
+    }
+  }
+
   function abrirVistaPrevia(doc: Documento) {
     if (!seleccionado) return;
     window.open(`${API_URL}/expedientes/${seleccionado.id}/documentos/${doc.id}/vista-previa`, '_blank');
@@ -1280,7 +1326,11 @@ function App() {
   const opAnalizadaCorrectamente = Boolean(
     analisis?.op_detectada && analisis.modo !== 'EXTRACCION_FALLIDA',
   );
-  const disposicionEmitida = seleccionado?.estado === 'DISPOSICION_EMITIDA';
+  const disposicionEmitida = Boolean(
+    seleccionado
+      && ['DISPOSICION_EMITIDA', 'FIRMADO'].includes(seleccionado.estado),
+  );
+  const firmaPendiente = seleccionado?.estado === 'DISPOSICION_EMITIDA';
   const validacionAdministrativaCompleta = Boolean(
     seleccionado
       && (
@@ -2633,6 +2683,36 @@ function App() {
                               <p key={`${indice}-${linea}`}>{linea || '\u00a0'}</p>
                             ))}
                           </div>
+
+                          {firmaPendiente && (
+                            <div className="form-grid">
+                              <label>
+                                Fecha de firma
+                                <input
+                                  type="date"
+                                  value={fechaFirma}
+                                  max={new Date().toISOString().slice(0, 10)}
+                                  onChange={(evento) => setFechaFirma(evento.target.value)}
+                                />
+                              </label>
+                              <div className="actions-row">
+                                <button
+                                  onClick={registrarFirma}
+                                  disabled={registrandoFirma || !fechaFirma}
+                                >
+                                  {registrandoFirma ? 'Registrando...' : 'Registrar firma'}
+                                </button>
+                              </div>
+                            </div>
+                          )}
+
+                          {seleccionado?.estado === 'FIRMADO' && (
+                            <div className="expediente-summary-grid">
+                              <div><span>Estado</span><strong>FIRMADO</strong></div>
+                              <div><span>Fecha de firma</span><strong>{seleccionado.fecha_firma ? formatearFecha(seleccionado.fecha_firma) : 'No informada'}</strong></div>
+                              <div><span>Usuario</span><strong>{seleccionado.usuario_registro_firma || 'No informado'}</strong></div>
+                            </div>
+                          )}
                         </>
                       )}
                     </div>
