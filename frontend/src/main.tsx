@@ -120,6 +120,28 @@ type Disposicion = {
   actualizado: string;
 };
 
+type DisposicionEmitida = {
+  id_disposicion: string;
+  expediente_id: string;
+  configuracion_uc_id: string;
+  numero_disposicion: string;
+  fecha_emision: string;
+  fondo_interviniente: string;
+  numero_op: string;
+  numero_liquidacion: string | null;
+  proveedor: string;
+  cuit: string;
+  importe: string | number;
+  objeto: string;
+  establecimiento: string;
+  valor_uc_aplicado: string | number;
+  cantidad_uc: string | number;
+  procedimiento_contratacion: string;
+  norma_uc: string;
+  texto_emitido: string;
+  ruta_docx: string;
+};
+
 type ChecklistFisico = {
   expediente_id?: string;
   factura: boolean;
@@ -384,6 +406,9 @@ function App() {
   const [analisis, setAnalisis] = useState<AnalisisOP | null>(null);
   const [validacion, setValidacion] = useState<Validacion | null>(null);
   const [disposicionBorrador, setDisposicionBorrador] = useState<Disposicion | null>(null);
+  const [disposicionEmitidaDetalle, setDisposicionEmitidaDetalle] = useState<DisposicionEmitida | null>(null);
+  const [cargandoDisposicionEmitida, setCargandoDisposicionEmitida] = useState(false);
+  const [errorDisposicionEmitida, setErrorDisposicionEmitida] = useState('');
   const [numeroDisposicionEditable, setNumeroDisposicionEditable] = useState('');
   const [guardandoNumeroDisposicion, setGuardandoNumeroDisposicion] = useState(false);
   const [errorNumeroDisposicion, setErrorNumeroDisposicion] = useState('');
@@ -851,6 +876,33 @@ function App() {
     }
   }
 
+  async function cargarDisposicionEmitida(expediente: Expediente) {
+    setDisposicionEmitidaDetalle(null);
+    setErrorDisposicionEmitida('');
+    setCargandoDisposicionEmitida(false);
+
+    if (expediente.estado !== 'DISPOSICION_EMITIDA') return;
+
+    setDisposicionBorrador(null);
+    setCargandoDisposicionEmitida(true);
+    try {
+      const res = await fetch(`${API_URL}/expedientes/${expediente.id}/disposicion`);
+      if (res.status === 404) {
+        setErrorDisposicionEmitida('La Disposición emitida no pudo recuperarse.');
+        return;
+      }
+      if (!res.ok) {
+        setErrorDisposicionEmitida(await obtenerMensajeError(res));
+        return;
+      }
+      setDisposicionEmitidaDetalle(await res.json());
+    } catch {
+      setErrorDisposicionEmitida('No se pudo conectar con el backend para recuperar la Disposición emitida.');
+    } finally {
+      setCargandoDisposicionEmitida(false);
+    }
+  }
+
   async function cargarDetalle(expediente: Expediente) {
     setSeleccionado(expediente);
     setPantalla('detalle');
@@ -859,6 +911,7 @@ function App() {
     setMensaje('');
     setSolicitudOrigenExpediente(null);
     setDecisionOrigenExpediente(null);
+    const disposicionEmitidaPromise = cargarDisposicionEmitida(expediente);
 
     const [
       docsRes,
@@ -886,6 +939,8 @@ function App() {
     if (decisionOrigenRes?.ok) {
       setDecisionOrigenExpediente(await decisionOrigenRes.json());
     }
+
+    await disposicionEmitidaPromise;
   }
 
   async function abrirSolicitudOrigen() {
@@ -1192,6 +1247,15 @@ function App() {
     window.open(`${API_URL}/expedientes/${seleccionado.id}/disposicion/borrador/docx`, '_blank');
   }
 
+  function descargarDisposicionEmitida() {
+    if (!disposicionEmitidaDetalle?.ruta_docx?.trim()) {
+      setErrorDisposicionEmitida('La Disposición emitida no posee un archivo disponible para descargar.');
+      return;
+    }
+    const ruta = disposicionEmitidaDetalle.ruta_docx.replace(/^\/+/, '');
+    window.open(`${API_URL}/storage/${ruta}`, '_blank');
+  }
+
   function abrirVistaPrevia(doc: Documento) {
     if (!seleccionado) return;
     window.open(`${API_URL}/expedientes/${seleccionado.id}/documentos/${doc.id}/vista-previa`, '_blank');
@@ -1345,7 +1409,7 @@ function App() {
       return {
         descripcion: 'La disposición fue emitida y se encuentra disponible para su descarga.',
         etiqueta: 'Descargar disposición',
-        ejecutar: descargarBorradorWord,
+        ejecutar: descargarDisposicionEmitida,
       };
     }
 
@@ -2479,6 +2543,7 @@ function App() {
             <div className="workflow-layout">
               <section className="expediente-main">
                 {tabDetalle === 'workflow' && (
+                  <>
                   <div className="card">
                     <div className="card-title">
                       <div>
@@ -2531,6 +2596,48 @@ function App() {
                       )}
                     </div>
                   </div>
+                  {disposicionEmitida && (
+                    <div className="card">
+                      <div className="card-title">
+                        <div>
+                          <span className="eyebrow">Acto administrativo emitido</span>
+                          <h3>Disposición</h3>
+                        </div>
+                        <span className="badge green">Emitida</span>
+                      </div>
+
+                      {cargandoDisposicionEmitida && <p className="muted">Cargando Disposición emitida...</p>}
+                      {errorDisposicionEmitida && <div className="notice error">{errorDisposicionEmitida}</div>}
+
+                      {disposicionEmitidaDetalle && (
+                        <>
+                          <div className="expediente-summary-grid">
+                            <div><span>Número</span><strong>{disposicionEmitidaDetalle.numero_disposicion}</strong></div>
+                            <div><span>Fecha de emisión</span><strong>{formatearFechaHora(disposicionEmitidaDetalle.fecha_emision)}</strong></div>
+                            <div><span>Proveedor</span><strong>{disposicionEmitidaDetalle.proveedor}</strong></div>
+                            <div><span>CUIT</span><strong>{disposicionEmitidaDetalle.cuit}</strong></div>
+                            <div><span>Objeto</span><strong>{disposicionEmitidaDetalle.objeto}</strong></div>
+                            <div><span>Establecimiento</span><strong>{disposicionEmitidaDetalle.establecimiento}</strong></div>
+                            <div><span>Número de OP</span><strong>{disposicionEmitidaDetalle.numero_op}</strong></div>
+                            <div><span>Liquidación</span><strong>{disposicionEmitidaDetalle.numero_liquidacion || 'No informada'}</strong></div>
+                            <div><span>Importe</span><strong>{moneda(Number(disposicionEmitidaDetalle.importe))}</strong></div>
+                            <div><span>Cantidad de UC</span><strong>{disposicionEmitidaDetalle.cantidad_uc}</strong></div>
+                            <div><span>Valor UC</span><strong>{moneda(Number(disposicionEmitidaDetalle.valor_uc_aplicado))}</strong></div>
+                            <div><span>Procedimiento</span><strong>{disposicionEmitidaDetalle.procedimiento_contratacion}</strong></div>
+                            <div><span>Norma</span><strong>{disposicionEmitidaDetalle.norma_uc}</strong></div>
+                          </div>
+
+                          <div className="observation-box">
+                            <h4>Texto emitido</h4>
+                            {disposicionEmitidaDetalle.texto_emitido.split('\n').map((linea, indice) => (
+                              <p key={`${indice}-${linea}`}>{linea || '\u00a0'}</p>
+                            ))}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
+                  </>
                 )}
 
                 {tabDetalle === 'documentos' && (
