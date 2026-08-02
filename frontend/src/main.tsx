@@ -416,6 +416,8 @@ function App() {
   const [pantalla, setPantalla] = useState<Pantalla>('solicitudes');
   const [tabDetalle, setTabDetalle] = useState<TabDetalle>('workflow');
   const [expedientes, setExpedientes] = useState<Expediente[]>([]);
+  const [cargandoExpedientes, setCargandoExpedientes] = useState(false);
+  const [errorExpedientes, setErrorExpedientes] = useState('');
   const [seleccionado, setSeleccionado] = useState<Expediente | null>(null);
   const [documentos, setDocumentos] = useState<Documento[]>([]);
   const [historial, setHistorial] = useState<Historial[]>([]);
@@ -446,6 +448,7 @@ function App() {
   const [cargandoSolicitudes, setCargandoSolicitudes] = useState(false);
   const [guardandoSolicitud, setGuardandoSolicitud] = useState(false);
   const [errorSolicitudes, setErrorSolicitudes] = useState('');
+  const [errorCargaSolicitudes, setErrorCargaSolicitudes] = useState('');
 
   const [decisiones, setDecisiones] = useState<DecisionAdministrativa[]>([]);
   const [cargandoDecisiones, setCargandoDecisiones] = useState(false);
@@ -592,23 +595,49 @@ function App() {
   }
 
   async function cargarExpedientes() {
-    const res = await fetch(`${API_URL}/expedientes`);
-    setExpedientes(await res.json());
+    setCargandoExpedientes(true);
+    setErrorExpedientes('');
+
+    try {
+      const res = await fetch(`${API_URL}/expedientes`);
+      if (!res.ok) {
+        setExpedientes([]);
+        setErrorExpedientes('No fue posible recuperar los expedientes.');
+        return;
+      }
+      const disponibles = await res.json();
+      if (!Array.isArray(disponibles)) {
+        throw new Error('Respuesta inesperada al consultar expedientes.');
+      }
+      setExpedientes(disponibles);
+    } catch {
+      setExpedientes([]);
+      setErrorExpedientes('No fue posible recuperar los expedientes.');
+    } finally {
+      setCargandoExpedientes(false);
+    }
   }
 
   async function cargarSolicitudes() {
     setCargandoSolicitudes(true);
     setErrorSolicitudes('');
+    setErrorCargaSolicitudes('');
 
     try {
       const res = await fetch(`${API_URL}/solicitudes`);
       if (!res.ok) {
-        setErrorSolicitudes(await obtenerMensajeError(res));
+        setSolicitudes([]);
+        setErrorCargaSolicitudes('No fue posible recuperar las solicitudes.');
         return;
       }
-      setSolicitudes(await res.json());
+      const disponibles = await res.json();
+      if (!Array.isArray(disponibles)) {
+        throw new Error('Respuesta inesperada al consultar solicitudes.');
+      }
+      setSolicitudes(disponibles);
     } catch {
-      setErrorSolicitudes('No se pudo conectar con el backend para consultar las solicitudes.');
+      setSolicitudes([]);
+      setErrorCargaSolicitudes('No fue posible recuperar las solicitudes.');
     } finally {
       setCargandoSolicitudes(false);
     }
@@ -1603,7 +1632,11 @@ function App() {
             <h2>{pantalla === 'inicio' ? 'Dashboard de Solicitudes de Intervención' : pantalla === 'nuevo' ? 'Nuevo Expediente' : pantalla === 'detalle' ? 'Expediente Inteligente' : pantalla === 'solicitudes' ? solicitudSeleccionada ? 'Gestión de la Solicitud' : 'Solicitudes de Intervención' : pantalla === 'administracion' ? 'Administración' : 'Expedientes'}</h2>
             <span>
               {pantalla === 'solicitudes'
-                ? `${solicitudes.length} solicitudes registradas`
+                ? cargandoSolicitudes
+                  ? 'Cargando solicitudes...'
+                  : errorCargaSolicitudes
+                    ? 'Solicitudes no disponibles'
+                    : `${solicitudes.length} solicitudes registradas`
                 : 'Secretaría Técnica'}
             </span>
           </div>
@@ -1615,6 +1648,18 @@ function App() {
 
         {pantalla === 'inicio' && (
           <>
+            {cargandoSolicitudes || cargandoExpedientes ? (
+              <div className="notice info">Cargando información de la bandeja...</div>
+            ) : (
+              <>
+                {errorCargaSolicitudes && (
+                  <div className="notice error">{errorCargaSolicitudes}</div>
+                )}
+                {errorExpedientes && (
+                  <div className="notice error">{errorExpedientes}</div>
+                )}
+              </>
+            )}
             <section className="metrics">
               <div className="metric-card"><span>📨</span><strong>{metricasSolicitudes.total}</strong><p>Solicitudes ingresadas</p></div>
               <div className="metric-card"><span>🕒</span><strong>{metricasSolicitudes.pendientes.length}</strong><p>Pendientes de tramitación</p></div>
@@ -1720,7 +1765,13 @@ function App() {
         {pantalla === 'expedientes' && (
           <section className="card">
             <h3>Expedientes</h3>
-            <ExpedientesTabla expedientes={expedientes} abrir={cargarDetalle} />
+            {cargandoExpedientes ? (
+              <p className="empty">Cargando expedientes...</p>
+            ) : errorExpedientes ? (
+              <div className="notice error">{errorExpedientes}</div>
+            ) : (
+              <ExpedientesTabla expedientes={expedientes} abrir={cargarDetalle} />
+            )}
           </section>
         )}
 
@@ -1742,7 +1793,7 @@ function App() {
                 onClick={cargarSolicitudes}
                 disabled={cargandoSolicitudes}
               >
-                Actualizar
+                {cargandoSolicitudes ? 'Actualizando...' : 'Actualizar'}
               </button>
               {!mostrarFormularioSolicitud && (
                 <button className="primary" type="button" onClick={abrirNuevaSolicitud}>
@@ -1849,10 +1900,12 @@ function App() {
                     <h3>Solicitudes registradas</h3>
                   </div>
 
-                  {cargandoSolicitudes ? (
+                  {errorCargaSolicitudes ? (
+                    <div className="notice error">{errorCargaSolicitudes}</div>
+                  ) : cargandoSolicitudes ? (
                     <p className="empty">Cargando solicitudes...</p>
                   ) : solicitudes.length === 0 ? (
-                    <p className="empty">Todavía no hay solicitudes registradas.</p>
+                    <p className="empty">No existen solicitudes registradas.</p>
                   ) : (
                     <table>
                       <thead>
@@ -3380,7 +3433,7 @@ function App() {
 }
 
 function ExpedientesTabla({ expedientes, abrir }: { expedientes: Expediente[], abrir: (exp: Expediente) => void }) {
-  if (expedientes.length === 0) return <p className="empty">Todavía no hay expedientes cargados.</p>;
+  if (expedientes.length === 0) return <p className="empty">No existen expedientes registrados.</p>;
   return (
     <table>
       <thead><tr><th>Expediente</th><th>Expediente GDEBA</th><th>ID SUNA</th><th>Área</th><th>Estado</th><th>Establecimiento</th><th></th></tr></thead>
