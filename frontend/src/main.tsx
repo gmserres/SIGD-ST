@@ -37,6 +37,8 @@ type Expediente = {
   numero_disposicion?: string | null;
   fecha_firma?: string | null;
   usuario_registro_firma?: string | null;
+  fecha_archivo?: string | null;
+  usuario_registro_archivo?: string | null;
   solicitud_intervencion_id?: string | null;
   decision_administrativa_id?: string | null;
   creado: string;
@@ -203,6 +205,13 @@ function formatearFechaHora(valor: string) {
 function formatearFecha(valor: string) {
   const [anio, mes, dia] = valor.split('-');
   return anio && mes && dia ? `${dia}/${mes}/${anio}` : valor;
+}
+
+function fechaLocalISO(fecha = new Date()) {
+  const anio = fecha.getFullYear();
+  const mes = String(fecha.getMonth() + 1).padStart(2, '0');
+  const dia = String(fecha.getDate()).padStart(2, '0');
+  return `${anio}-${mes}-${dia}`;
 }
 
 function bytes(valor?: number | null) {
@@ -418,6 +427,8 @@ function App() {
   const [errorDisposicionEmitida, setErrorDisposicionEmitida] = useState('');
   const [fechaFirma, setFechaFirma] = useState('');
   const [registrandoFirma, setRegistrandoFirma] = useState(false);
+  const [fechaArchivo, setFechaArchivo] = useState('');
+  const [registrandoArchivo, setRegistrandoArchivo] = useState(false);
   const [numeroDisposicionEditable, setNumeroDisposicionEditable] = useState('');
   const [guardandoNumeroDisposicion, setGuardandoNumeroDisposicion] = useState(false);
   const [errorNumeroDisposicion, setErrorNumeroDisposicion] = useState('');
@@ -890,7 +901,7 @@ function App() {
     setErrorDisposicionEmitida('');
     setCargandoDisposicionEmitida(false);
 
-    if (!['DISPOSICION_EMITIDA', 'FIRMADO'].includes(expediente.estado)) return;
+    if (!['DISPOSICION_EMITIDA', 'FIRMADO', 'ARCHIVADO'].includes(expediente.estado)) return;
 
     setDisposicionBorrador(null);
     setCargandoDisposicionEmitida(true);
@@ -1302,6 +1313,43 @@ function App() {
     }
   }
 
+  async function registrarArchivo() {
+    if (!seleccionado || !fechaArchivo) {
+      avisar('Debe indicar la fecha de archivo.', 'error');
+      return;
+    }
+    if (!window.confirm('¿Confirma que el expediente pasó al archivo institucional?')) return;
+
+    setRegistrandoArchivo(true);
+    try {
+      const res = await fetch(
+        `${API_URL}/expedientes/${seleccionado.id}/registrar-archivo`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fecha_archivo: fechaArchivo }),
+        },
+      );
+      if (!res.ok) {
+        avisar(await obtenerMensajeError(res), 'error');
+        return;
+      }
+      const actualizado: Expediente = await res.json();
+      setSeleccionado(actualizado);
+      setExpedientes((actuales) =>
+        actuales.map((expediente) =>
+          expediente.id === actualizado.id ? actualizado : expediente,
+        ),
+      );
+      setFechaArchivo('');
+      avisar('Expediente archivado correctamente.', 'ok');
+    } catch {
+      avisar('No se pudo conectar con el backend para archivar el expediente.', 'error');
+    } finally {
+      setRegistrandoArchivo(false);
+    }
+  }
+
   function abrirVistaPrevia(doc: Documento) {
     if (!seleccionado) return;
     window.open(`${API_URL}/expedientes/${seleccionado.id}/documentos/${doc.id}/vista-previa`, '_blank');
@@ -1328,7 +1376,7 @@ function App() {
   );
   const disposicionEmitida = Boolean(
     seleccionado
-      && ['DISPOSICION_EMITIDA', 'FIRMADO'].includes(seleccionado.estado),
+      && ['DISPOSICION_EMITIDA', 'FIRMADO', 'ARCHIVADO'].includes(seleccionado.estado),
   );
   const firmaPendiente = seleccionado?.estado === 'DISPOSICION_EMITIDA';
   const validacionAdministrativaCompleta = Boolean(
@@ -2706,11 +2754,44 @@ function App() {
                             </div>
                           )}
 
-                          {seleccionado?.estado === 'FIRMADO' && (
+                          {['FIRMADO', 'ARCHIVADO'].includes(seleccionado?.estado || '') && (
                             <div className="expediente-summary-grid">
-                              <div><span>Estado</span><strong>FIRMADO</strong></div>
+                              <div><span>Estado</span><strong>{seleccionado.estado}</strong></div>
                               <div><span>Fecha de firma</span><strong>{seleccionado.fecha_firma ? formatearFecha(seleccionado.fecha_firma) : 'No informada'}</strong></div>
-                              <div><span>Usuario</span><strong>{seleccionado.usuario_registro_firma || 'No informado'}</strong></div>
+                              <div><span>Usuario de firma</span><strong>{seleccionado.usuario_registro_firma || 'No informado'}</strong></div>
+                              {seleccionado.estado === 'ARCHIVADO' && (
+                                <>
+                                  <div><span>Fecha de archivo</span><strong>{seleccionado.fecha_archivo ? formatearFecha(seleccionado.fecha_archivo) : 'No informada'}</strong></div>
+                                  <div><span>Usuario de archivo</span><strong>{seleccionado.usuario_registro_archivo || 'No informado'}</strong></div>
+                                </>
+                              )}
+                            </div>
+                          )}
+
+                          {seleccionado?.estado === 'FIRMADO' && (
+                            <div className="form-grid">
+                              <label>
+                                Fecha de archivo
+                                <input
+                                  type="date"
+                                  value={fechaArchivo}
+                                  min={seleccionado.fecha_firma || undefined}
+                                  max={fechaLocalISO()}
+                                  onChange={(evento) => setFechaArchivo(evento.target.value)}
+                                />
+                              </label>
+                              <label>
+                                Usuario registrante
+                                <input value="Secretario Técnico" readOnly />
+                              </label>
+                              <div className="actions-row">
+                                <button
+                                  onClick={registrarArchivo}
+                                  disabled={registrandoArchivo || !fechaArchivo}
+                                >
+                                  {registrandoArchivo ? 'Archivando...' : 'Archivar expediente'}
+                                </button>
+                              </div>
                             </div>
                           )}
                         </>

@@ -68,3 +68,9 @@ class ExpedienteModel(Base):
     usuario_registro_firma: Mapped[str | None] = mapped_column(
         String(255), nullable=True
     )
+    fecha_archivo: Mapped[date | None] = mapped_column(
+        Date, nullable=True
+    )
+    usuario_registro_archivo: Mapped[str | None] = mapped_column(
+        String(255), nullable=True
+    )

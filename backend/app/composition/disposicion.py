@@ -11,6 +11,9 @@ from app.infrastructure.database.persistence.emitir_disposicion_postgres import 
 from app.infrastructure.database.persistence.registrar_firma_postgres import (
     PostgresRegistrarFirmaPersistence,
 )
+from app.infrastructure.database.persistence.registrar_archivo_postgres import (
+    PostgresRegistrarArchivoPersistence,
+)
 from app.infrastructure.database.repositories.disposicion_postgres_repository import (
     PostgresDisposicionRepository,
 )
@@ -28,6 +31,7 @@ from app.services.habilitacion_disposicion import (
     EvaluadorHabilitacionDisposicion,
 )
 from app.services.registro_firma import RegistroFirmaService
+from app.services.registro_archivo import RegistroArchivoService
 
 
 _engine = crear_motor(get_database_url())
@@ -40,6 +44,9 @@ emitir_disposicion_persistence = PostgresEmitirDisposicionPersistence(
     _session_factory
 )
 registrar_firma_persistence = PostgresRegistrarFirmaPersistence(
+    _session_factory
+)
+registrar_archivo_persistence = PostgresRegistrarArchivoPersistence(
     _session_factory
 )
 evaluador_habilitacion_disposicion = EvaluadorHabilitacionDisposicion(
@@ -59,3 +66,6 @@ consulta_disposicion_service = ConsultaDisposicionService(
     disposicion_repository
 )
 registro_firma_service = RegistroFirmaService(registrar_firma_persistence)
+registro_archivo_service = RegistroArchivoService(
+    registrar_archivo_persistence
+)

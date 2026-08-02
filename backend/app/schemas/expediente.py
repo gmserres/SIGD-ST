@@ -42,3 +42,5 @@ class ExpedienteRead(BaseModel):
     creado: datetime
     fecha_firma: date | None = None
     usuario_registro_firma: str | None = None
+    fecha_archivo: date | None = None
+    usuario_registro_archivo: str | None = None

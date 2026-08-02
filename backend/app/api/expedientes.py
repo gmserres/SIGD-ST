@@ -14,6 +14,7 @@ from app.schemas.disposicion import (
 from app.schemas.checklist_fisico import ChecklistFisicoCreate, ChecklistFisicoRead
 from app.schemas.expediente import ExpedienteCreate, ExpedienteRead, ExpedienteUpdate
 from app.schemas.firma import RegistroFirmaCreate
+from app.schemas.archivo import RegistroArchivoCreate
 from app.schemas.historial import HistorialRead
 from app.schemas.parametros import ParametrosInstitucionalesRead, ParametrosInstitucionalesUpdate
 from app.schemas.texto_documento import TextoDocumentoRead
@@ -25,6 +26,7 @@ from app.composition.disposicion import (
     disposicion_docx_service,
     emision_disposicion_service,
     registro_firma_service,
+    registro_archivo_service,
 )
 from app.application.configuracion_uc.obtener_configuracion_uc_vigente import (
     ConfiguracionUCVigenteNoEncontradaError,
@@ -53,6 +55,14 @@ from app.repositories.registrar_firma_persistence import (
     FirmaYaRegistradaError,
 )
 from app.services.registro_firma import FechaFirmaFuturaError
+from app.repositories.registrar_archivo_persistence import (
+    ArchivoYaRegistradoError,
+    EstadoExpedienteIncompatibleParaArchivoError,
+    ExpedienteNoEncontradoAlRegistrarArchivoError,
+    FechaArchivoAnteriorAFirmaError,
+    FirmaAusenteOInconsistenteAlArchivarError,
+)
+from app.services.registro_archivo import FechaArchivoFuturaError
 from app.composition.checklist_fisico import checklist_fisico_service
 from app.composition.expediente import expediente_service
 from app.composition.validacion import validacion_service
@@ -529,6 +539,37 @@ def registrar_firma(
     except (
         FechaFirmaFuturaError,
         FechaFirmaAnteriorAEmisionError,
+    ) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.post(
+    "/{expediente_id}/registrar-archivo",
+    response_model=ExpedienteRead,
+)
+def registrar_archivo(
+    expediente_id: str,
+    data: RegistroArchivoCreate,
+):
+    try:
+        return registro_archivo_service.registrar(
+            expediente_id,
+            data.fecha_archivo,
+        )
+    except ExpedienteNoEncontradoAlRegistrarArchivoError as exc:
+        raise HTTPException(
+            status_code=404,
+            detail="Expediente no encontrado",
+        ) from exc
+    except (
+        EstadoExpedienteIncompatibleParaArchivoError,
+        ArchivoYaRegistradoError,
+        FirmaAusenteOInconsistenteAlArchivarError,
+    ) as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except (
+        FechaArchivoFuturaError,
+        FechaArchivoAnteriorAFirmaError,
     ) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 

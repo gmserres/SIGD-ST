@@ -20,6 +20,8 @@ def a_modelo(expediente: Expediente) -> ExpedienteModel:
         creado=expediente.creado,
         fecha_firma=expediente.fecha_firma,
         usuario_registro_firma=expediente.usuario_registro_firma,
+        fecha_archivo=expediente.fecha_archivo,
+        usuario_registro_archivo=expediente.usuario_registro_archivo,
     )
 
 
@@ -40,6 +42,8 @@ def a_dominio(modelo: ExpedienteModel) -> Expediente:
         creado=modelo.creado,
         fecha_firma=modelo.fecha_firma,
         usuario_registro_firma=modelo.usuario_registro_firma,
+        fecha_archivo=modelo.fecha_archivo,
+        usuario_registro_archivo=modelo.usuario_registro_archivo,
     )
 
 
@@ -58,3 +62,5 @@ def actualizar_modelo(modelo: ExpedienteModel, expediente: Expediente) -> None:
     modelo.creado = expediente.creado
     modelo.fecha_firma = expediente.fecha_firma
     modelo.usuario_registro_firma = expediente.usuario_registro_firma
+    modelo.fecha_archivo = expediente.fecha_archivo
+    modelo.usuario_registro_archivo = expediente.usuario_registro_archivo
