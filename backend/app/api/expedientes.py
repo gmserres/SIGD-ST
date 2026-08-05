@@ -32,6 +32,7 @@ from app.application.configuracion_uc.obtener_configuracion_uc_vigente import (
     ConfiguracionUCVigenteNoEncontradaError,
 )
 from app.services.analisis_op import (
+    ConfiguracionUCNoAsociadaError,
     ConfiguracionUCHistoricaNoEncontradaError,
 )
 from app.composition.documento import documento_service
@@ -225,8 +226,14 @@ async def cargar_op(expediente_id: str, file: UploadFile = File(...)):
     return documento
 
 
-def _analizar_op_o_conflicto(expediente_id: str) -> AnalisisOPRead:
+def _analizar_op_o_conflicto(
+    expediente_id: str,
+    *,
+    reconstruir: bool = False,
+) -> AnalisisOPRead:
     try:
+        if reconstruir:
+            return analisis_op_service.reconstruir(expediente_id)
         return analisis_op_service.analizar(expediente_id)
     except ConfiguracionUCVigenteNoEncontradaError as exc:
         raise HTTPException(
@@ -247,6 +254,17 @@ def _analizar_op_o_conflicto(expediente_id: str) -> AnalisisOPRead:
                 "errores": [
                     "La referencia histórica de Configuración UC "
                     "no pudo ser recuperada."
+                ],
+            },
+        ) from exc
+    except ConfiguracionUCNoAsociadaError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "mensaje": str(exc),
+                "errores": [
+                    "Ejecute el análisis de la Orden de Pago para asociar "
+                    "la Configuración UC correspondiente."
                 ],
             },
         ) from exc
@@ -301,6 +319,12 @@ def analizar_op(expediente_id: str):
     else:
         historial_service.registrar(expediente_id, "OP_ANALIZADA_IA", detalle=f"Modo {analisis.modo}")
     return analisis
+
+
+@router.get("/{expediente_id}/analisis-op", response_model=AnalisisOPRead)
+def obtener_analisis_op(expediente_id: str):
+    obtener_expediente(expediente_id)
+    return _analizar_op_o_conflicto(expediente_id, reconstruir=True)
 
 
 @router.get("/{expediente_id}/checklist-fisico", response_model=ChecklistFisicoRead | None)

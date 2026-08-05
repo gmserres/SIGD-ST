@@ -28,6 +28,15 @@ class ConfiguracionUCHistoricaNoEncontradaError(LookupError):
         )
 
 
+class ConfiguracionUCNoAsociadaError(ValueError):
+    def __init__(self, expediente_id: str) -> None:
+        self.expediente_id = expediente_id
+        super().__init__(
+            "El Expediente todavía no posee una Configuración UC asociada. "
+            "Debe ejecutar el análisis explícito para determinarla."
+        )
+
+
 class AnalisisOPService:
     def __init__(
         self,
@@ -40,6 +49,17 @@ class AnalisisOPService:
         self._configuracion_uc_repository = configuracion_uc_repository
 
     def analizar(self, expediente_id: str) -> AnalisisOPRead:
+        return self._analizar(expediente_id, permitir_asociacion=True)
+
+    def reconstruir(self, expediente_id: str) -> AnalisisOPRead:
+        return self._analizar(expediente_id, permitir_asociacion=False)
+
+    def _analizar(
+        self,
+        expediente_id: str,
+        *,
+        permitir_asociacion: bool,
+    ) -> AnalisisOPRead:
         expediente = expediente_service.obtener(expediente_id)
         fecha_referencia = expediente.creado.date()
         documentos = documento_service.listar_por_expediente(expediente_id)
@@ -72,6 +92,12 @@ class AnalisisOPService:
                 advertencias=["No existe Orden de Pago cargada en el expediente."],
                 faltantes=["Orden de Pago"],
             )
+
+        if (
+            not permitir_asociacion
+            and expediente.configuracion_uc_id is None
+        ):
+            raise ConfiguracionUCNoAsociadaError(expediente_id)
 
         ruta = Path(__file__).resolve().parents[3] / op.ruta
         datos = extraer_datos_op_desde_pdf(ruta)
@@ -236,7 +262,8 @@ class AnalisisOPService:
             advertencias.append("Extracción automática inicial. Requiere revisión humana.")
 
             if (
-                expediente.configuracion_uc_id is None
+                permitir_asociacion
+                and expediente.configuracion_uc_id is None
                 and determinacion is not None
             ):
                 expediente_service.asociar_configuracion_uc(

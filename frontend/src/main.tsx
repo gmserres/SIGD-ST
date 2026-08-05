@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import './styles.css';
 
@@ -413,6 +413,7 @@ async function obtenerMensajeError(res: Response) {
 }
 
 function App() {
+  const solicitudAnalisisActual = useRef(0);
   const [pantalla, setPantalla] = useState<Pantalla>('solicitudes');
   const [tabDetalle, setTabDetalle] = useState<TabDetalle>('workflow');
   const [expedientes, setExpedientes] = useState<Expediente[]>([]);
@@ -422,6 +423,8 @@ function App() {
   const [documentos, setDocumentos] = useState<Documento[]>([]);
   const [historial, setHistorial] = useState<Historial[]>([]);
   const [analisis, setAnalisis] = useState<AnalisisOP | null>(null);
+  const [cargandoAnalisis, setCargandoAnalisis] = useState(false);
+  const [errorAnalisis, setErrorAnalisis] = useState('');
   const [validacion, setValidacion] = useState<Validacion | null>(null);
   const [disposicionBorrador, setDisposicionBorrador] = useState<Disposicion | null>(null);
   const [disposicionEmitidaDetalle, setDisposicionEmitidaDetalle] = useState<DisposicionEmitida | null>(null);
@@ -953,10 +956,13 @@ function App() {
   }
 
   async function cargarDetalle(expediente: Expediente) {
+    const solicitudAnalisis = ++solicitudAnalisisActual.current;
     setSeleccionado(expediente);
     setPantalla('detalle');
     setTabDetalle('workflow');
     setAnalisis(null);
+    setCargandoAnalisis(false);
+    setErrorAnalisis('');
     setMensaje('');
     setSolicitudOrigenExpediente(null);
     setDecisionOrigenExpediente(null);
@@ -978,8 +984,42 @@ function App() {
         : Promise.resolve(null),
     ]);
 
-    setDocumentos(await docsRes.json());
+    const documentosCargados = await docsRes.json();
+    setDocumentos(documentosCargados);
     setHistorial(await histRes.json());
+
+    if (
+      Array.isArray(documentosCargados)
+      && documentosCargados.some((documento: Documento) => documento.tipo === 'OP')
+    ) {
+      setCargandoAnalisis(true);
+      try {
+        const analisisRes = await fetch(
+          `${API_URL}/expedientes/${expediente.id}/analisis-op`,
+        );
+        if (analisisRes.ok) {
+          const analisisRecuperado = await analisisRes.json();
+          if (solicitudAnalisis === solicitudAnalisisActual.current) {
+            setAnalisis(analisisRecuperado);
+          }
+        } else if (analisisRes.status !== 404) {
+          const error = await obtenerMensajeError(analisisRes);
+          if (solicitudAnalisis === solicitudAnalisisActual.current) {
+            setErrorAnalisis(error);
+          }
+        }
+      } catch {
+        if (solicitudAnalisis === solicitudAnalisisActual.current) {
+          setErrorAnalisis(
+            'No fue posible recuperar el análisis vigente de la Orden de Pago.',
+          );
+        }
+      } finally {
+        if (solicitudAnalisis === solicitudAnalisisActual.current) {
+          setCargandoAnalisis(false);
+        }
+      }
+    }
 
     if (solicitudOrigenRes?.ok) {
       setSolicitudOrigenExpediente(await solicitudOrigenRes.json());
@@ -1073,6 +1113,7 @@ function App() {
 
   async function analizarOP() {
     if (!seleccionado) return;
+    setErrorAnalisis('');
     const res = await fetch(`${API_URL}/expedientes/${seleccionado.id}/analizar-op`, { method: 'POST' });
 
     if (!res.ok) {
@@ -2921,7 +2962,11 @@ function App() {
                       <h3>IA documental</h3>
                       <button className="primary" onClick={analizarOP}>Ejecutar análisis</button>
                     </div>
-                    {!analisis ? (
+                    {cargandoAnalisis ? (
+                      <p className="empty">Recuperando análisis de la Orden de Pago...</p>
+                    ) : errorAnalisis ? (
+                      <div className="warning-panel">{errorAnalisis}</div>
+                    ) : !analisis ? (
                       <p className="empty">Ejecutá el análisis para ver el resumen inteligente del expediente.</p>
                     ) : !analisis.op_detectada ? (
                       <div className="warning-panel">No existe OP cargada para analizar.</div>
@@ -2993,6 +3038,7 @@ function App() {
                           <div><strong>Importe neto</strong><p>{moneda(analisis.importe_neto)}</p></div>
                           <div><strong>UC</strong><p>{analisis.cantidad_uc}</p></div>
                           <div><strong>Procedimiento</strong><p>{analisis.procedimiento}</p></div>
+                          <div><strong>Norma</strong><p>{analisis.norma_uc}</p></div>
                         </div>
 
                         <div className="subcard">

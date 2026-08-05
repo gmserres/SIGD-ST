@@ -132,6 +132,80 @@ class IntegracionMotorUCFondoCompensadorTest(unittest.TestCase):
         self.assertIsNone(analisis.articulo)
         self.assertIsNone(analisis.inciso)
 
+    def test_reconstruccion_sin_op_devuelve_estado_controlado(self) -> None:
+        servicio = AnalisisOPService(
+            MotorDeterminacionFalso(self._crear_resultado()), MagicMock()
+        )
+
+        with patch(
+            "app.services.analisis_op.expediente_service.obtener",
+            return_value=self._expediente(),
+        ), patch(
+            "app.services.analisis_op.documento_service.listar_por_expediente",
+            return_value=[],
+        ), patch(
+            "app.services.analisis_op.checklist_fisico_service.obtener",
+            return_value=None,
+        ), patch(
+            "app.services.analisis_op.expediente_service.asociar_configuracion_uc"
+        ) as asociar:
+            analisis = servicio.reconstruir("EXP-1")
+
+        self.assertFalse(analisis.op_detectada)
+        self.assertEqual(analisis.faltantes, ["Orden de Pago"])
+        asociar.assert_not_called()
+
+    def test_reconstruccion_de_op_invalida_no_modifica_expediente(self) -> None:
+        configuracion = self._crear_resultado().configuracion
+        repositorio = MagicMock()
+        repositorio.obtener_por_id.return_value = configuracion
+        servicio = AnalisisOPService(
+            MotorDeterminacionFalso(self._crear_resultado()), repositorio
+        )
+        expediente = SimpleNamespace(
+            creado=datetime(2026, 7, 10, 15, 30),
+            configuracion_uc_id=configuracion.id_configuracion,
+        )
+        documento = SimpleNamespace(tipo="OP", ruta="op.pdf")
+        datos = DatosOPExtraidos(
+            texto_extraido="",
+            paginas=0,
+            cuit=None,
+            fecha=None,
+            orden_pago=None,
+            liquidacion=None,
+            proveedor=None,
+            fondo=None,
+            monto_total_facturas=None,
+            monto_neto_pagar=None,
+            importe_pago=None,
+            importe_probable=None,
+            importe_contexto=None,
+            facturas=[],
+            retenciones=[],
+            advertencias=["Documento ilegible."],
+        )
+
+        with patch(
+            "app.services.analisis_op.expediente_service.obtener",
+            return_value=expediente,
+        ), patch(
+            "app.services.analisis_op.documento_service.listar_por_expediente",
+            return_value=[documento],
+        ), patch(
+            "app.services.analisis_op.checklist_fisico_service.obtener",
+            return_value=None,
+        ), patch(
+            "app.services.analisis_op.extraer_datos_op_desde_pdf",
+            return_value=datos,
+        ), patch(
+            "app.services.analisis_op.expediente_service.asociar_configuracion_uc"
+        ) as asociar:
+            analisis = servicio.reconstruir("EXP-1")
+
+        self.assertEqual(analisis.modo, "EXTRACCION_FALLIDA")
+        asociar.assert_not_called()
+
     def test_propaga_excepciones_del_motor(self) -> None:
         fecha = date(2026, 7, 10)
         errores = (

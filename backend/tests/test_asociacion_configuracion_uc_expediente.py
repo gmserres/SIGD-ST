@@ -7,7 +7,11 @@ from unittest.mock import MagicMock, patch
 
 from fastapi import HTTPException
 
-from app.api.expedientes import _analizar_op_o_conflicto
+from app.api.expedientes import (
+    _analizar_op_o_conflicto,
+    analizar_op,
+    obtener_analisis_op,
+)
 from app.application.configuracion_uc.determinar_procedimiento_contratacion import (
     ResultadoDeterminacionProcedimiento,
 )
@@ -18,6 +22,7 @@ from app.domain.configuracion_uc import ConfiguracionUC, RangoProcedimientoUC
 from app.modules.documentos.extractor_datos import DatosOPExtraidos
 from app.services.analisis_op import (
     AnalisisOPService,
+    ConfiguracionUCNoAsociadaError,
     ConfiguracionUCHistoricaNoEncontradaError,
 )
 
@@ -189,6 +194,89 @@ class AsociacionConfiguracionUCExpedienteTest(unittest.TestCase):
         self.assertEqual(motor.vigentes, [])
         self.assertEqual(motor.historicas, [])
         asociar.assert_not_called()
+
+    def test_dos_reconstrucciones_reutilizan_configuracion_sin_asociar(
+        self,
+    ) -> None:
+        configuracion = self._configuracion("configuracion-1")
+        motor = MotorFalso(self._resultado("configuracion-reciente"))
+        repositorio = MagicMock()
+        repositorio.obtener_por_id.return_value = configuracion
+        servicio = AnalisisOPService(motor, repositorio)
+
+        with self._parches(
+            self._expediente("configuracion-1")
+        ) as asociar:
+            primero = servicio.reconstruir("EXP-1")
+            segundo = servicio.reconstruir("EXP-1")
+
+        self.assertEqual(primero, segundo)
+        self.assertEqual(len(motor.historicas), 2)
+        asociar.assert_not_called()
+
+    def test_reconstruccion_sin_configuracion_no_asocia(self) -> None:
+        motor = MotorFalso(self._resultado("configuracion-1"))
+
+        with self._parches(self._expediente(None)) as asociar:
+            with self.assertRaises(ConfiguracionUCNoAsociadaError):
+                AnalisisOPService(motor, MagicMock()).reconstruir("EXP-1")
+
+        self.assertEqual(motor.vigentes, [])
+        asociar.assert_not_called()
+
+    def test_get_reconstruye_sin_registrar_historial(self) -> None:
+        esperado = SimpleNamespace(modo="ALFA_PDF_TEXTO")
+
+        with patch(
+            "app.api.expedientes.obtener_expediente"
+        ), patch(
+            "app.api.expedientes.analisis_op_service.reconstruir",
+            return_value=esperado,
+        ) as reconstruir, patch(
+            "app.api.expedientes.historial_service.registrar"
+        ) as registrar:
+            resultado = obtener_analisis_op("EXP-1")
+
+        self.assertIs(resultado, esperado)
+        reconstruir.assert_called_once_with("EXP-1")
+        registrar.assert_not_called()
+
+    def test_get_traduce_configuracion_no_asociada_sin_corregirla(self) -> None:
+        error = ConfiguracionUCNoAsociadaError("EXP-1")
+
+        with patch(
+            "app.services.analisis_op.expediente_service.asociar_configuracion_uc"
+        ) as asociar, patch(
+            "app.api.expedientes.analisis_op_service.reconstruir",
+            side_effect=error,
+        ):
+            with self.assertRaises(HTTPException) as contexto:
+                _analizar_op_o_conflicto("EXP-1", reconstruir=True)
+
+        self.assertEqual(contexto.exception.status_code, 409)
+        asociar.assert_not_called()
+
+    def test_post_conserva_analisis_e_historial(self) -> None:
+        analisis = SimpleNamespace(modo="ALFA_PDF_TEXTO")
+
+        with patch(
+            "app.api.expedientes.obtener_expediente"
+        ), patch(
+            "app.api.expedientes.validacion_service.tiene_op",
+            return_value=True,
+        ), patch(
+            "app.api.expedientes.analisis_op_service.analizar",
+            return_value=analisis,
+        ) as ejecutar, patch(
+            "app.api.expedientes.historial_service.registrar"
+        ) as registrar:
+            resultado = analizar_op("EXP-1")
+
+        self.assertIs(resultado, analisis)
+        ejecutar.assert_called_once_with("EXP-1")
+        registrar.assert_called_once_with(
+            "EXP-1", "OP_ANALIZADA_IA", detalle="Modo ALFA_PDF_TEXTO"
+        )
 
     @contextmanager
     def _parches(self, expediente):
