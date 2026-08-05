@@ -1,10 +1,12 @@
+from datetime import date
+
 from app.schemas.parametros import ParametrosInstitucionalesRead, ParametrosInstitucionalesUpdate
 
 
 class ParametrosInstitucionalesService:
     def __init__(self) -> None:
         self._parametros = ParametrosInstitucionalesRead(
-            ejercicio=2025,
+            ejercicio=date.today().year,
             valor_uc=1677.0,
             norma_uc="RESO-2024-32-GDEBA-OPCGP",
             fecha_vigencia_uc="01/01/2025",

@@ -222,6 +222,7 @@ class IntegracionMotorUCFondoCompensadorTest(unittest.TestCase):
             variables["PROCEDIMIENTO"],
             "PROCEDIMIENTO_CONFIGURADO",
         )
+        self.assertEqual(variables["EJERCICIO"], str(date.today().year))
 
     def test_analisis_no_referencia_reglas_uc_heredadas(self) -> None:
         fuente = Path(
