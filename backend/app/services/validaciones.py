@@ -19,6 +19,7 @@ from app.schemas.validacion import (
 from app.composition.expediente import expediente_service
 from app.services.historial import historial_service
 from app.composition.checklist_fisico import checklist_fisico_service
+from app.services.evidencias_documentales import obtener_evidencias_documentales
 
 
 class ValidacionService:
@@ -55,11 +56,11 @@ class ValidacionService:
 
         tipos = {doc.tipo.upper() for doc in documentos}
         tiene_op = "OP" in tipos
+        evidencias = obtener_evidencias_documentales(documentos, checklist)
 
-        factura_acreditada = "FACTURA" in tipos or "CHECK_FACTURA" in tipos or bool(checklist and checklist.factura)
         agregar(
             "Facturas",
-            factura_acreditada or tiene_op,
+            evidencias["factura"] or tiene_op,
             "Facturas acreditadas por archivo, checklist o facturas liquidadas en OP.",
             "Falta acreditar facturas por archivo o checklist.",
             severidad="ADVERTENCIA",
@@ -67,7 +68,7 @@ class ValidacionService:
 
         agregar(
             "Remito o conformidad",
-            bool({"REMITO", "CONFORMIDAD", "ACTA_RECEPCION", "CHECK_REMITO"} & tipos) or bool(checklist and checklist.remito_conformidad),
+            evidencias["remito_conformidad"],
             "Remito, conformidad o acta acreditada.",
             "Falta acreditar remito, conformidad o acta de recepción.",
             severidad="ADVERTENCIA",
@@ -75,7 +76,7 @@ class ValidacionService:
 
         agregar(
             "Validación CAE",
-            "CAE" in tipos or "VALIDACION_CAE" in tipos or "CHECK_CAE" in tipos or bool(checklist and checklist.cae),
+            evidencias["cae"],
             "CAE acreditado.",
             "Falta acreditar validación CAE.",
             severidad="ADVERTENCIA",
@@ -83,7 +84,7 @@ class ValidacionService:
 
         agregar(
             "Constancia ARCA",
-            "ARCA" in tipos or "CHECK_ARCA" in tipos or bool(checklist and checklist.arca),
+            evidencias["arca"],
             "Constancia ARCA acreditada.",
             "Falta acreditar constancia ARCA.",
             severidad="ADVERTENCIA",
@@ -91,7 +92,7 @@ class ValidacionService:
 
         agregar(
             "Certificado ARBA",
-            "ARBA" in tipos or "CHECK_ARBA" in tipos or bool(checklist and checklist.arba),
+            evidencias["arba"],
             "Certificado ARBA acreditado.",
             "Falta acreditar certificado fiscal ARBA.",
             severidad="ADVERTENCIA",

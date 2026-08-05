@@ -15,6 +15,8 @@ from app.repositories.configuracion_uc_repository import (
 )
 from app.schemas.analisis_op import AnalisisOPRead, DocumentoComercialExtraido, RetencionExtraida
 from app.composition.expediente import expediente_service
+from app.composition.checklist_fisico import checklist_fisico_service
+from app.services.evidencias_documentales import obtener_evidencias_documentales
 
 
 class ConfiguracionUCHistoricaNoEncontradaError(LookupError):
@@ -41,6 +43,7 @@ class AnalisisOPService:
         expediente = expediente_service.obtener(expediente_id)
         fecha_referencia = expediente.creado.date()
         documentos = documento_service.listar_por_expediente(expediente_id)
+        checklist = checklist_fisico_service.obtener(expediente_id)
         op = next((doc for doc in documentos if doc.tipo == "OP"), None)
 
         if op is None:
@@ -125,12 +128,22 @@ class AnalisisOPService:
                 f"Texto extraído del PDF ({datos.paginas} página/s).",
             ]
 
+            evidencias = obtener_evidencias_documentales(
+                documentos,
+                checklist,
+                factura_detectada_en_op=bool(datos.facturas),
+            )
+            requisitos_documentales = (
+                ("factura", "Factura"),
+                ("remito_conformidad", "Remito o conformidad firmada"),
+                ("cae", "Validación CAE"),
+                ("arba", "Certificado Fiscal ARBA"),
+                ("arca", "Constancia ARCA"),
+            )
             faltantes = [
-                "Factura",
-                "Remito o conformidad firmada",
-                "Validación CAE",
-                "Certificado Fiscal ARBA",
-                "Constancia ARCA",
+                descripcion
+                for evidencia, descripcion in requisitos_documentales
+                if not evidencias[evidencia]
             ]
 
             if datos.cuit:

@@ -19,7 +19,8 @@ from app.domain.configuracion_uc import (
     ConfiguracionUC,
     RangoProcedimientoUC,
 )
-from app.modules.documentos.extractor_datos import DatosOPExtraidos
+from app.modules.documentos.extractor_datos import DatosOPExtraidos, FacturaExtraida
+from app.schemas.checklist_fisico import ChecklistFisicoRead
 from app.services.analisis_op import AnalisisOPService
 from app.services.disposiciones import DisposicionService
 
@@ -238,12 +239,92 @@ class IntegracionMotorUCFondoCompensadorTest(unittest.TestCase):
         ):
             self.assertNotIn(nombre, fuente)
 
+    def test_checklist_completo_elimina_faltantes_documentales(self) -> None:
+        analisis = self._analizar(
+            AnalisisOPService(
+                MotorDeterminacionFalso(self._crear_resultado()),
+                MagicMock(),
+            ),
+            checklist=self._checklist(True, True, True, True, True),
+        )
+
+        self.assertEqual(analisis.faltantes, [])
+        self.assertTrue(
+            any(
+                validacion.startswith("Confiabilidad documental: ")
+                for validacion in analisis.validaciones
+            )
+        )
+        self.assertTrue(
+            any(
+                validacion.startswith("Riesgo administrativo: ")
+                for validacion in analisis.validaciones
+            )
+        )
+
+    def test_factura_extraida_de_op_no_figura_como_faltante(self) -> None:
+        factura = FacturaExtraida(
+            tipo="Factura",
+            letra="A",
+            numero="00001-00000005",
+            fecha="10/07/2026",
+            importe=12345.67,
+        )
+
+        analisis = self._analizar(
+            AnalisisOPService(
+                MotorDeterminacionFalso(self._crear_resultado()),
+                MagicMock(),
+            ),
+            facturas=[factura],
+        )
+
+        self.assertNotIn("Factura", analisis.faltantes)
+
+    def test_checklist_parcial_conserva_solo_faltantes_reales(self) -> None:
+        analisis = self._analizar(
+            AnalisisOPService(
+                MotorDeterminacionFalso(self._crear_resultado()),
+                MagicMock(),
+            ),
+            checklist=self._checklist(True, True, False, True, False),
+        )
+
+        self.assertEqual(
+            analisis.faltantes,
+            ["Validación CAE", "Certificado Fiscal ARBA"],
+        )
+
+    def test_sin_evidencias_conserva_cinco_faltantes_documentales(self) -> None:
+        analisis = self._analizar(
+            AnalisisOPService(
+                MotorDeterminacionFalso(self._crear_resultado()),
+                MagicMock(),
+            )
+        )
+
+        self.assertEqual(
+            analisis.faltantes,
+            [
+                "Factura",
+                "Remito o conformidad firmada",
+                "Validación CAE",
+                "Certificado Fiscal ARBA",
+                "Constancia ARCA",
+            ],
+        )
+        self.assertEqual(analisis.cantidad_uc, Decimal("12.34567"))
+        self.assertEqual(analisis.procedimiento, "PROCEDIMIENTO_CONFIGURADO")
+        self.assertEqual(analisis.norma_uc, "REFERENCIA_CONFIGURADA")
+
     def _analizar(
         self,
         servicio: AnalisisOPService,
         monto_total_facturas: float | None = 12345.67,
         importe_pago: float | None = None,
         importe_probable: float | None = None,
+        facturas: list[FacturaExtraida] | None = None,
+        checklist: ChecklistFisicoRead | None = None,
     ):
         datos = DatosOPExtraidos(
             texto_extraido="ORDEN DE PAGO",
@@ -259,7 +340,7 @@ class IntegracionMotorUCFondoCompensadorTest(unittest.TestCase):
             importe_pago=importe_pago,
             importe_probable=importe_probable,
             importe_contexto="Monto Total",
-            facturas=[],
+            facturas=facturas or [],
             retenciones=[],
             advertencias=[],
         )
@@ -275,10 +356,32 @@ class IntegracionMotorUCFondoCompensadorTest(unittest.TestCase):
             "app.services.analisis_op.extraer_datos_op_desde_pdf",
             return_value=datos,
         ), patch(
+            "app.services.analisis_op.checklist_fisico_service.obtener",
+            return_value=checklist,
+        ), patch(
             "app.services.analisis_op."
             "expediente_service.asociar_configuracion_uc",
         ):
             return servicio.analizar("EXP-1")
+
+    @staticmethod
+    def _checklist(
+        factura: bool,
+        remito: bool,
+        cae: bool,
+        arca: bool,
+        arba: bool,
+    ) -> ChecklistFisicoRead:
+        return ChecklistFisicoRead(
+            expediente_id="EXP-1",
+            factura=factura,
+            remito_conformidad=remito,
+            cae=cae,
+            arca=arca,
+            arba=arba,
+            usuario="Operador",
+            fecha=datetime(2026, 8, 5),
+        )
 
     @staticmethod
     def _expediente():

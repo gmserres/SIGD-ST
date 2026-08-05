@@ -224,6 +224,9 @@ class AsociacionConfiguracionUCExpedienteTest(unittest.TestCase):
         ), patch(
             "app.services.analisis_op.extraer_datos_op_desde_pdf",
             return_value=datos,
+        ), patch(
+            "app.services.analisis_op.checklist_fisico_service.obtener",
+            return_value=None,
         ):
             yield asociar
 
