@@ -187,6 +187,18 @@ function moneda(valor: number | null | undefined) {
   return valor.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' });
 }
 
+function formatearCantidadUC(valor: string | number | null | undefined) {
+  if (valor === null || valor === undefined || valor === '') return '-';
+
+  const cantidad = typeof valor === 'number' ? valor : Number(valor);
+  if (!Number.isFinite(cantidad)) return String(valor);
+
+  return new Intl.NumberFormat('es-AR', {
+    maximumFractionDigits: 20,
+    useGrouping: true,
+  }).format(cantidad);
+}
+
 function formatearFechaHora(valor: string) {
   const fechaSinHora = /^(\d{4})-(\d{2})-(\d{2})$/.exec(valor);
   if (fechaSinHora) {
@@ -398,7 +410,14 @@ async function obtenerMensajeError(res: Response) {
     const data = await res.json();
     if (typeof data.detail === 'string') return data.detail;
     if (Array.isArray(data.detail)) {
-      const mensajes = data.detail.map((item: { msg?: string }) => item.msg).filter(Boolean);
+      const mensajes = data.detail
+        .map((item: { loc?: unknown[]; msg?: string; type?: string }) => {
+          const esFechaIngreso = item.loc?.includes('fecha_ingreso');
+          const esErrorFecha = /^(date|datetime)_/.test(item.type || '');
+          if (esFechaIngreso && esErrorFecha) return 'La fecha de ingreso no es válida.';
+          return item.msg;
+        })
+        .filter(Boolean);
       if (mensajes.length) return mensajes.join(' ');
     }
     if (data.detail?.mensaje) {
@@ -1599,8 +1618,8 @@ function App() {
 
     if (opAnalizadaCorrectamente) {
       return {
-        descripcion: 'La Orden de Pago fue analizada y puede prepararse la disposición.',
-        etiqueta: 'Preparar disposición',
+        descripcion: 'La Orden de Pago fue analizada y puede generarse el borrador de Disposición.',
+        etiqueta: 'Generar borrador de Disposición',
         ejecutar: () => prepararDisposicion(false),
       };
     }
@@ -1621,7 +1640,7 @@ function App() {
       };
     }
 
-    if (validacion?.estado_general === 'VERDE') {
+    if (validacion?.estado_general === 'VERDE' && seleccionado?.estado !== 'VALIDADO') {
       return {
         descripcion: 'Los controles están completos. Corresponde validar administrativamente el expediente.',
         etiqueta: 'Validar expediente',
@@ -2813,7 +2832,7 @@ function App() {
                             <div><span>Número de OP</span><strong>{disposicionEmitidaDetalle.numero_op}</strong></div>
                             <div><span>Liquidación</span><strong>{disposicionEmitidaDetalle.numero_liquidacion || 'No informada'}</strong></div>
                             <div><span>Importe</span><strong>{moneda(Number(disposicionEmitidaDetalle.importe))}</strong></div>
-                            <div><span>Cantidad de UC</span><strong>{disposicionEmitidaDetalle.cantidad_uc}</strong></div>
+                            <div><span>Cantidad de UC</span><strong>{formatearCantidadUC(disposicionEmitidaDetalle.cantidad_uc)}</strong></div>
                             <div><span>Valor UC</span><strong>{moneda(Number(disposicionEmitidaDetalle.valor_uc_aplicado))}</strong></div>
                             <div><span>Procedimiento</span><strong>{disposicionEmitidaDetalle.procedimiento_contratacion}</strong></div>
                             <div><span>Norma</span><strong>{disposicionEmitidaDetalle.norma_uc}</strong></div>
@@ -3036,7 +3055,7 @@ function App() {
                           <div><strong>Fecha OP</strong><p>{analisis.fecha_op || '-'}</p></div>
                           <div><strong>Importe bruto</strong><p>{moneda(analisis.importe_bruto)}</p></div>
                           <div><strong>Importe neto</strong><p>{moneda(analisis.importe_neto)}</p></div>
-                          <div><strong>UC</strong><p>{analisis.cantidad_uc}</p></div>
+                          <div><strong>UC</strong><p>{formatearCantidadUC(analisis.cantidad_uc)}</p></div>
                           <div><strong>Procedimiento</strong><p>{analisis.procedimiento}</p></div>
                           <div><strong>Norma</strong><p>{analisis.norma_uc}</p></div>
                         </div>
@@ -3191,7 +3210,7 @@ function App() {
                           </div>
                         </div>
 
-                        {validacion.estado_general === 'VERDE' && (
+                        {validacion.estado_general === 'VERDE' && seleccionado.estado !== 'VALIDADO' && (
                           <div className="validation-action-panel green-panel">
                             <h4>Validación documental completa</h4>
                             <p>Todas las evidencias requeridas fueron acreditadas. El expediente puede ser validado para continuar con la generación de la Disposición.</p>
@@ -3272,7 +3291,7 @@ function App() {
                       <div className="empty-disposition">
                         <p className="empty">Todavía no hay borrador generado para este expediente.</p>
                         {seleccionado.estado === 'VALIDADO' ? (
-                          <button className="secondary" onClick={() => prepararDisposicion(false)}>Preparar disposición</button>
+                          <button className="secondary" onClick={() => prepararDisposicion(false)}>Generar borrador de Disposición</button>
                         ) : (
                           <p className="warn">El expediente debe estar validado antes de generar la disposición.</p>
                         )}
