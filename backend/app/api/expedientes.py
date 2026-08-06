@@ -349,7 +349,7 @@ def validar_controles_expediente(expediente_id: str):
 @router.post("/{expediente_id}/validar", response_model=ExpedienteRead)
 def validar_expediente(expediente_id: str):
     obtener_expediente(expediente_id)
-    resultado = validacion_service.validar(expediente_id, registrar_historial=False)
+    resultado = validacion_service.validar(expediente_id)
 
     if resultado.errores:
         historial_service.registrar(expediente_id, "VALIDACION_BLOQUEADA", detalle=" | ".join(resultado.errores))
@@ -380,7 +380,7 @@ def validar_expediente(expediente_id: str):
 @router.post("/{expediente_id}/validar-con-observaciones", response_model=ExpedienteRead)
 def validar_expediente_con_observaciones(expediente_id: str, data: ValidacionObservadaCreate):
     obtener_expediente(expediente_id)
-    resultado = validacion_service.validar(expediente_id, registrar_historial=False)
+    resultado = validacion_service.validar(expediente_id)
 
     if resultado.errores:
         historial_service.registrar(expediente_id, "VALIDACION_OBSERVADA_BLOQUEADA", detalle=" | ".join(resultado.errores))

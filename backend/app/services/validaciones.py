@@ -17,7 +17,6 @@ from app.schemas.validacion import (
     ValidacionExpedienteRead,
 )
 from app.composition.expediente import expediente_service
-from app.services.historial import historial_service
 from app.composition.checklist_fisico import checklist_fisico_service
 from app.services.evidencias_documentales import obtener_evidencias_documentales
 
@@ -31,7 +30,7 @@ class ValidacionService:
         self._repository = repository
         self._persistence = persistence
 
-    def validar(self, expediente_id: str, registrar_historial: bool = True) -> ValidacionExpedienteRead:
+    def validar(self, expediente_id: str) -> ValidacionExpedienteRead:
         expediente = expediente_service.obtener(expediente_id)
         documentos = documento_service.listar_por_expediente(expediente_id)
         checklist = checklist_fisico_service.obtener(expediente_id)
@@ -100,9 +99,6 @@ class ValidacionService:
 
         estado_general = "ROJO" if errores else ("AMARILLO" if advertencias else "VERDE")
 
-        if registrar_historial:
-            historial_service.registrar(expediente_id, "VALIDACION_CONSULTADA", detalle=f"Estado general: {estado_general}")
-
         return ValidacionExpedienteRead(
             expediente_id=expediente_id,
             estado_general=estado_general,
@@ -112,17 +108,17 @@ class ValidacionService:
         )
 
     def errores_bloqueantes(self, expediente_id: str) -> list[str]:
-        return self.validar(expediente_id, registrar_historial=False).errores
+        return self.validar(expediente_id).errores
 
     def advertencias_validacion(self, expediente_id: str) -> list[str]:
-        return self.validar(expediente_id, registrar_historial=False).advertencias
+        return self.validar(expediente_id).advertencias
 
     def puede_validar_normal(self, expediente_id: str) -> bool:
-        resultado = self.validar(expediente_id, registrar_historial=False)
+        resultado = self.validar(expediente_id)
         return not resultado.errores and not resultado.advertencias
 
     def puede_validar_con_observaciones(self, expediente_id: str) -> bool:
-        resultado = self.validar(expediente_id, registrar_historial=False)
+        resultado = self.validar(expediente_id)
         return not resultado.errores and bool(resultado.advertencias)
 
     def tiene_op(self, expediente_id: str) -> bool:
