@@ -1,5 +1,37 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
+import {
+  Archive,
+  ArrowLeft,
+  Building2,
+  Bus,
+  Check,
+  ChevronDown,
+  ChevronUp,
+  CircleCheck,
+  CircleDot,
+  Circle,
+  CircleX,
+  ClipboardList,
+  Clock3,
+  Download,
+  ExternalLink,
+  FileSignature,
+  FileText,
+  FolderOpen,
+  History,
+  House,
+  Inbox,
+  Landmark,
+  Link as LinkIcon,
+  PenLine,
+  ReceiptText,
+  RefreshCw,
+  Save,
+  ScanSearch,
+  Settings,
+  TriangleAlert,
+} from 'lucide-react';
 import './styles.css';
 
 const API_URL = 'http://localhost:8000';
@@ -281,9 +313,24 @@ function claseValidacion(estado: string) {
 }
 
 function iconoValidacion(estado: string) {
-  if (estado === 'OK') return '✓';
-  if (estado === 'ADVERTENCIA') return '!';
-  return '×';
+  if (estado === 'OK') return <CircleCheck aria-hidden="true" />;
+  if (estado === 'ADVERTENCIA') return <TriangleAlert aria-hidden="true" />;
+  return <CircleX aria-hidden="true" />;
+}
+
+function IndicadorBinario({ completo }: { completo: boolean }) {
+  return completo
+    ? <CircleCheck className="inline-status-icon" aria-hidden="true" />
+    : <Circle className="inline-status-icon" aria-hidden="true" />;
+}
+
+function IconoEtapaWorkflow({ id, completada }: { id: string; completada: boolean }) {
+  if (completada) return <Check aria-hidden="true" />;
+  if (id === 'validacion') return <CircleCheck aria-hidden="true" />;
+  if (id === 'op') return <ReceiptText aria-hidden="true" />;
+  if (id === 'disposicion') return <FileSignature aria-hidden="true" />;
+  if (id === 'formalizacion') return <PenLine aria-hidden="true" />;
+  return <Archive aria-hidden="true" />;
 }
 
 function etiquetaValidacion(estado: string) {
@@ -884,8 +931,8 @@ function App() {
       avisar(
         creada.resultado === 'Aprobar intervención'
           && creada.fondo_interviniente === 'FONDO_COMPENSADOR'
-          ? '✓ Decisión registrada correctamente. Próxima etapa disponible: Expediente.'
-          : '✓ Decisión registrada correctamente.',
+          ? 'Decisión registrada correctamente. Próxima etapa disponible: Expediente.'
+          : 'Decisión registrada correctamente.',
         'ok',
       );
     } catch {
@@ -1673,19 +1720,29 @@ function App() {
     <main className="app-shell">
       <aside className="sidebar">
         <div className="brand">
-          <div className="brand-icon">▣</div>
-          <div><h1>SIGD-ST</h1><p>Consejo Escolar<br />General Alvarado</p></div>
+          <img
+            className="brand-product-logo"
+            src="/branding/logo-sigd-st-sidebar.png"
+            alt="SIGD-ST, Sistema Inteligente de Gestión Documental"
+          />
+          <div className="brand-institution">
+            <img
+              src="/branding/logo-consejo-escolar-general-alvarado.png"
+              alt="Consejo Escolar General Alvarado"
+            />
+            <span>Secretaría Técnica</span>
+          </div>
         </div>
 
-        <nav>
-          <button className={pantalla === 'inicio' ? 'active' : ''} onClick={() => setPantalla('inicio')}>Bandeja</button>
-          <button className={pantalla === 'expedientes' ? 'active' : ''} onClick={() => setPantalla('expedientes')}>Expedientes</button>
-          <button className={pantalla === 'solicitudes' ? 'active' : ''} onClick={abrirSolicitudes}>Solicitudes de Intervención</button>
-          <button>Fondo Compensador</button>
-          <button>SAE</button>
-          <button>Infraestructura</button>
-          <button>Transporte</button>
-          <button className={pantalla === 'administracion' ? 'active' : ''} onClick={() => setPantalla('administracion')}>Administración</button>
+        <nav className="sidebar-nav" aria-label="Navegación principal">
+          <button className={pantalla === 'inicio' ? 'active' : ''} onClick={() => setPantalla('inicio')}><House aria-hidden="true" />Bandeja</button>
+          <button className={pantalla === 'expedientes' ? 'active' : ''} onClick={() => setPantalla('expedientes')}><FolderOpen aria-hidden="true" />Expedientes</button>
+          <button className={pantalla === 'solicitudes' ? 'active' : ''} onClick={abrirSolicitudes}><ClipboardList aria-hidden="true" />Solicitudes de Intervención</button>
+          <button><Landmark aria-hidden="true" />Fondo Compensador</button>
+          <button><Building2 aria-hidden="true" />SAE</button>
+          <button><Building2 aria-hidden="true" />Infraestructura</button>
+          <button><Bus aria-hidden="true" />Transporte</button>
+          <button className={pantalla === 'administracion' ? 'active' : ''} onClick={() => setPantalla('administracion')}><Settings aria-hidden="true" />Administración</button>
         </nav>
 
         <div className="version">Versión Alfa 0.29B</div>
@@ -1706,7 +1763,10 @@ function App() {
                 : 'Secretaría Técnica'}
             </span>
           </div>
-          <div className="user">Gonzalo · Secretario Técnico</div>
+          <div className="institutional-context">
+            <strong>Secretaría Técnica</strong>
+            <span>Consejo Escolar General Alvarado</span>
+          </div>
         </header>
         )}
 
@@ -1727,10 +1787,10 @@ function App() {
               </>
             )}
             <section className="metrics">
-              <div className="metric-card"><span>📨</span><strong>{metricasSolicitudes.total}</strong><p>Solicitudes ingresadas</p></div>
-              <div className="metric-card"><span>🕒</span><strong>{metricasSolicitudes.pendientes.length}</strong><p>Pendientes de tramitación</p></div>
-              <div className="metric-card"><span>🔗</span><strong>{metricasSolicitudes.conIdSuna}</strong><p>Con ID SUNA</p></div>
-              <div className="metric-card"><span>📁</span><strong>{metricasSolicitudes.conExpediente}</strong><p>Con Expediente generado</p></div>
+              <div className="metric-card"><span><Inbox aria-hidden="true" /></span><strong>{metricasSolicitudes.total}</strong><p>Solicitudes ingresadas</p></div>
+              <div className="metric-card"><span><Clock3 aria-hidden="true" /></span><strong>{metricasSolicitudes.pendientes.length}</strong><p>Pendientes de tramitación</p></div>
+              <div className="metric-card"><span><LinkIcon aria-hidden="true" /></span><strong>{metricasSolicitudes.conIdSuna}</strong><p>Con ID SUNA</p></div>
+              <div className="metric-card"><span><FolderOpen aria-hidden="true" /></span><strong>{metricasSolicitudes.conExpediente}</strong><p>Con Expediente generado</p></div>
             </section>
 
             <section className="dashboard-grid">
@@ -1796,7 +1856,7 @@ function App() {
         {pantalla === 'nuevo' && (
           <section className="card form-card">
             <button className="secondary" type="button" onClick={abrirSolicitudes}>
-              ← Volver a Solicitudes
+              <ArrowLeft aria-hidden="true" /> Volver a Solicitudes
             </button>
             <h3>Datos iniciales del expediente</h3>
             <label>Tipo de trámite</label>
@@ -2017,7 +2077,7 @@ function App() {
               <div className="solicitud-case-page">
                 <div className="solicitud-case-topbar">
                   <button className="secondary" type="button" onClick={volverASolicitudes}>
-                    ← Volver a Solicitudes
+                    <ArrowLeft aria-hidden="true" /> Volver a Solicitudes
                   </button>
                   <h3>Gestión de la Solicitud</h3>
                   <button className="secondary" type="button" disabled>
@@ -2124,7 +2184,7 @@ function App() {
                       }`}
                       key={etapa}
                     >
-                      <span>{indice === 0 ? '✓' : indice + 1}</span>
+                      <span>{indice === 0 ? <Check aria-hidden="true" /> : indice + 1}</span>
                       <strong>{etapa}</strong>
                     </div>
                   ))}
@@ -2502,7 +2562,7 @@ function App() {
                           'Disposición',
                         ].map((etapa) => (
                           <article key={etapa}>
-                            <span aria-hidden="true">○</span>
+                            <Circle aria-hidden="true" />
                             <strong>{etapa}</strong>
                             <small>Etapa futura</small>
                           </article>
@@ -2735,22 +2795,22 @@ function App() {
               <div className="administrative-preparation-grid">
                 {controlesPreparacionAdministrativa.map((control) => (
                   <div className="administrative-preparation-item" key={control.texto}>
-                    <span aria-hidden="true">{control.completo ? '✓' : '○'}</span>
+                    <span aria-hidden="true">{control.completo ? <CircleCheck /> : <Circle />}</span>
                     <span>{control.texto.replace(/\.$/, '')}</span>
                   </div>
                 ))}
               </div>
               <div className="administrative-preparation-legend" aria-label="Referencia de estados">
-                <span><strong>○</strong> Pendiente</span>
-                <span><strong>✓</strong> Completo</span>
+                <span><Circle aria-hidden="true" /> Pendiente</span>
+                <span><CircleCheck aria-hidden="true" /> Completo</span>
               </div>
             </section>
 
             <div className="workflow-steps" aria-label="Etapas del trámite">
-              {workflowSteps.map((etapa, indice) => (
+              {workflowSteps.map((etapa) => (
                 <div className={`workflow-step ${etapa.estado}`} key={etapa.id}>
                   <span className="workflow-step-number">
-                    {etapa.estado === 'completed' ? '✓' : indice + 1}
+                    <IconoEtapaWorkflow id={etapa.id} completada={etapa.estado === 'completed'} />
                   </span>
                   <span>{etapa.texto}</span>
                 </div>
@@ -2760,23 +2820,23 @@ function App() {
             {disposicionEmitida && (
               <nav className="workflow-final-navigation" aria-label="Consultas del expediente">
                 <button className={tabDetalle === 'workflow' ? 'active' : ''} type="button" onClick={() => setTabDetalle('workflow')}>
-                  <span className="workflow-nav-icon" aria-hidden="true">◉</span> Estado del trámite
+                  <CircleDot aria-hidden="true" /> Estado del trámite
                 </button>
                 <button className={tabDetalle === 'documentos' ? 'active' : ''} type="button" onClick={() => setTabDetalle('documentos')}>
-                  <span className="workflow-nav-icon" aria-hidden="true">▤</span> Documentos
+                  <FileText aria-hidden="true" /> Documentos
                 </button>
                 <button className={tabDetalle === 'ia' ? 'active' : ''} type="button" onClick={() => setTabDetalle('ia')}>
-                  <span className="workflow-nav-icon" aria-hidden="true">◇</span> Análisis
+                  <ScanSearch aria-hidden="true" /> Análisis
                 </button>
                 <button className={tabDetalle === 'historial' ? 'active' : ''} type="button" onClick={() => setTabDetalle('historial')}>
-                  <span className="workflow-nav-icon" aria-hidden="true">◷</span> Historial
+                  <History aria-hidden="true" /> Historial
                 </button>
                 <button className={tabDetalle === 'validacion' ? 'active' : ''} type="button" onClick={consultarValidacion}>
-                  <span className="workflow-nav-icon" aria-hidden="true">✓</span> Validación
+                  <CircleCheck aria-hidden="true" /> Validación
                 </button>
                 {solicitudOrigenExpediente && (
                   <button type="button" onClick={abrirSolicitudOrigen}>
-                    <span className="workflow-nav-icon" aria-hidden="true">↗</span> Abrir Solicitud
+                    <ExternalLink aria-hidden="true" /> Abrir Solicitud
                   </button>
                 )}
               </nav>
@@ -2850,7 +2910,7 @@ function App() {
                         <div className="disposition-issued-actions">
                           <span className="badge green">Emitida</span>
                           <button className="secondary" type="button" onClick={descargarDisposicionEmitida}>
-                            Descargar Word
+                            <Download aria-hidden="true" /> Descargar Word
                           </button>
                         </div>
                       </div>
@@ -2878,7 +2938,7 @@ function App() {
                             aria-expanded={mostrarTextoDisposicionEmitida}
                             onClick={() => setMostrarTextoDisposicionEmitida((visible) => !visible)}
                           >
-                            <span aria-hidden="true">{mostrarTextoDisposicionEmitida ? '▲' : '▼'}</span>
+                            {mostrarTextoDisposicionEmitida ? <ChevronUp aria-hidden="true" /> : <ChevronDown aria-hidden="true" />}
                             {mostrarTextoDisposicionEmitida ? 'Ocultar texto completo de la Disposición' : 'Ver texto completo de la Disposición'}
                           </button>
 
@@ -2907,6 +2967,7 @@ function App() {
                                   onClick={registrarFirma}
                                   disabled={registrandoFirma || !fechaFirma}
                                 >
+                                  <PenLine aria-hidden="true" />
                                   {registrandoFirma ? 'Registrando...' : 'Registrar firma'}
                                 </button>
                               </div>
@@ -2947,6 +3008,7 @@ function App() {
                                   onClick={registrarArchivo}
                                   disabled={registrandoArchivo || !fechaArchivo}
                                 >
+                                  <Archive aria-hidden="true" />
                                   {registrandoArchivo ? 'Archivando...' : 'Archivar expediente'}
                                 </button>
                               </div>
@@ -3010,7 +3072,7 @@ function App() {
                               <td>{new Date(doc.fecha_carga).toLocaleString()}</td>
                               <td>
                                 <button className="small-button" onClick={() => abrirVistaPrevia(doc)}>Vista previa</button>
-                                <a className="small-link" href={`${API_URL}/expedientes/${seleccionado.id}/documentos/${doc.id}/descargar`} target="_blank">Descargar</a>
+                                <a className="small-link icon-link" href={`${API_URL}/expedientes/${seleccionado.id}/documentos/${doc.id}/descargar`} target="_blank"><Download aria-hidden="true" />Descargar</a>
                               </td>
                             </tr>
                           ))}
@@ -3053,11 +3115,11 @@ function App() {
                             <h3>{diag.etiqueta}</h3>
                             <p>{diag.resumen}</p>
                             <div className="assistant-summary">
-                              <p>✓ Proveedor: {analisis.proveedor || 'No detectado'}</p>
-                              <p>✓ CUIT: {analisis.cuit || 'No detectado'}</p>
-                              <p>✓ Facturas detectadas: {analisis.documentos_comerciales.length}</p>
-                              <p>✓ Retenciones detectadas: {analisis.retenciones.length}</p>
-                              <p>⚠ Faltantes: {analisis.faltantes.length}</p>
+                              <p><CircleCheck className="inline-status-icon" aria-hidden="true" /> Proveedor: {analisis.proveedor || 'No detectado'}</p>
+                              <p><CircleCheck className="inline-status-icon" aria-hidden="true" /> CUIT: {analisis.cuit || 'No detectado'}</p>
+                              <p><CircleCheck className="inline-status-icon" aria-hidden="true" /> Facturas detectadas: {analisis.documentos_comerciales.length}</p>
+                              <p><CircleCheck className="inline-status-icon" aria-hidden="true" /> Retenciones detectadas: {analisis.retenciones.length}</p>
+                              <p><TriangleAlert className="inline-status-icon" aria-hidden="true" /> Faltantes: {analisis.faltantes.length}</p>
                             </div>
                             <strong>Recomendación: {diag.recomendacion}</strong>
                           </div>
@@ -3108,14 +3170,14 @@ function App() {
                         <div className="subcard">
                           <h4>Checklist inteligente</h4>
                           <div className="checklist-grid">
-                            <p className={analisis.op_detectada ? 'ok' : 'warn'}>{analisis.op_detectada ? '✓' : '□'} OP cargada</p>
-                            <p className={analisis.proveedor ? 'ok' : 'warn'}>{analisis.proveedor ? '✓' : '□'} Proveedor</p>
-                            <p className={analisis.cuit ? 'ok' : 'warn'}>{analisis.cuit ? '✓' : '□'} CUIT</p>
-                            <p className={analisis.documentos_comerciales.length ? 'ok' : 'warn'}>{analisis.documentos_comerciales.length ? '✓' : '□'} Facturas liquidadas</p>
-                            <p className={!analisis.faltantes.includes('Remito o conformidad firmada') ? 'ok' : 'warn'}>{!analisis.faltantes.includes('Remito o conformidad firmada') ? '✓' : '□'} Remito / conformidad</p>
-                            <p className={!analisis.faltantes.includes('Validación CAE') ? 'ok' : 'warn'}>{!analisis.faltantes.includes('Validación CAE') ? '✓' : '□'} CAE</p>
-                            <p className={!analisis.faltantes.includes('Certificado Fiscal ARBA') ? 'ok' : 'warn'}>{!analisis.faltantes.includes('Certificado Fiscal ARBA') ? '✓' : '□'} ARBA</p>
-                            <p className={!analisis.faltantes.includes('Constancia ARCA') ? 'ok' : 'warn'}>{!analisis.faltantes.includes('Constancia ARCA') ? '✓' : '□'} ARCA</p>
+                            <p className={analisis.op_detectada ? 'ok' : 'warn'}><IndicadorBinario completo={analisis.op_detectada} /> OP cargada</p>
+                            <p className={analisis.proveedor ? 'ok' : 'warn'}><IndicadorBinario completo={Boolean(analisis.proveedor)} /> Proveedor</p>
+                            <p className={analisis.cuit ? 'ok' : 'warn'}><IndicadorBinario completo={Boolean(analisis.cuit)} /> CUIT</p>
+                            <p className={analisis.documentos_comerciales.length ? 'ok' : 'warn'}><IndicadorBinario completo={Boolean(analisis.documentos_comerciales.length)} /> Facturas liquidadas</p>
+                            <p className={!analisis.faltantes.includes('Remito o conformidad firmada') ? 'ok' : 'warn'}><IndicadorBinario completo={!analisis.faltantes.includes('Remito o conformidad firmada')} /> Remito / conformidad</p>
+                            <p className={!analisis.faltantes.includes('Validación CAE') ? 'ok' : 'warn'}><IndicadorBinario completo={!analisis.faltantes.includes('Validación CAE')} /> CAE</p>
+                            <p className={!analisis.faltantes.includes('Certificado Fiscal ARBA') ? 'ok' : 'warn'}><IndicadorBinario completo={!analisis.faltantes.includes('Certificado Fiscal ARBA')} /> ARBA</p>
+                            <p className={!analisis.faltantes.includes('Constancia ARCA') ? 'ok' : 'warn'}><IndicadorBinario completo={!analisis.faltantes.includes('Constancia ARCA')} /> ARCA</p>
                           </div>
                         </div>
 
@@ -3126,14 +3188,14 @@ function App() {
                             El sistema controla si el requisito está acreditado: archivo, checklist o dato automático de la OP.
                           </p>
                           <div className="evidence-grid">
-                            <p className="ok">✓ OP <span>PDF cargado</span></p>
-                            <p className={analisis.proveedor ? 'ok' : 'warn'}>{analisis.proveedor ? '✓' : '□'} Proveedor <span>Dato OP</span></p>
-                            <p className={analisis.cuit ? 'ok' : 'warn'}>{analisis.cuit ? '✓' : '□'} CUIT <span>Dato OP</span></p>
-                            <p className={analisis.documentos_comerciales.length ? 'ok' : 'warn'}>{analisis.documentos_comerciales.length ? '✓' : '□'} Facturas <span>{analisis.documentos_comerciales.length ? 'Detectadas en OP' : 'Archivo o checklist'}</span></p>
-                            <p className={!analisis.faltantes.includes('Remito o conformidad firmada') ? 'ok' : 'warn'}>{!analisis.faltantes.includes('Remito o conformidad firmada') ? '✓' : '□'} Remito / conformidad <span>Archivo o checklist</span></p>
-                            <p className={!analisis.faltantes.includes('Validación CAE') ? 'ok' : 'warn'}>{!analisis.faltantes.includes('Validación CAE') ? '✓' : '□'} CAE <span>Consulta, archivo o checklist</span></p>
-                            <p className={!analisis.faltantes.includes('Certificado Fiscal ARBA') ? 'ok' : 'warn'}>{!analisis.faltantes.includes('Certificado Fiscal ARBA') ? '✓' : '□'} ARBA <span>Archivo o checklist</span></p>
-                            <p className={!analisis.faltantes.includes('Constancia ARCA') ? 'ok' : 'warn'}>{!analisis.faltantes.includes('Constancia ARCA') ? '✓' : '□'} ARCA <span>Archivo o checklist</span></p>
+                            <p className="ok"><CircleCheck className="inline-status-icon" aria-hidden="true" /> OP <span>PDF cargado</span></p>
+                            <p className={analisis.proveedor ? 'ok' : 'warn'}><IndicadorBinario completo={Boolean(analisis.proveedor)} /> Proveedor <span>Dato OP</span></p>
+                            <p className={analisis.cuit ? 'ok' : 'warn'}><IndicadorBinario completo={Boolean(analisis.cuit)} /> CUIT <span>Dato OP</span></p>
+                            <p className={analisis.documentos_comerciales.length ? 'ok' : 'warn'}><IndicadorBinario completo={Boolean(analisis.documentos_comerciales.length)} /> Facturas <span>{analisis.documentos_comerciales.length ? 'Detectadas en OP' : 'Archivo o checklist'}</span></p>
+                            <p className={!analisis.faltantes.includes('Remito o conformidad firmada') ? 'ok' : 'warn'}><IndicadorBinario completo={!analisis.faltantes.includes('Remito o conformidad firmada')} /> Remito / conformidad <span>Archivo o checklist</span></p>
+                            <p className={!analisis.faltantes.includes('Validación CAE') ? 'ok' : 'warn'}><IndicadorBinario completo={!analisis.faltantes.includes('Validación CAE')} /> CAE <span>Consulta, archivo o checklist</span></p>
+                            <p className={!analisis.faltantes.includes('Certificado Fiscal ARBA') ? 'ok' : 'warn'}><IndicadorBinario completo={!analisis.faltantes.includes('Certificado Fiscal ARBA')} /> ARBA <span>Archivo o checklist</span></p>
+                            <p className={!analisis.faltantes.includes('Constancia ARCA') ? 'ok' : 'warn'}><IndicadorBinario completo={!analisis.faltantes.includes('Constancia ARCA')} /> ARCA <span>Archivo o checklist</span></p>
                           </div>
                           <div className="info-note">
                             Las retenciones son informativas: las calcula el sistema que emite la OP y no requieren carga documental separada.
@@ -3179,11 +3241,11 @@ function App() {
                         <div className="validation-columns">
                           <div>
                             <h4>Validaciones</h4>
-                            {analisis.validaciones.map((v, i) => <p key={i} className="ok">✓ {v}</p>)}
+                            {analisis.validaciones.map((v, i) => <p key={i} className="ok"><CircleCheck className="inline-status-icon" aria-hidden="true" /> {v}</p>)}
                           </div>
                           <div>
                             <h4>Faltantes</h4>
-                            {analisis.faltantes.map((f, i) => <p key={i} className="warn">⚠ {f}</p>)}
+                            {analisis.faltantes.map((f, i) => <p key={i} className="warn"><TriangleAlert className="inline-status-icon" aria-hidden="true" /> {f}</p>)}
                           </div>
                         </div>
                       </>
@@ -3249,9 +3311,9 @@ function App() {
                           </section>
 
                           <div className="administrative-controls-legend" aria-label="Referencia de estados">
-                            <span><strong>✓</strong> Cumplido</span>
-                            <span><strong>!</strong> Advertencia</span>
-                            <span><strong>×</strong> Error bloqueante</span>
+                            <span><CircleCheck aria-hidden="true" /> Cumplido</span>
+                            <span><TriangleAlert aria-hidden="true" /> Advertencia</span>
+                            <span><CircleX aria-hidden="true" /> Error bloqueante</span>
                           </div>
                         </div>
 
@@ -3376,11 +3438,11 @@ function App() {
                         </div>
 
                         <div className="actions disposition-primary-actions">
-                          <button className="secondary" onClick={() => prepararDisposicion(true)}>Regenerar borrador</button>
-                          <button className="primary" onClick={guardarBorradorDisposicion}>Guardar borrador</button>
-                          <button className="secondary" onClick={descargarBorradorTexto}>Exportar texto</button>
-                          <button className="primary" onClick={descargarBorradorWord}>Descargar Word</button>
-                          {seleccionado.estado === 'VALIDADO' && <button className="primary" onClick={generarDisposicion}>Emitir disposición</button>}
+                          <button className="secondary" onClick={() => prepararDisposicion(true)}><RefreshCw aria-hidden="true" />Regenerar borrador</button>
+                          <button className="primary" onClick={guardarBorradorDisposicion}><Save aria-hidden="true" />Guardar borrador</button>
+                          <button className="secondary" onClick={descargarBorradorTexto}><FileText aria-hidden="true" />Exportar texto</button>
+                          <button className="primary" onClick={descargarBorradorWord}><Download aria-hidden="true" />Descargar Word</button>
+                          {seleccionado.estado === 'VALIDADO' && <button className="primary" onClick={generarDisposicion}><FileSignature aria-hidden="true" />Emitir disposición</button>}
                         </div>
 
                         <button
@@ -3389,7 +3451,7 @@ function App() {
                           aria-expanded={mostrarTextoBorrador}
                           onClick={() => setMostrarTextoBorrador((visible) => !visible)}
                         >
-                          <span aria-hidden="true">{mostrarTextoBorrador ? '▲' : '▼'}</span>
+                          {mostrarTextoBorrador ? <ChevronUp aria-hidden="true" /> : <ChevronDown aria-hidden="true" />}
                           {mostrarTextoBorrador ? 'Ocultar borrador de Disposición' : 'Ver borrador de Disposición'}
                         </button>
 
@@ -3410,7 +3472,7 @@ function App() {
 
                             <aside className="disposition-aside">
                               <h4>Observaciones IA</h4>
-                              {disposicionBorrador.observaciones_ia.map((obs, i) => <p key={i} className="warn">⚠ {obs}</p>)}
+                              {disposicionBorrador.observaciones_ia.map((obs, i) => <p key={i} className="warn"><TriangleAlert className="inline-status-icon" aria-hidden="true" /> {obs}</p>)}
                               {fueValidadoConObservaciones(historial) && (
                                 <div className="info-note">Este expediente fue validado con observaciones. Revisá el historial antes de emitir.</div>
                               )}
