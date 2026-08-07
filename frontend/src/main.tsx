@@ -449,6 +449,8 @@ function App() {
   const [disposicionEmitidaDetalle, setDisposicionEmitidaDetalle] = useState<DisposicionEmitida | null>(null);
   const [cargandoDisposicionEmitida, setCargandoDisposicionEmitida] = useState(false);
   const [errorDisposicionEmitida, setErrorDisposicionEmitida] = useState('');
+  const [mostrarTextoBorrador, setMostrarTextoBorrador] = useState(false);
+  const [mostrarTextoDisposicionEmitida, setMostrarTextoDisposicionEmitida] = useState(false);
   const [fechaFirma, setFechaFirma] = useState('');
   const [registrandoFirma, setRegistrandoFirma] = useState(false);
   const [fechaArchivo, setFechaArchivo] = useState('');
@@ -1387,12 +1389,8 @@ function App() {
         return;
       }
       const actualizado: Expediente = await res.json();
-      setSeleccionado(actualizado);
-      setExpedientes((actuales) =>
-        actuales.map((expediente) =>
-          expediente.id === actualizado.id ? actualizado : expediente,
-        ),
-      );
+      await cargarExpedientes();
+      await cargarDetalle(actualizado);
       setFechaFirma('');
       avisar('Firma ológrafa registrada correctamente.', 'ok');
     } catch {
@@ -1424,12 +1422,8 @@ function App() {
         return;
       }
       const actualizado: Expediente = await res.json();
-      setSeleccionado(actualizado);
-      setExpedientes((actuales) =>
-        actuales.map((expediente) =>
-          expediente.id === actualizado.id ? actualizado : expediente,
-        ),
-      );
+      await cargarExpedientes();
+      await cargarDetalle(actualizado);
       setFechaArchivo('');
       avisar('Expediente archivado correctamente.', 'ok');
     } catch {
@@ -1453,6 +1447,8 @@ function App() {
   useEffect(() => {
     setNumeroDisposicionEditable(seleccionado?.numero_disposicion || '');
     setErrorNumeroDisposicion('');
+    setMostrarTextoBorrador(false);
+    setMostrarTextoDisposicionEmitida(false);
   }, [seleccionado?.id, seleccionado?.numero_disposicion]);
 
   const diag = diagnosticoIA(analisis);
@@ -1467,11 +1463,13 @@ function App() {
     seleccionado
       && ['DISPOSICION_EMITIDA', 'FIRMADO', 'ARCHIVADO'].includes(seleccionado.estado),
   );
+  const expedienteFirmado = seleccionado?.estado === 'FIRMADO';
+  const expedienteArchivado = seleccionado?.estado === 'ARCHIVADO';
   const firmaPendiente = seleccionado?.estado === 'DISPOSICION_EMITIDA';
   const validacionAdministrativaCompleta = Boolean(
     seleccionado
       && (
-        ['VALIDADO', 'DISPOSICION_EMITIDA'].includes(seleccionado.estado)
+        ['VALIDADO', 'DISPOSICION_EMITIDA', 'FIRMADO', 'ARCHIVADO'].includes(seleccionado.estado)
         || historial.some((evento) =>
           [
             'EXPEDIENTE_VALIDADO',
@@ -1523,10 +1521,12 @@ function App() {
     (decision) => decision.resultado === 'Aprobar intervención',
   );
 
-  const etapaWorkflow = seleccionado?.estado === 'ARCHIVADO'
+  const etapaWorkflow = expedienteFirmado || expedienteArchivado
     ? 'archivo'
     : disposicionEmitida
       ? 'formalizacion'
+      : seleccionado?.estado === 'VALIDADO'
+        ? 'disposicion'
       : disposicionBorrador
         ? 'disposicion'
         : opConExtraccionFallida || tieneOP
@@ -1556,7 +1556,9 @@ function App() {
     {
       id: 'op',
       texto: 'Orden de Pago',
-      estado: opConExtraccionFallida
+      estado: seleccionado?.estado === 'VALIDADO' || disposicionEmitida
+        ? 'completed'
+        : opConExtraccionFallida
         ? 'attention'
         : opAnalizadaCorrectamente
           ? 'completed'
@@ -1569,7 +1571,7 @@ function App() {
     {
       id: 'disposicion',
       texto: 'Disposición',
-      estado: etapaWorkflow === 'archivo' || disposicionEmitida
+      estado: disposicionEmitida
         ? 'completed'
         : etapaWorkflow === 'disposicion'
           ? 'current'
@@ -1578,16 +1580,20 @@ function App() {
     {
       id: 'formalizacion',
       texto: 'Formalización',
-      estado: etapaWorkflow === 'archivo'
+      estado: expedienteFirmado || expedienteArchivado
         ? 'completed'
-        : disposicionEmitida
+        : seleccionado?.estado === 'DISPOSICION_EMITIDA'
           ? 'current'
           : 'blocked',
     },
     {
       id: 'archivo',
       texto: 'Archivo',
-      estado: etapaWorkflow === 'archivo' ? 'current' : 'future',
+      estado: expedienteArchivado
+        ? 'completed'
+        : expedienteFirmado
+          ? 'current'
+          : 'future',
     },
   ];
 
@@ -2751,7 +2757,32 @@ function App() {
               ))}
             </div>
 
-            <div className="workflow-layout">
+            {disposicionEmitida && (
+              <nav className="workflow-final-navigation" aria-label="Consultas del expediente">
+                <button className={tabDetalle === 'workflow' ? 'active' : ''} type="button" onClick={() => setTabDetalle('workflow')}>
+                  <span className="workflow-nav-icon" aria-hidden="true">◉</span> Estado del trámite
+                </button>
+                <button className={tabDetalle === 'documentos' ? 'active' : ''} type="button" onClick={() => setTabDetalle('documentos')}>
+                  <span className="workflow-nav-icon" aria-hidden="true">▤</span> Documentos
+                </button>
+                <button className={tabDetalle === 'ia' ? 'active' : ''} type="button" onClick={() => setTabDetalle('ia')}>
+                  <span className="workflow-nav-icon" aria-hidden="true">◇</span> Análisis
+                </button>
+                <button className={tabDetalle === 'historial' ? 'active' : ''} type="button" onClick={() => setTabDetalle('historial')}>
+                  <span className="workflow-nav-icon" aria-hidden="true">◷</span> Historial
+                </button>
+                <button className={tabDetalle === 'validacion' ? 'active' : ''} type="button" onClick={consultarValidacion}>
+                  <span className="workflow-nav-icon" aria-hidden="true">✓</span> Validación
+                </button>
+                {solicitudOrigenExpediente && (
+                  <button type="button" onClick={abrirSolicitudOrigen}>
+                    <span className="workflow-nav-icon" aria-hidden="true">↗</span> Abrir Solicitud
+                  </button>
+                )}
+              </nav>
+            )}
+
+            <div className={`workflow-layout ${disposicionEmitida ? 'final-state' : ''}`}>
               <section className="expediente-main">
                 {tabDetalle === 'workflow' && (
                   <>
@@ -2766,7 +2797,9 @@ function App() {
                               ? 'Orden de Pago'
                               : etapaWorkflow === 'disposicion'
                                 ? 'Disposición'
-                                : 'Formalización'}
+                                : etapaWorkflow === 'archivo'
+                                  ? 'Archivo'
+                                  : 'Formalización'}
                         </h3>
                       </div>
                       {opConExtraccionFallida && <span className="badge red">Requiere atención</span>}
@@ -2814,7 +2847,12 @@ function App() {
                           <span className="eyebrow">Acto administrativo emitido</span>
                           <h3>Disposición</h3>
                         </div>
-                        <span className="badge green">Emitida</span>
+                        <div className="disposition-issued-actions">
+                          <span className="badge green">Emitida</span>
+                          <button className="secondary" type="button" onClick={descargarDisposicionEmitida}>
+                            Descargar Word
+                          </button>
+                        </div>
                       </div>
 
                       {cargandoDisposicionEmitida && <p className="muted">Cargando Disposición emitida...</p>}
@@ -2823,27 +2861,35 @@ function App() {
                       {disposicionEmitidaDetalle && (
                         <>
                           <div className="expediente-summary-grid">
-                            <div><span>Número</span><strong>{disposicionEmitidaDetalle.numero_disposicion}</strong></div>
-                            <div><span>Fecha de emisión</span><strong>{formatearFechaHora(disposicionEmitidaDetalle.fecha_emision)}</strong></div>
+                            <div><span>Número de Disposición</span><strong>{disposicionEmitidaDetalle.numero_disposicion}</strong></div>
+                            <div><span>Estado</span><strong>{estadoAdministrativo(seleccionado, historial).texto}</strong></div>
+                            <div><span>Expediente</span><strong>{seleccionado.numero_interno}</strong></div>
+                            <div><span>OP</span><strong>{disposicionEmitidaDetalle.numero_op}</strong></div>
                             <div><span>Proveedor</span><strong>{disposicionEmitidaDetalle.proveedor}</strong></div>
-                            <div><span>CUIT</span><strong>{disposicionEmitidaDetalle.cuit}</strong></div>
-                            <div><span>Objeto</span><strong>{disposicionEmitidaDetalle.objeto}</strong></div>
-                            <div><span>Establecimiento</span><strong>{disposicionEmitidaDetalle.establecimiento}</strong></div>
-                            <div><span>Número de OP</span><strong>{disposicionEmitidaDetalle.numero_op}</strong></div>
-                            <div><span>Liquidación</span><strong>{disposicionEmitidaDetalle.numero_liquidacion || 'No informada'}</strong></div>
                             <div><span>Importe</span><strong>{moneda(Number(disposicionEmitidaDetalle.importe))}</strong></div>
-                            <div><span>Cantidad de UC</span><strong>{formatearCantidadUC(disposicionEmitidaDetalle.cantidad_uc)}</strong></div>
-                            <div><span>Valor UC</span><strong>{moneda(Number(disposicionEmitidaDetalle.valor_uc_aplicado))}</strong></div>
                             <div><span>Procedimiento</span><strong>{disposicionEmitidaDetalle.procedimiento_contratacion}</strong></div>
                             <div><span>Norma</span><strong>{disposicionEmitidaDetalle.norma_uc}</strong></div>
+                            <div><span>Fecha</span><strong>{formatearFechaHora(disposicionEmitidaDetalle.fecha_emision)}</strong></div>
                           </div>
 
-                          <div className="observation-box">
-                            <h4>Texto emitido</h4>
-                            {disposicionEmitidaDetalle.texto_emitido.split('\n').map((linea, indice) => (
-                              <p key={`${indice}-${linea}`}>{linea || '\u00a0'}</p>
-                            ))}
-                          </div>
+                          <button
+                            className="disposition-collapse-toggle"
+                            type="button"
+                            aria-expanded={mostrarTextoDisposicionEmitida}
+                            onClick={() => setMostrarTextoDisposicionEmitida((visible) => !visible)}
+                          >
+                            <span aria-hidden="true">{mostrarTextoDisposicionEmitida ? '▲' : '▼'}</span>
+                            {mostrarTextoDisposicionEmitida ? 'Ocultar texto completo de la Disposición' : 'Ver texto completo de la Disposición'}
+                          </button>
+
+                          {mostrarTextoDisposicionEmitida && (
+                            <div className="observation-box disposition-collapsible-content">
+                              <h4>Texto emitido</h4>
+                              {disposicionEmitidaDetalle.texto_emitido.split('\n').map((linea, indice) => (
+                                <p key={`${indice}-${linea}`}>{linea || '\u00a0'}</p>
+                              ))}
+                            </div>
+                          )}
 
                           {firmaPendiente && (
                             <div className="form-grid">
@@ -2869,7 +2915,6 @@ function App() {
 
                           {['FIRMADO', 'ARCHIVADO'].includes(seleccionado?.estado || '') && (
                             <div className="expediente-summary-grid">
-                              <div><span>Estado</span><strong>{seleccionado.estado}</strong></div>
                               <div><span>Fecha de firma</span><strong>{seleccionado.fecha_firma ? formatearFecha(seleccionado.fecha_firma) : 'No informada'}</strong></div>
                               <div><span>Usuario de firma</span><strong>{seleccionado.usuario_registro_firma || 'No informado'}</strong></div>
                               {seleccionado.estado === 'ARCHIVADO' && (
@@ -3254,7 +3299,7 @@ function App() {
                       <span className="badge yellow">{disposicionBorrador?.estado || 'BORRADOR PLANTILLA'}</span>
                     </div>
 
-                    <div className="observation-box">
+                    {!disposicionBorrador && <div className="observation-box">
                       <h4>Número de Disposición</h4>
                       {disposicionEmitida ? (
                         <p><strong>{seleccionado.numero_disposicion || 'No informado'}</strong></p>
@@ -3285,7 +3330,7 @@ function App() {
                           )}
                         </>
                       )}
-                    </div>
+                    </div>}
 
                     {!disposicionBorrador ? (
                       <div className="empty-disposition">
@@ -3297,41 +3342,87 @@ function App() {
                         )}
                       </div>
                     ) : (
-                      <div className="disposition-editor">
-                        <div className="disposition-main">
-                          <h4>DISPOSICIÓN Nº {disposicionBorrador.numero_disposicion || '____/____'}</h4>
-
-                          <label>VISTO</label>
-                          <textarea value={disposicionBorrador.visto} onChange={(e) => setDisposicionBorrador({ ...disposicionBorrador, visto: e.target.value })} />
-
-                          <label>CONSIDERANDO</label>
-                          <textarea value={disposicionBorrador.considerando} onChange={(e) => setDisposicionBorrador({ ...disposicionBorrador, considerando: e.target.value })} />
-
-                          <label>POR ELLO / DISPONE</label>
-                          <textarea value={disposicionBorrador.dispone} onChange={(e) => setDisposicionBorrador({ ...disposicionBorrador, dispone: e.target.value })} />
-
-                          <div className="actions">
-                            <button className="secondary" onClick={() => prepararDisposicion(true)}>Regenerar borrador</button>
-                            <button className="primary" onClick={guardarBorradorDisposicion}>Guardar borrador</button>
-                            <button className="secondary" onClick={descargarBorradorTexto}>Exportar texto</button>
-                            <button className="primary" onClick={descargarBorradorWord}>Descargar Word</button>
-                            {seleccionado.estado === 'VALIDADO' && <button className="primary" onClick={generarDisposicion}>Emitir disposición</button>}
+                      <>
+                        <div className="expediente-summary-grid disposition-summary-grid">
+                          <div>
+                            <span>Número de Disposición</span>
+                            <input
+                              aria-label="Número de Disposición"
+                              value={numeroDisposicionEditable}
+                              onChange={(e) => {
+                                setNumeroDisposicionEditable(e.target.value);
+                                setErrorNumeroDisposicion('');
+                              }}
+                              placeholder="Ejemplo: 75/2026"
+                            />
+                            <button
+                              className="secondary small-button"
+                              type="button"
+                              onClick={guardarNumeroDisposicion}
+                              disabled={guardandoNumeroDisposicion}
+                            >
+                              {guardandoNumeroDisposicion ? 'Guardando...' : 'Guardar número'}
+                            </button>
+                            {errorNumeroDisposicion && <span className="warn">{errorNumeroDisposicion}</span>}
                           </div>
+                          <div><span>Estado</span><strong>{disposicionBorrador.estado}</strong></div>
+                          <div><span>Expediente</span><strong>{seleccionado.numero_interno}</strong></div>
+                          <div><span>OP</span><strong>{analisis?.orden_pago || 'No informada'}</strong></div>
+                          <div><span>Proveedor</span><strong>{analisis?.proveedor || 'No informado'}</strong></div>
+                          <div><span>Importe</span><strong>{analisis?.importe_bruto != null ? moneda(analisis.importe_bruto) : 'No informado'}</strong></div>
+                          <div><span>Procedimiento</span><strong>{analisis?.procedimiento || 'No informado'}</strong></div>
+                          <div><span>Norma</span><strong>{analisis?.norma_uc || 'No informada'}</strong></div>
+                          <div><span>Fecha</span><strong>{formatearFechaHora(disposicionBorrador.actualizado || disposicionBorrador.creado)}</strong></div>
                         </div>
 
-                        <aside className="disposition-aside">
-                          <h4>Observaciones IA</h4>
-                          {disposicionBorrador.observaciones_ia.map((obs, i) => <p key={i} className="warn">⚠ {obs}</p>)}
-                          {fueValidadoConObservaciones(historial) && (
-                            <div className="info-note">Este expediente fue validado con observaciones. Revisá el historial antes de emitir.</div>
-                          )}
-                          <div className="info-note">Plantilla institucional 2026.2 aplicada. La exportación Word está disponible. La exportación PDF queda preparada para el próximo sprint.</div>
-                          <div className="template-status">
-                            <strong>Vista documento institucional</strong>
-                            <span>Tablas dinámicas · Negritas controladas · Variables oficiales</span>
+                        <div className="actions disposition-primary-actions">
+                          <button className="secondary" onClick={() => prepararDisposicion(true)}>Regenerar borrador</button>
+                          <button className="primary" onClick={guardarBorradorDisposicion}>Guardar borrador</button>
+                          <button className="secondary" onClick={descargarBorradorTexto}>Exportar texto</button>
+                          <button className="primary" onClick={descargarBorradorWord}>Descargar Word</button>
+                          {seleccionado.estado === 'VALIDADO' && <button className="primary" onClick={generarDisposicion}>Emitir disposición</button>}
+                        </div>
+
+                        <button
+                          className="disposition-collapse-toggle"
+                          type="button"
+                          aria-expanded={mostrarTextoBorrador}
+                          onClick={() => setMostrarTextoBorrador((visible) => !visible)}
+                        >
+                          <span aria-hidden="true">{mostrarTextoBorrador ? '▲' : '▼'}</span>
+                          {mostrarTextoBorrador ? 'Ocultar borrador de Disposición' : 'Ver borrador de Disposición'}
+                        </button>
+
+                        {mostrarTextoBorrador && (
+                          <div className="disposition-editor disposition-collapsible-content">
+                            <div className="disposition-main">
+                              <h4>DISPOSICIÓN Nº {disposicionBorrador.numero_disposicion || '____/____'}</h4>
+
+                              <label>VISTO</label>
+                              <textarea value={disposicionBorrador.visto} onChange={(e) => setDisposicionBorrador({ ...disposicionBorrador, visto: e.target.value })} />
+
+                              <label>CONSIDERANDO</label>
+                              <textarea value={disposicionBorrador.considerando} onChange={(e) => setDisposicionBorrador({ ...disposicionBorrador, considerando: e.target.value })} />
+
+                              <label>POR ELLO / DISPONE</label>
+                              <textarea value={disposicionBorrador.dispone} onChange={(e) => setDisposicionBorrador({ ...disposicionBorrador, dispone: e.target.value })} />
+                            </div>
+
+                            <aside className="disposition-aside">
+                              <h4>Observaciones IA</h4>
+                              {disposicionBorrador.observaciones_ia.map((obs, i) => <p key={i} className="warn">⚠ {obs}</p>)}
+                              {fueValidadoConObservaciones(historial) && (
+                                <div className="info-note">Este expediente fue validado con observaciones. Revisá el historial antes de emitir.</div>
+                              )}
+                              <div className="info-note">Plantilla institucional 2026.2 aplicada. La exportación Word está disponible. La exportación PDF queda preparada para el próximo sprint.</div>
+                              <div className="template-status">
+                                <strong>Vista documento institucional</strong>
+                                <span>Tablas dinámicas · Negritas controladas · Variables oficiales</span>
+                              </div>
+                            </aside>
                           </div>
-                        </aside>
-                      </div>
+                        )}
+                      </>
                     )}
                   </div>
                 )}
@@ -3353,7 +3444,7 @@ function App() {
                 )}
               </section>
 
-              <aside className="next-action-panel">
+              {!disposicionEmitida && <aside className="next-action-panel">
                 <section>
                   <span className="eyebrow">Próxima acción recomendada</span>
                   <p>{accionPrincipal.descripcion}</p>
@@ -3411,7 +3502,7 @@ function App() {
                     )}
                   </nav>
                 </section>
-              </aside>
+              </aside>}
             </div>
           </section>
         )}
