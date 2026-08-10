@@ -13,25 +13,24 @@ import {
   Circle,
   CircleX,
   ClipboardList,
-  Clock3,
   Download,
   ExternalLink,
   FileSignature,
   FileText,
   FolderOpen,
   History,
-  House,
-  Inbox,
   Landmark,
-  Link as LinkIcon,
+  LayoutDashboard,
   PenLine,
   ReceiptText,
   RefreshCw,
   Save,
   ScanSearch,
+  Search,
   Settings,
   TriangleAlert,
 } from 'lucide-react';
+import { PanelBusquedaFiltros } from './components/PanelBusquedaFiltros';
 import './styles.css';
 
 const API_URL = 'http://localhost:8000';
@@ -50,6 +49,41 @@ const fondosIntervinientesDisponibles = [
 type Pantalla = 'inicio' | 'nuevo' | 'expedientes' | 'detalle' | 'solicitudes' | 'administracion';
 type TabDetalle = 'workflow' | 'documentos' | 'ia' | 'validacion' | 'disposicion' | 'historial';
 type TabGestionSolicitud = 'tramitacion' | 'historial';
+
+type TrabajoMesa = {
+  clave: string;
+  tipo: 'Solicitud' | 'Expediente';
+  identificador: string;
+  establecimiento: string;
+  asunto: string;
+  estado: string;
+  accion: string;
+  prioridad?: string;
+  fecha: string;
+  abrir: () => void;
+};
+
+const filtrosRapidosSolicitudes = [
+  { value: 'todos', label: 'Todos' },
+  {
+    value: 'pendientes-de-decision',
+    label: 'Pendientes de decisión',
+  },
+  { value: 'hoy', label: 'Hoy' },
+  { value: 'validacion', label: 'Validación' },
+  { value: 'disposicion', label: 'Disposición' },
+  { value: 'finalizados', label: 'Finalizados' },
+] as const;
+
+const SIN_PRIORIDAD = '__SIN_PRIORIDAD__';
+
+const filtrosAvanzadosSolicitudesIniciales = {
+  establecimiento: '',
+  fondo: '',
+  prioridad: '',
+  fechaDesde: '',
+  fechaHasta: '',
+};
 
 const CONTROLES_OBLIGATORIOS_VALIDACION = new Set([
   'Expediente interno',
@@ -256,6 +290,14 @@ function fechaLocalISO(fecha = new Date()) {
   const mes = String(fecha.getMonth() + 1).padStart(2, '0');
   const dia = String(fecha.getDate()).padStart(2, '0');
   return `${anio}-${mes}-${dia}`;
+}
+
+function normalizarTextoBusqueda(valor: unknown) {
+  return String(valor ?? '')
+    .trim()
+    .toLocaleLowerCase('es')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
 }
 
 function bytes(valor?: number | null) {
@@ -480,7 +522,7 @@ async function obtenerMensajeError(res: Response) {
 
 function App() {
   const solicitudAnalisisActual = useRef(0);
-  const [pantalla, setPantalla] = useState<Pantalla>('solicitudes');
+  const [pantalla, setPantalla] = useState<Pantalla>('inicio');
   const [tabDetalle, setTabDetalle] = useState<TabDetalle>('workflow');
   const [expedientes, setExpedientes] = useState<Expediente[]>([]);
   const [cargandoExpedientes, setCargandoExpedientes] = useState(false);
@@ -510,6 +552,20 @@ function App() {
   const [mensaje, setMensaje] = useState('');
   const [mensajeTipo, setMensajeTipo] = useState<'ok' | 'error' | 'info'>('info');
   const [solicitudes, setSolicitudes] = useState<SolicitudIntervencion[]>([]);
+  const [busquedaSolicitudes, setBusquedaSolicitudes] = useState('');
+  const [filtroRapidoSolicitudes, setFiltroRapidoSolicitudes] =
+    useState('todos');
+  const [
+    filtrosAvanzadosSolicitudes,
+    setFiltrosAvanzadosSolicitudes,
+  ] = useState(filtrosAvanzadosSolicitudesIniciales);
+
+  function limpiarFiltrosSolicitudes() {
+    setBusquedaSolicitudes('');
+    setFiltroRapidoSolicitudes('todos');
+    setFiltrosAvanzadosSolicitudes(filtrosAvanzadosSolicitudesIniciales);
+  }
+
   const [solicitudSeleccionada, setSolicitudSeleccionada] = useState<SolicitudIntervencion | null>(null);
   const [mostrarFormularioSolicitud, setMostrarFormularioSolicitud] = useState(false);
   const [tabGestionSolicitud, setTabGestionSolicitud] = useState<TabGestionSolicitud>('tramitacion');
@@ -522,6 +578,9 @@ function App() {
   const [errorCargaSolicitudes, setErrorCargaSolicitudes] = useState('');
 
   const [decisiones, setDecisiones] = useState<DecisionAdministrativa[]>([]);
+  const [decisionesMesa, setDecisionesMesa] = useState<DecisionAdministrativa[]>([]);
+  const [cargandoDecisionesMesa, setCargandoDecisionesMesa] = useState(false);
+  const [errorDecisionesMesa, setErrorDecisionesMesa] = useState('');
   const [cargandoDecisiones, setCargandoDecisiones] = useState(false);
   const [guardandoDecision, setGuardandoDecision] = useState(false);
   const [errorDecisiones, setErrorDecisiones] = useState('');
@@ -563,38 +622,365 @@ function App() {
   const [tipoDoc, setTipoDoc] = useState('FACTURA');
   const [motivoObservacion, setMotivoObservacion] = useState('');
 
-  const metricas = useMemo(() => {
-    const pendientes = expedientes.filter(e => ['BORRADOR', 'DOCUMENTACION_EN_CARGA', 'PENDIENTE_VALIDACION'].includes(e.estado));
-    const paraFirmar = expedientes.filter(e => e.estado === 'DISPOSICION_EMITIDA');
-    const validados = expedientes.filter(e => e.estado === 'VALIDADO');
-    return {
-      total: expedientes.length,
-      pendientes: pendientes.length,
-      paraFirmar: paraFirmar.length,
-      validados: validados.length,
-      recientes: expedientes.slice(-5).reverse(),
-      requiereAccion: expedientes.filter(e => ['BORRADOR', 'DOCUMENTACION_EN_CARGA'].includes(e.estado)).slice(0, 6),
-    };
-  }, [expedientes]);
-
-  const metricasSolicitudes = useMemo(() => {
-    const solicitudesConExpediente = new Set(
-      expedientes
-        .map((expediente) => expediente.solicitud_intervencion_id)
-        .filter((solicitudId): solicitudId is string => Boolean(solicitudId)),
+  const datosMesa = useMemo(() => {
+    const solicitudesConDecision = new Set(
+      decisionesMesa.map((decision) => decision.solicitud_intervencion_id),
     );
-    const pendientes = solicitudes.filter(
-      (solicitud) => !solicitudesConExpediente.has(solicitud.id_solicitud),
+    const solicitudesPorDecidir = solicitudes.filter(
+      (solicitud) => !solicitudesConDecision.has(solicitud.id_solicitud),
+    );
+    const expedientesEnTramite = expedientes.filter(
+      (expediente) => expediente.estado !== 'ARCHIVADO',
+    );
+    const esperandoValidacion = expedientes.filter(
+      (expediente) => expediente.estado === 'PENDIENTE_VALIDACION',
+    );
+    const disposicionesPorEmitir = expedientes.filter(
+      (expediente) => expediente.estado === 'VALIDADO',
+    );
+    const firmasPendientes = expedientes.filter(
+      (expediente) => expediente.estado === 'DISPOSICION_EMITIDA',
+    );
+    const archivosPendientes = expedientes.filter(
+      (expediente) => expediente.estado === 'FIRMADO',
     );
 
     return {
-      total: solicitudes.length,
-      pendientes,
-      conIdSuna: solicitudes.filter((solicitud) => Boolean(solicitud.id_suna)).length,
-      conExpediente: solicitudesConExpediente.size,
-      recientes: solicitudes.slice(-5).reverse(),
+      solicitudesPorDecidir,
+      expedientesEnTramite,
+      esperandoValidacion,
+      disposicionesPorEmitir,
+      firmasPendientes,
+      archivosPendientes,
     };
-  }, [solicitudes, expedientes]);
+  }, [solicitudes, expedientes, decisionesMesa]);
+
+  const solicitudesRecientesMesa = useMemo(
+    () => [...solicitudes]
+      .sort((a, b) => b.fecha_ingreso.localeCompare(a.fecha_ingreso))
+      .slice(0, 5),
+    [solicitudes],
+  );
+
+  const opcionesEstablecimientoSolicitudes = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          solicitudes
+            .map((solicitud) => solicitud.establecimiento.trim())
+            .filter(Boolean),
+        ),
+      )
+        .sort((a, b) => a.localeCompare(b, 'es'))
+        .map((establecimiento) => ({
+          value: establecimiento,
+          label: establecimiento,
+        })),
+    [solicitudes],
+  );
+
+  const opcionesFondoSolicitudes = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          decisionesMesa
+            .map((decision) => decision.fondo_interviniente)
+            .filter((fondo): fondo is NonNullable<
+              DecisionAdministrativa['fondo_interviniente']
+            > => Boolean(fondo)),
+        ),
+      )
+        .sort((a, b) =>
+          etiquetaFondoInterviniente(a).localeCompare(
+            etiquetaFondoInterviniente(b),
+            'es',
+          ),
+        )
+        .map((fondo) => ({
+          value: fondo,
+          label: etiquetaFondoInterviniente(fondo),
+        })),
+    [decisionesMesa],
+  );
+
+  const opcionesPrioridadSolicitudes = useMemo(() => {
+    const prioridades = Array.from(
+      new Set(
+        solicitudes
+          .map((solicitud) => solicitud.prioridad.trim())
+          .filter(Boolean),
+      ),
+    )
+      .sort((a, b) => a.localeCompare(b, 'es'))
+      .map((prioridad) => ({
+        value: prioridad,
+        label: prioridad,
+      }));
+
+    const existenSolicitudesSinPrioridad = solicitudes.some(
+      (solicitud) => !solicitud.prioridad.trim(),
+    );
+
+    return existenSolicitudesSinPrioridad
+      ? [
+          ...prioridades,
+          { value: SIN_PRIORIDAD, label: 'Sin prioridad' },
+        ]
+      : prioridades;
+  }, [solicitudes]);
+
+  const configuracionFiltrosAvanzadosSolicitudes = [
+    {
+      key: 'establecimiento',
+      label: 'Establecimiento',
+      type: 'select' as const,
+      placeholder: 'Todos',
+      options: opcionesEstablecimientoSolicitudes,
+    },
+    {
+      key: 'fondo',
+      label: 'Fondo',
+      type: 'select' as const,
+      placeholder: 'Todos',
+      options: opcionesFondoSolicitudes,
+    },
+    {
+      key: 'prioridad',
+      label: 'Prioridad',
+      type: 'select' as const,
+      placeholder: 'Todas',
+      options: opcionesPrioridadSolicitudes,
+    },
+    {
+      key: 'fechaDesde',
+      label: 'Fecha desde',
+      type: 'date' as const,
+    },
+    {
+      key: 'fechaHasta',
+      label: 'Fecha hasta',
+      type: 'date' as const,
+    },
+  ];
+
+  const busquedaSolicitudesNormalizada =
+    normalizarTextoBusqueda(busquedaSolicitudes);
+
+  const filtrosActivosSolicitudes: {
+    key: string;
+    label: string;
+    onRemove: () => void;
+  }[] = [];
+
+  if (busquedaSolicitudesNormalizada) {
+    filtrosActivosSolicitudes.push({
+      key: 'busqueda',
+      label: `Búsqueda: ${busquedaSolicitudes}`,
+      onRemove: () => setBusquedaSolicitudes(''),
+    });
+  }
+
+  if (filtroRapidoSolicitudes !== 'todos') {
+    const filtroRapidoActivo = filtrosRapidosSolicitudes.find(
+      (filtro) => filtro.value === filtroRapidoSolicitudes,
+    );
+
+    if (filtroRapidoActivo) {
+      filtrosActivosSolicitudes.push({
+        key: 'filtro-rapido',
+        label: filtroRapidoActivo.label,
+        onRemove: () => setFiltroRapidoSolicitudes('todos'),
+      });
+    }
+  }
+
+  if (filtrosAvanzadosSolicitudes.establecimiento) {
+    filtrosActivosSolicitudes.push({
+      key: 'establecimiento',
+      label: `Establecimiento: ${filtrosAvanzadosSolicitudes.establecimiento}`,
+      onRemove: () =>
+        setFiltrosAvanzadosSolicitudes((filtrosActuales) => ({
+          ...filtrosActuales,
+          establecimiento: '',
+        })),
+    });
+  }
+
+  if (filtrosAvanzadosSolicitudes.fondo) {
+    filtrosActivosSolicitudes.push({
+      key: 'fondo',
+      label: `Fondo: ${etiquetaFondoInterviniente(
+        filtrosAvanzadosSolicitudes.fondo,
+      )}`,
+      onRemove: () =>
+        setFiltrosAvanzadosSolicitudes((filtrosActuales) => ({
+          ...filtrosActuales,
+          fondo: '',
+        })),
+    });
+  }
+
+  if (filtrosAvanzadosSolicitudes.prioridad) {
+    const prioridadActiva =
+      filtrosAvanzadosSolicitudes.prioridad === SIN_PRIORIDAD
+        ? 'Sin prioridad'
+        : filtrosAvanzadosSolicitudes.prioridad;
+
+    filtrosActivosSolicitudes.push({
+      key: 'prioridad',
+      label: `Prioridad: ${prioridadActiva}`,
+      onRemove: () =>
+        setFiltrosAvanzadosSolicitudes((filtrosActuales) => ({
+          ...filtrosActuales,
+          prioridad: '',
+        })),
+    });
+  }
+
+  if (filtrosAvanzadosSolicitudes.fechaDesde) {
+    filtrosActivosSolicitudes.push({
+      key: 'fecha-desde',
+      label: `Desde: ${formatearFecha(
+        filtrosAvanzadosSolicitudes.fechaDesde,
+      )}`,
+      onRemove: () =>
+        setFiltrosAvanzadosSolicitudes((filtrosActuales) => ({
+          ...filtrosActuales,
+          fechaDesde: '',
+        })),
+    });
+  }
+
+  if (filtrosAvanzadosSolicitudes.fechaHasta) {
+    filtrosActivosSolicitudes.push({
+      key: 'fecha-hasta',
+      label: `Hasta: ${formatearFecha(
+        filtrosAvanzadosSolicitudes.fechaHasta,
+      )}`,
+      onRemove: () =>
+        setFiltrosAvanzadosSolicitudes((filtrosActuales) => ({
+          ...filtrosActuales,
+          fechaHasta: '',
+        })),
+    });
+  }
+
+  const filtrosAvanzadosSolicitudesActivos = Object.values(
+    filtrosAvanzadosSolicitudes,
+  ).some(Boolean);
+
+  const filtrosSolicitudesActivos =
+    Boolean(busquedaSolicitudesNormalizada) ||
+    filtroRapidoSolicitudes !== 'todos' ||
+    filtrosAvanzadosSolicitudesActivos;
+
+  const solicitudesFiltradas = useMemo(() => {
+    return solicitudes.filter((solicitud) => {
+      const coincideBusqueda =
+        !busquedaSolicitudesNormalizada ||
+        [
+          solicitud.numero_solicitud,
+          solicitud.establecimiento,
+          solicitud.id_suna,
+          solicitud.solicitante,
+        ].some((campo) =>
+          normalizarTextoBusqueda(campo).includes(
+            busquedaSolicitudesNormalizada,
+          ),
+        );
+
+      if (!coincideBusqueda) {
+        return false;
+      }
+
+      if (
+        filtrosAvanzadosSolicitudes.establecimiento &&
+        solicitud.establecimiento !==
+          filtrosAvanzadosSolicitudes.establecimiento
+      ) {
+        return false;
+      }
+
+      if (
+        filtrosAvanzadosSolicitudes.prioridad === SIN_PRIORIDAD
+          ? Boolean(solicitud.prioridad.trim())
+          : filtrosAvanzadosSolicitudes.prioridad &&
+            solicitud.prioridad !== filtrosAvanzadosSolicitudes.prioridad
+      ) {
+        return false;
+      }
+
+      if (
+        filtrosAvanzadosSolicitudes.fechaDesde &&
+        solicitud.fecha_ingreso < filtrosAvanzadosSolicitudes.fechaDesde
+      ) {
+        return false;
+      }
+
+      if (
+        filtrosAvanzadosSolicitudes.fechaHasta &&
+        solicitud.fecha_ingreso > filtrosAvanzadosSolicitudes.fechaHasta
+      ) {
+        return false;
+      }
+
+      const decisionesSolicitud = decisionesMesa.filter(
+        (decision) =>
+          decision.solicitud_intervencion_id ===
+          solicitud.id_solicitud,
+      );
+
+      if (
+        filtrosAvanzadosSolicitudes.fondo &&
+        !decisionesSolicitud.some(
+          (decision) =>
+            decision.fondo_interviniente ===
+            filtrosAvanzadosSolicitudes.fondo,
+        )
+      ) {
+        return false;
+      }
+
+      const tieneDecision = decisionesSolicitud.length > 0;
+
+      const expedientesSolicitud = expedientes.filter(
+        (expediente) =>
+          expediente.solicitud_intervencion_id ===
+          solicitud.id_solicitud,
+      );
+
+      switch (filtroRapidoSolicitudes) {
+        case 'pendientes-de-decision':
+          return !tieneDecision;
+        case 'hoy':
+          return solicitud.fecha_ingreso === fechaLocalISO();
+        case 'validacion':
+          return expedientesSolicitud.some((expediente) =>
+            [
+              'PENDIENTE_VALIDACION',
+              'PENDIENTE_REVALIDACION',
+            ].includes(expediente.estado),
+          );
+        case 'disposicion':
+          return expedientesSolicitud.some(
+            (expediente) => expediente.estado === 'VALIDADO',
+          );
+        case 'finalizados':
+          return expedientesSolicitud.some(
+            (expediente) => expediente.estado === 'ARCHIVADO',
+          );
+        default:
+          return true;
+      }
+    });
+  }, [
+    solicitudes,
+    busquedaSolicitudesNormalizada,
+    filtroRapidoSolicitudes,
+    filtrosAvanzadosSolicitudes,
+    decisionesMesa,
+    expedientes,
+  ]);
 
   const historialSolicitud = useMemo<EventoHistorialSolicitud[]>(() => {
     if (!solicitudSeleccionada) {
@@ -711,6 +1097,30 @@ function App() {
       setErrorCargaSolicitudes('No fue posible recuperar las solicitudes.');
     } finally {
       setCargandoSolicitudes(false);
+    }
+  }
+
+  async function cargarDecisionesMesa() {
+    setCargandoDecisionesMesa(true);
+    setErrorDecisionesMesa('');
+
+    try {
+      const res = await fetch(`${API_URL}/decisiones`);
+      if (!res.ok) {
+        setDecisionesMesa([]);
+        setErrorDecisionesMesa('No fue posible recuperar las decisiones administrativas.');
+        return;
+      }
+      const disponibles = await res.json();
+      if (!Array.isArray(disponibles)) {
+        throw new Error('Respuesta inesperada al consultar decisiones.');
+      }
+      setDecisionesMesa(disponibles);
+    } catch {
+      setDecisionesMesa([]);
+      setErrorDecisionesMesa('No fue posible recuperar las decisiones administrativas.');
+    } finally {
+      setCargandoDecisionesMesa(false);
     }
   }
 
@@ -920,6 +1330,7 @@ function App() {
 
       const creada: DecisionAdministrativa = await res.json();
       await cargarDecisiones(solicitudSeleccionada.id_solicitud);
+      setDecisionesMesa((actuales) => [...actuales, creada]);
       setDecisionRecienCreadaId(creada.id_decision);
       setDecisionExpedienteActiva(null);
       setDecisionAutoridad('');
@@ -1488,6 +1899,7 @@ function App() {
   useEffect(() => {
     cargarExpedientes();
     cargarSolicitudes();
+    cargarDecisionesMesa();
     cargarCatalogosIntervencion();
   }, []);
 
@@ -1716,6 +2128,104 @@ function App() {
     };
   })();
 
+  const mesaCargando = cargandoSolicitudes || cargandoExpedientes || cargandoDecisionesMesa;
+  const mesaConError = Boolean(errorCargaSolicitudes || errorExpedientes || errorDecisionesMesa);
+  const indicadoresMesa = [
+    {
+      clave: 'solicitudes',
+      etiqueta: 'Solicitudes por decidir',
+      valor: datosMesa.solicitudesPorDecidir.length,
+      icono: <ClipboardList aria-hidden="true" />,
+    },
+    {
+      clave: 'tramite',
+      etiqueta: 'Expedientes en trámite',
+      valor: datosMesa.expedientesEnTramite.length,
+      icono: <FolderOpen aria-hidden="true" />,
+    },
+    {
+      clave: 'validacion',
+      etiqueta: 'Esperando validación',
+      valor: datosMesa.esperandoValidacion.length,
+      icono: <CircleCheck aria-hidden="true" />,
+    },
+    {
+      clave: 'disposicion',
+      etiqueta: 'Disposiciones por emitir',
+      valor: datosMesa.disposicionesPorEmitir.length,
+      icono: <FileSignature aria-hidden="true" />,
+    },
+    {
+      clave: 'firma',
+      etiqueta: 'Firmas pendientes',
+      valor: datosMesa.firmasPendientes.length,
+      icono: <PenLine aria-hidden="true" />,
+    },
+    {
+      clave: 'archivo',
+      etiqueta: 'Archivos pendientes',
+      valor: datosMesa.archivosPendientes.length,
+      icono: <Archive aria-hidden="true" />,
+    },
+  ];
+  const accionPorEstadoExpediente: Record<string, string> = {
+    BORRADOR: 'Completar preparación',
+    DOCUMENTACION_EN_CARGA: 'Completar documentación',
+    PENDIENTE_VALIDACION: 'Continuar validación',
+    VALIDADO: 'Preparar Disposición',
+    DISPOSICION_EMITIDA: 'Registrar firma',
+    FIRMADO: 'Registrar archivo',
+  };
+  const prioridadOrden: Record<string, number> = {
+    ALTA: 0,
+    MEDIA: 1,
+    NORMAL: 2,
+    BAJA: 3,
+  };
+  const trabajoPendiente: TrabajoMesa[] = [
+    ...datosMesa.solicitudesPorDecidir.map((solicitud): TrabajoMesa => ({
+      clave: `solicitud-${solicitud.id_solicitud}`,
+      tipo: 'Solicitud',
+      identificador: solicitud.numero_solicitud || 'Sin número',
+      establecimiento: solicitud.establecimiento || 'No disponible',
+      asunto: solicitud.motivo || 'Sin motivo informado',
+      estado: 'Sin decisión registrada',
+      accion: 'Registrar decisión',
+      prioridad: solicitud.prioridad || undefined,
+      fecha: solicitud.fecha_ingreso,
+      abrir: () => abrirSolicitudDesdeBandeja(solicitud),
+    })),
+    ...datosMesa.expedientesEnTramite.map((expediente): TrabajoMesa => ({
+      clave: `expediente-${expediente.id}`,
+      tipo: 'Expediente',
+      identificador: expediente.numero_interno,
+      establecimiento: expediente.establecimiento || 'No disponible',
+      asunto: expediente.objeto || expediente.tipo_tramite,
+      estado: etiquetaEstado(expediente.estado),
+      accion: accionPorEstadoExpediente[expediente.estado] || 'Continuar trámite',
+      fecha: expediente.creado,
+      abrir: () => cargarDetalle(expediente),
+    })),
+  ].sort((a, b) => {
+    const prioridadA = prioridadOrden[a.prioridad || ''] ?? 4;
+    const prioridadB = prioridadOrden[b.prioridad || ''] ?? 4;
+    if (prioridadA !== prioridadB) return prioridadA - prioridadB;
+    if (a.fecha !== b.fecha) return a.fecha.localeCompare(b.fecha);
+    return a.identificador.localeCompare(b.identificador);
+  });
+  const gruposTrabajoPendiente = [
+    {
+      clave: 'solicitudes',
+      titulo: 'Solicitudes',
+      items: trabajoPendiente.filter((trabajo) => trabajo.tipo === 'Solicitud'),
+    },
+    {
+      clave: 'expedientes',
+      titulo: 'Expedientes',
+      items: trabajoPendiente.filter((trabajo) => trabajo.tipo === 'Expediente'),
+    },
+  ].filter((grupo) => grupo.items.length > 0);
+
   return (
     <main className="app-shell">
       <aside className="sidebar">
@@ -1735,7 +2245,7 @@ function App() {
         </div>
 
         <nav className="sidebar-nav" aria-label="Navegación principal">
-          <button className={pantalla === 'inicio' ? 'active' : ''} onClick={() => setPantalla('inicio')}><House aria-hidden="true" />Bandeja</button>
+          <button className={pantalla === 'inicio' ? 'active' : ''} onClick={() => setPantalla('inicio')}><LayoutDashboard aria-hidden="true" />Mesa de Control</button>
           <button className={pantalla === 'expedientes' ? 'active' : ''} onClick={() => setPantalla('expedientes')}><FolderOpen aria-hidden="true" />Expedientes</button>
           <button className={pantalla === 'solicitudes' ? 'active' : ''} onClick={abrirSolicitudes}><ClipboardList aria-hidden="true" />Solicitudes de Intervención</button>
           <button><Landmark aria-hidden="true" />Fondo Compensador</button>
@@ -1752,14 +2262,18 @@ function App() {
         {!(pantalla === 'solicitudes' && solicitudSeleccionada) && (
         <header className="topbar">
           <div>
-            <h2>{pantalla === 'inicio' ? 'Dashboard de Solicitudes de Intervención' : pantalla === 'nuevo' ? 'Nuevo Expediente' : pantalla === 'detalle' ? 'Expediente Inteligente' : pantalla === 'solicitudes' ? solicitudSeleccionada ? 'Gestión de la Solicitud' : 'Solicitudes de Intervención' : pantalla === 'administracion' ? 'Administración' : 'Expedientes'}</h2>
+            <h2>{pantalla === 'inicio' ? 'Mesa de Control' : pantalla === 'nuevo' ? 'Nuevo Expediente' : pantalla === 'detalle' ? 'Expediente Inteligente' : pantalla === 'solicitudes' ? solicitudSeleccionada ? 'Gestión de la Solicitud' : 'Solicitudes de Intervención' : pantalla === 'administracion' ? 'Administración' : 'Expedientes'}</h2>
             <span>
-              {pantalla === 'solicitudes'
+              {pantalla === 'inicio'
+                ? 'Trabajo operativo de SIGD-ST'
+                : pantalla === 'solicitudes'
                 ? cargandoSolicitudes
                   ? 'Cargando solicitudes...'
                   : errorCargaSolicitudes
                     ? 'Solicitudes no disponibles'
-                    : `${solicitudes.length} solicitudes registradas`
+                    : filtrosSolicitudesActivos
+                      ? `${solicitudesFiltradas.length} de ${solicitudes.length} solicitudes`
+                      : `${solicitudes.length} solicitudes registradas`
                 : 'Secretaría Técnica'}
             </span>
           </div>
@@ -1773,84 +2287,117 @@ function App() {
         {mensaje && <div className={`notice ${mensajeTipo}`}>{mensaje}</div>}
 
         {pantalla === 'inicio' && (
-          <>
-            {cargandoSolicitudes || cargandoExpedientes ? (
-              <div className="notice info">Cargando información de la bandeja...</div>
-            ) : (
-              <>
-                {errorCargaSolicitudes && (
-                  <div className="notice error">{errorCargaSolicitudes}</div>
-                )}
-                {errorExpedientes && (
-                  <div className="notice error">{errorExpedientes}</div>
-                )}
-              </>
+          <div className="control-desk">
+            {mesaCargando && <div className="notice info">Cargando trabajo operativo...</div>}
+            {!mesaCargando && mesaConError && (
+              <div className="notice error">No fue posible recuperar toda la información de la Mesa de Control.</div>
             )}
-            <section className="metrics">
-              <div className="metric-card"><span><Inbox aria-hidden="true" /></span><strong>{metricasSolicitudes.total}</strong><p>Solicitudes ingresadas</p></div>
-              <div className="metric-card"><span><Clock3 aria-hidden="true" /></span><strong>{metricasSolicitudes.pendientes.length}</strong><p>Pendientes de tramitación</p></div>
-              <div className="metric-card"><span><LinkIcon aria-hidden="true" /></span><strong>{metricasSolicitudes.conIdSuna}</strong><p>Con ID SUNA</p></div>
-              <div className="metric-card"><span><FolderOpen aria-hidden="true" /></span><strong>{metricasSolicitudes.conExpediente}</strong><p>Con Expediente generado</p></div>
+
+            <section className="control-indicators" aria-label="Indicadores operativos">
+              {indicadoresMesa.map((indicador) => (
+                <article className="control-indicator" key={indicador.clave}>
+                  <span className="control-indicator-icon">{indicador.icono}</span>
+                  <div>
+                    <strong>{mesaCargando ? 'Cargando' : mesaConError ? 'No disponible' : indicador.valor}</strong>
+                    <p>{indicador.etiqueta}</p>
+                  </div>
+                </article>
+              ))}
             </section>
 
-            <section className="dashboard-grid">
-              <div className="card work-queue">
+            <section className="control-main-grid">
+              <div className="card control-work-card">
                 <div className="card-title">
-                  <h3>Solicitudes pendientes</h3>
-                  <button className="link" onClick={abrirSolicitudes}>Ver todas</button>
+                  <div><span className="eyebrow">Operación diaria</span><h3>Trabajo pendiente</h3></div>
+                  {!mesaCargando && !mesaConError && <span className="badge blue">{trabajoPendiente.length} tareas</span>}
                 </div>
-                {metricasSolicitudes.pendientes.length === 0 ? (
-                  <p className="empty">No hay Solicitudes pendientes.</p>
+                {mesaCargando ? (
+                  <p className="empty">Recuperando tareas pendientes...</p>
+                ) : mesaConError ? (
+                  <p className="empty">El trabajo pendiente no está disponible hasta completar la carga.</p>
+                ) : trabajoPendiente.length === 0 ? (
+                  <p className="empty">No existen actuaciones pendientes con los estados disponibles.</p>
                 ) : (
-                  metricasSolicitudes.pendientes.slice(0, 6).map((solicitud) => (
-                    <button
-                      className="queue-item"
-                      key={solicitud.id_solicitud}
-                      onClick={() => abrirSolicitudDesdeBandeja(solicitud)}
-                    >
-                      <div>
-                        <strong>{solicitud.numero_solicitud}</strong>
-                        <p>{solicitud.establecimiento} · {solicitud.motivo}</p>
-                      </div>
-                      <span className="badge blue">{solicitud.estado}</span>
-                    </button>
-                  ))
+                  <div className="control-work-groups">
+                    {gruposTrabajoPendiente.map((grupo) => (
+                      <section className="control-work-group" key={grupo.clave} aria-labelledby={`trabajo-${grupo.clave}`}>
+                        <div className="control-work-group-title">
+                          <h4 id={`trabajo-${grupo.clave}`}>{grupo.titulo}</h4>
+                          <span>{grupo.items.length}</span>
+                        </div>
+                        <div className="control-work-list">
+                          {grupo.items.map((trabajo) => (
+                            <article className="control-work-item" key={trabajo.clave}>
+                              <div className="control-work-kind">
+                                {trabajo.tipo === 'Solicitud' ? <ClipboardList aria-hidden="true" /> : <FolderOpen aria-hidden="true" />}
+                                <span>{trabajo.tipo}</span>
+                              </div>
+                              <div className="control-work-body">
+                                <strong>{trabajo.identificador}</strong>
+                                <p>{trabajo.establecimiento}</p>
+                                <small>{trabajo.asunto}</small>
+                              </div>
+                              <div className="control-work-status">
+                                <span>{trabajo.estado}</span>
+                                <strong>{trabajo.accion}</strong>
+                                {trabajo.prioridad && <small>Prioridad {trabajo.prioridad}</small>}
+                              </div>
+                              <button className="small-button" type="button" onClick={trabajo.abrir}>Abrir</button>
+                            </article>
+                          ))}
+                        </div>
+                      </section>
+                    ))}
+                  </div>
                 )}
               </div>
 
-              <div className="card">
-                <div className="card-title">
-                  <h3>Solicitudes recientes</h3>
-                  <button className="link" onClick={abrirSolicitudes}>Abrir registro</button>
-                </div>
-                {metricasSolicitudes.recientes.length === 0 ? (
-                  <p className="empty">Todavía no hay Solicitudes registradas.</p>
-                ) : (
-                  metricasSolicitudes.recientes.map((solicitud) => (
-                    <button
-                      className="queue-item"
-                      key={solicitud.id_solicitud}
-                      onClick={() => abrirSolicitudDesdeBandeja(solicitud)}
-                    >
-                      <div>
-                        <strong>{solicitud.numero_solicitud}</strong>
-                        <p>{solicitud.procedencia} · {solicitud.establecimiento}</p>
-                      </div>
-                      <span className="badge blue">{solicitud.estado}</span>
-                    </button>
-                  ))
-                )}
-              </div>
+              <aside className="card control-quick-access">
+                <span className="eyebrow">Navegación</span>
+                <h3>Accesos rápidos</h3>
+                <button type="button" onClick={abrirNuevaSolicitud}><ClipboardList aria-hidden="true" />Nueva Solicitud</button>
+                <button type="button" onClick={abrirSolicitudes}><Search aria-hidden="true" />Buscar Solicitud</button>
+                <button type="button" onClick={() => setPantalla('expedientes')}><Search aria-hidden="true" />Buscar Expediente</button>
+                <button type="button" onClick={() => setPantalla('administracion')}><Landmark aria-hidden="true" />Configuración UC</button>
+                <button type="button" onClick={() => setPantalla('administracion')}><Settings aria-hidden="true" />Administración</button>
+              </aside>
             </section>
 
-            <section className="card">
-              <div className="card-title">
-                <h3>Expedientes derivados recientes</h3>
-                <button className="link" onClick={() => setPantalla('expedientes')}>Ver Expedientes</button>
+            <section className="control-secondary-grid">
+              <div className="card control-recent-card">
+                <div className="card-title">
+                  <div><span className="eyebrow">Información disponible</span><h3>Solicitudes recientes</h3></div>
+                  <button className="link" type="button" onClick={abrirSolicitudes}>Ver Solicitudes</button>
+                </div>
+                {cargandoSolicitudes ? (
+                  <p className="empty">Cargando Solicitudes...</p>
+                ) : errorCargaSolicitudes ? (
+                  <p className="empty">Las Solicitudes recientes no están disponibles.</p>
+                ) : solicitudesRecientesMesa.length === 0 ? (
+                  <p className="empty">No existen Solicitudes registradas.</p>
+                ) : (
+                  <div className="control-recent-list">
+                    {solicitudesRecientesMesa.map((solicitud) => (
+                      <button type="button" key={solicitud.id_solicitud} onClick={() => abrirSolicitudDesdeBandeja(solicitud)}>
+                        <span><strong>{solicitud.numero_solicitud || 'Sin número'}</strong>{solicitud.establecimiento}</span>
+                        <time dateTime={solicitud.fecha_ingreso}>{new Date(`${solicitud.fecha_ingreso}T00:00:00`).toLocaleDateString('es-AR')}</time>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
-              <ExpedientesTabla expedientes={metricas.recientes} abrir={cargarDetalle} />
+
+              <aside className="card control-system-status">
+                <span className="eyebrow">Contexto institucional</span>
+                <h3>Estado del sistema</h3>
+                <dl>
+                  <div><dt>Sistema</dt><dd>SIGD-ST</dd></div>
+                  <div><dt>Fondo activo</dt><dd>Fondo Compensador</dd></div>
+                  <div><dt>Versión</dt><dd>Alfa 0.29B</dd></div>
+                </dl>
+              </aside>
             </section>
-          </>
+          </div>
         )}
 
         {pantalla === 'nuevo' && (
@@ -1890,7 +2437,17 @@ function App() {
 
         {pantalla === 'expedientes' && (
           <section className="card">
-            <h3>Expedientes</h3>
+            <div className="card-title expedientes-list-header">
+              <h3>Expedientes</h3>
+              <div className="actions">
+                <button className="secondary" type="button" onClick={cargarExpedientes} disabled={cargandoExpedientes}>
+                  {cargandoExpedientes ? 'Actualizando...' : 'Actualizar'}
+                </button>
+                <button className="primary" type="button" onClick={() => setPantalla('nuevo')}>
+                  + Nuevo Expediente Manual
+                </button>
+              </div>
+            </div>
             {cargandoExpedientes ? (
               <p className="empty">Cargando expedientes...</p>
             ) : errorExpedientes ? (
@@ -1909,13 +2466,6 @@ function App() {
               <button
                 className="secondary"
                 type="button"
-                onClick={() => setPantalla('nuevo')}
-              >
-                Nuevo expediente manual
-              </button>
-              <button
-                className="secondary"
-                type="button"
                 onClick={cargarSolicitudes}
                 disabled={cargandoSolicitudes}
               >
@@ -1927,6 +2477,26 @@ function App() {
                 </button>
               )}
             </div>
+
+            <PanelBusquedaFiltros
+              placeholder="Buscar solicitud, establecimiento, SUNA o solicitante..."
+              value={busquedaSolicitudes}
+              onSearchChange={setBusquedaSolicitudes}
+              quickFilters={filtrosRapidosSolicitudes}
+              activeQuickFilter={filtroRapidoSolicitudes}
+              onQuickFilterChange={setFiltroRapidoSolicitudes}
+              advancedFilters={configuracionFiltrosAvanzadosSolicitudes}
+              advancedFilterValues={filtrosAvanzadosSolicitudes}
+              onAdvancedFilterChange={(key, value) =>
+                setFiltrosAvanzadosSolicitudes((filtrosActuales) => ({
+                  ...filtrosActuales,
+                  [key]: value,
+                }))
+              }
+              activeFilters={filtrosActivosSolicitudes}
+              canClearFilters={filtrosSolicitudesActivos}
+              onClearFilters={limpiarFiltrosSolicitudes}
+            />
 
             {errorSolicitudes && <div className="notice error">{errorSolicitudes}</div>}
 
@@ -2032,6 +2602,10 @@ function App() {
                     <p className="empty">Cargando solicitudes...</p>
                   ) : solicitudes.length === 0 ? (
                     <p className="empty">No existen solicitudes registradas.</p>
+                  ) : solicitudesFiltradas.length === 0 ? (
+                    <p className="empty">
+                      No se encontraron solicitudes que coincidan con los filtros aplicados.
+                    </p>
                   ) : (
                     <table>
                       <thead>
@@ -2045,7 +2619,7 @@ function App() {
                         </tr>
                       </thead>
                       <tbody>
-                        {solicitudes.map((solicitud) => (
+                        {solicitudesFiltradas.map((solicitud) => (
                           <tr key={solicitud.id_solicitud}>
                             <td>
                               <strong className="solicitud-number">
@@ -3652,9 +4226,20 @@ function App() {
 
 function ExpedientesTabla({ expedientes, abrir }: { expedientes: Expediente[], abrir: (exp: Expediente) => void }) {
   if (expedientes.length === 0) return <p className="empty">No existen expedientes registrados.</p>;
+  const proximasAcciones: Record<string, string> = {
+    BORRADOR: 'Completar preparación',
+    DOCUMENTACION_EN_CARGA: 'Completar documentación',
+    PENDIENTE_VALIDACION: 'Continuar validación',
+    VALIDADO: 'Emitir disposición',
+    DISPOSICION_EMITIDA: 'Registrar firma',
+    FIRMADO: 'Archivar',
+    PENDIENTE_REVALIDACION: 'Continuar trámite',
+    ARCHIVADO: 'Finalizado',
+  };
   return (
+    <div className="expedientes-table-wrap">
     <table>
-      <thead><tr><th>Expediente</th><th>Expediente GDEBA</th><th>ID SUNA</th><th>Área</th><th>Estado</th><th>Establecimiento</th><th></th></tr></thead>
+      <thead><tr><th>Expediente</th><th>Expediente GDEBA</th><th>ID SUNA</th><th>Área</th><th>Estado</th><th>Establecimiento</th><th>Próxima acción</th><th></th></tr></thead>
       <tbody>
         {expedientes.map((exp) => (
           <tr key={exp.id}>
@@ -3664,11 +4249,13 @@ function ExpedientesTabla({ expedientes, abrir }: { expedientes: Expediente[], a
             <td>Fondo Comp.</td>
             <td><span className={claseEstado(exp.estado)}>{etiquetaEstado(exp.estado)}</span></td>
             <td>{exp.establecimiento || '-'}</td>
+            <td className="next-action-cell">{proximasAcciones[exp.estado] || 'Continuar trámite'}</td>
             <td><button className="small-button" onClick={() => abrir(exp)}>Abrir</button></td>
           </tr>
         ))}
       </tbody>
     </table>
+    </div>
   );
 }
 
