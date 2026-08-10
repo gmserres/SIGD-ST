@@ -13,6 +13,7 @@ from app.infrastructure.database.models import documento_model
 from app.infrastructure.database.models import checklist_fisico_model
 from app.infrastructure.database.models import configuracion_uc_model
 from app.infrastructure.database.models import expediente_model
+from app.infrastructure.database.models import proveedor_model
 from app.infrastructure.database.models import solicitud_intervencion_model
 from app.infrastructure.database.models import validacion_administrativa_model
 
