@@ -5,6 +5,7 @@ from pathlib import Path
 from app.core.storage import guardar_upload
 from app.domain.estados import EstadoExpediente
 from app.schemas.analisis_op import AnalisisOPRead
+from app.schemas.control_proveedor_op import ControlProveedorOPRead
 from app.schemas.documento import DocumentoCreate, DocumentoRead
 from app.schemas.disposicion import (
     DisposicionEmitidaRead,
@@ -21,6 +22,9 @@ from app.schemas.texto_documento import TextoDocumentoRead
 from app.schemas.validacion import ValidacionExpedienteRead
 from app.schemas.validacion_observada import ValidacionObservadaCreate
 from app.composition.analisis_op import analisis_op_service
+from app.composition.control_proveedor_op import (
+    control_proveedor_op_service,
+)
 from app.composition.disposicion import (
     consulta_disposicion_service,
     disposicion_docx_service,
@@ -432,6 +436,80 @@ def obtener_analisis_documento_op(
 ):
     obtener_expediente(expediente_id)
     return _analizar_documento_op_o_error(
+        expediente_id,
+        documento_id,
+        reconstruir=True,
+    )
+
+
+def _controlar_proveedor_op_o_error(
+    expediente_id: str,
+    documento_id: str,
+    *,
+    reconstruir: bool = False,
+) -> ControlProveedorOPRead:
+    try:
+        if reconstruir:
+            return control_proveedor_op_service.consultar(
+                expediente_id,
+                documento_id,
+            )
+        return control_proveedor_op_service.ejecutar(
+            expediente_id,
+            documento_id,
+        )
+    except KeyError as exc:
+        raise HTTPException(
+            status_code=404,
+            detail="Expediente no encontrado",
+        ) from exc
+    except DocumentoOPNoEncontradoError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except DocumentoOPExpedienteInconsistenteError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except DocumentoNoEsOPError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except ArchivoOPNoDisponibleError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except ArchivoOPNoAnalizableError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except ConfiguracionUCVigenteNoEncontradaError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except ConfiguracionUCHistoricaNoEncontradaError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except ConfiguracionUCNoAsociadaError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@router.post(
+    (
+        "/{expediente_id}/documentos/{documento_id}"
+        "/control-proveedor"
+    ),
+    response_model=ControlProveedorOPRead,
+)
+def ejecutar_control_proveedor_op(
+    expediente_id: str,
+    documento_id: str,
+):
+    return _controlar_proveedor_op_o_error(
+        expediente_id,
+        documento_id,
+    )
+
+
+@router.get(
+    (
+        "/{expediente_id}/documentos/{documento_id}"
+        "/control-proveedor"
+    ),
+    response_model=ControlProveedorOPRead,
+)
+def consultar_control_proveedor_op(
+    expediente_id: str,
+    documento_id: str,
+):
+    return _controlar_proveedor_op_o_error(
         expediente_id,
         documento_id,
         reconstruir=True,

@@ -1,5 +1,6 @@
 import unittest
-from datetime import date
+from datetime import date, datetime
+from unittest.mock import patch
 
 from pydantic import ValidationError
 
@@ -175,18 +176,41 @@ class SeleccionProveedorServiceTest(unittest.TestCase):
 
     def test_reemplaza_y_preserva_seleccion_anterior(self):
         self._aprobar()
-        anterior = self.service.seleccionar(SOLICITUD_ID, self._data())
-        nueva = self.service.reemplazar(SOLICITUD_ID, ReemplazoProveedorCreate(
-            proveedor_id=PROVEEDOR_NUEVO_ID,
-            seleccionado_por="Secretaría Técnica",
-            motivo_reemplazo="Imposibilidad de cumplimiento",
-        ))
+        instante = datetime(2026, 8, 11, 10, 30)
+        with patch(
+            "app.services.seleccion_proveedor_service.datetime"
+        ) as reloj:
+            reloj.now.return_value = instante
+            anterior = self.service.seleccionar(
+                SOLICITUD_ID,
+                self._data(),
+            )
+            nueva = self.service.reemplazar(
+                SOLICITUD_ID,
+                ReemplazoProveedorCreate(
+                    proveedor_id=PROVEEDOR_NUEVO_ID,
+                    seleccionado_por="Secretaría Técnica",
+                    motivo_reemplazo=(
+                        "Imposibilidad de cumplimiento"
+                    ),
+                ),
+            )
+
         historial = self.service.listar_historial(SOLICITUD_ID)
+
         self.assertEqual(len(historial), 2)
         self.assertEqual(historial[0].id_seleccion, anterior.id_seleccion)
         self.assertFalse(historial[0].vigente)
         self.assertEqual(historial[1].id_seleccion, nueva.id_seleccion)
         self.assertTrue(historial[1].vigente)
+        self.assertEqual(
+            historial[0].fecha_seleccion,
+            instante,
+        )
+        self.assertGreater(
+            historial[1].fecha_seleccion,
+            historial[0].fecha_seleccion,
+        )
 
     def test_reemplazo_exige_motivo_y_proveedor_diferente(self):
         self._aprobar()

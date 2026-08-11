@@ -1,5 +1,5 @@
 from dataclasses import asdict
-from datetime import datetime
+from datetime import datetime, timedelta
 from uuid import uuid4
 
 from app.domain.decision_administrativa import DecisionAdministrativa
@@ -74,6 +74,9 @@ class SeleccionProveedorService:
             proveedor=proveedor,
             seleccionado_por=data.seleccionado_por,
             motivo_reemplazo=motivo_reemplazo,
+            fecha_seleccion=self._fecha_reemplazo(
+                seleccion_vigente.fecha_seleccion
+            ),
         )
         self._selecciones.reemplazar(seleccion_vigente, nueva_seleccion)
         return self._a_read(nueva_seleccion)
@@ -140,19 +143,29 @@ class SeleccionProveedorService:
         proveedor: Proveedor,
         seleccionado_por: str,
         motivo_reemplazo: str | None,
+        fecha_seleccion: datetime | None = None,
     ) -> SeleccionProveedor:
         return SeleccionProveedor(
             id_seleccion=str(uuid4()),
             solicitud_intervencion_id=solicitud_id,
             decision_administrativa_id=decision.id_decision,
             proveedor_id=proveedor.id_proveedor,
-            fecha_seleccion=datetime.now(),
+            fecha_seleccion=fecha_seleccion or datetime.now(),
             seleccionado_por=seleccionado_por,
             proveedor_cuit=proveedor.cuit,
             proveedor_razon_social=proveedor.razon_social,
             motivo_reemplazo=motivo_reemplazo,
             vigente=True,
         )
+
+    @staticmethod
+    def _fecha_reemplazo(
+        fecha_anterior: datetime,
+    ) -> datetime:
+        ahora = datetime.now()
+        if ahora > fecha_anterior:
+            return ahora
+        return fecha_anterior + timedelta(microseconds=1)
 
     @staticmethod
     def _a_read(seleccion: SeleccionProveedor) -> SeleccionProveedorRead:
