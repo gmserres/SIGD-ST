@@ -22,3 +22,4 @@ class ControlProveedorOPRead(BaseModel):
     razon_social_seleccionada: str | None
     razon_social_detectada: str | None
     advertencias: list[str]
+    modo_analisis: str | None = None

@@ -169,6 +169,7 @@ class ControlProveedorOPService:
                 comparacion.razon_social_detectada
             ),
             advertencias=list(comparacion.advertencias),
+            modo_analisis=getattr(analisis, "modo", None),
         )
 
     def _validar_documento_op(
@@ -208,4 +209,5 @@ class ControlProveedorOPService:
             razon_social_seleccionada=None,
             razon_social_detectada=None,
             advertencias=[],
+            modo_analisis=None,
         )

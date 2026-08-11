@@ -7,6 +7,7 @@ from alembic import context
 
 from app.core.settings import get_database_url
 from app.infrastructure.database.base import Base
+from app.infrastructure.database.models import control_proveedor_op_model
 from app.infrastructure.database.models import decision_administrativa_model
 from app.infrastructure.database.models import disposicion_model
 from app.infrastructure.database.models import documento_model
