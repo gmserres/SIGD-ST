@@ -27,6 +27,9 @@ from app.schemas.expediente import ExpedienteCreate, ExpedienteRead, ExpedienteU
 from app.schemas.firma import RegistroFirmaCreate
 from app.schemas.archivo import RegistroArchivoCreate
 from app.schemas.historial import HistorialRead
+from app.schemas.habilitacion_proveedor_op import (
+    HabilitacionProveedorOPRead,
+)
 from app.schemas.parametros import ParametrosInstitucionalesRead, ParametrosInstitucionalesUpdate
 from app.schemas.texto_documento import TextoDocumentoRead
 from app.schemas.validacion import ValidacionExpedienteRead
@@ -35,6 +38,9 @@ from app.composition.analisis_op import analisis_op_service
 from app.composition.control_proveedor_op import (
     control_proveedor_op_service,
     registrar_control_proveedor_op_service,
+)
+from app.composition.habilitacion_proveedor_op import (
+    evaluar_habilitacion_proveedor_op_service,
 )
 from app.composition.disposicion import (
     consulta_disposicion_service,
@@ -562,6 +568,35 @@ def consultar_control_proveedor_op(
         documento_id,
         reconstruir=True,
     )
+
+
+@router.get(
+    (
+        "/{expediente_id}/documentos/{documento_id}"
+        "/habilitacion-proveedor"
+    ),
+    response_model=HabilitacionProveedorOPRead,
+)
+def consultar_habilitacion_proveedor_op(
+    expediente_id: str,
+    documento_id: str,
+):
+    try:
+        return evaluar_habilitacion_proveedor_op_service.evaluar(
+            expediente_id,
+            documento_id,
+        )
+    except KeyError as exc:
+        raise HTTPException(
+            status_code=404,
+            detail="Expediente no encontrado",
+        ) from exc
+    except DocumentoOPNoEncontradoError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except DocumentoOPExpedienteInconsistenteError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except DocumentoNoEsOPError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.get("/{expediente_id}/checklist-fisico", response_model=ChecklistFisicoRead | None)
