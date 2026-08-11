@@ -100,6 +100,26 @@ class DocumentoPersistenciaTest(unittest.TestCase):
             [primero, segundo, posterior],
         )
 
+    def test_recupera_documento_por_id_sin_anticipar_expediente(
+        self,
+    ) -> None:
+        repository = PostgresDocumentoRepository(self.factory)
+        documento = repository.guardar(
+            "EXP-1",
+            self._data(tipo="OP", nombre_archivo="op.pdf"),
+            datetime(2026, 7, 29, 10),
+        )
+
+        recuperado = repository.obtener_por_id(documento.id)
+
+        self.assertEqual(recuperado, documento)
+        self.assertEqual(recuperado.expediente_id, "EXP-1")
+
+    def test_obtener_por_id_inexistente_devuelve_none(self) -> None:
+        repository = PostgresDocumentoRepository(self.factory)
+
+        self.assertIsNone(repository.obtener_por_id("DOC-999999"))
+
     def test_op_sobrevive_a_recreacion_del_servicio(self) -> None:
         repository = PostgresDocumentoRepository(self.factory)
         creada = repository.guardar(

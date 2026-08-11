@@ -14,6 +14,7 @@ from app.repositories.configuracion_uc_repository import (
     ConfiguracionUCRepository,
 )
 from app.schemas.analisis_op import AnalisisOPRead, DocumentoComercialExtraido, RetencionExtraida
+from app.schemas.documento import DocumentoRead
 from app.composition.expediente import expediente_service
 from app.composition.checklist_fisico import checklist_fisico_service
 from app.services.evidencias_documentales import obtener_evidencias_documentales
@@ -37,6 +38,47 @@ class ConfiguracionUCNoAsociadaError(ValueError):
         )
 
 
+class DocumentoOPNoEncontradoError(LookupError):
+    def __init__(self, documento_id: str) -> None:
+        self.documento_id = documento_id
+        super().__init__(
+            f"No existe el Documento OP solicitado: {documento_id}."
+        )
+
+
+class DocumentoOPExpedienteInconsistenteError(ValueError):
+    def __init__(self, documento_id: str, expediente_id: str) -> None:
+        self.documento_id = documento_id
+        self.expediente_id = expediente_id
+        super().__init__(
+            "El Documento solicitado no pertenece al Expediente indicado."
+        )
+
+
+class DocumentoNoEsOPError(ValueError):
+    def __init__(self, documento_id: str) -> None:
+        self.documento_id = documento_id
+        super().__init__(
+            f"El Documento {documento_id} no es una Orden de Pago."
+        )
+
+
+class ArchivoOPNoDisponibleError(FileNotFoundError):
+    def __init__(self, documento_id: str) -> None:
+        self.documento_id = documento_id
+        super().__init__(
+            f"El archivo físico de la OP {documento_id} no está disponible."
+        )
+
+
+class ArchivoOPNoAnalizableError(ValueError):
+    def __init__(self, documento_id: str) -> None:
+        self.documento_id = documento_id
+        super().__init__(
+            f"El archivo de la OP {documento_id} no pudo ser analizado."
+        )
+
+
 class AnalisisOPService:
     def __init__(
         self,
@@ -49,26 +91,67 @@ class AnalisisOPService:
         self._configuracion_uc_repository = configuracion_uc_repository
 
     def analizar(self, expediente_id: str) -> AnalisisOPRead:
-        return self._analizar(expediente_id, permitir_asociacion=True)
+        op = self._seleccionar_primera_op_legacy(expediente_id)
+        return self._analizar(
+            expediente_id,
+            op=op,
+            permitir_asociacion=True,
+            exigir_documento_analizable=False,
+        )
 
     def reconstruir(self, expediente_id: str) -> AnalisisOPRead:
-        return self._analizar(expediente_id, permitir_asociacion=False)
+        op = self._seleccionar_primera_op_legacy(expediente_id)
+        return self._analizar(
+            expediente_id,
+            op=op,
+            permitir_asociacion=False,
+            exigir_documento_analizable=False,
+        )
+
+    def analizar_documento(
+        self,
+        expediente_id: str,
+        documento_op_id: str,
+    ) -> AnalisisOPRead:
+        expediente_service.obtener(expediente_id)
+        op = self._obtener_op(expediente_id, documento_op_id)
+        return self._analizar(
+            expediente_id,
+            op=op,
+            permitir_asociacion=True,
+            exigir_documento_analizable=True,
+        )
+
+    def reconstruir_documento(
+        self,
+        expediente_id: str,
+        documento_op_id: str,
+    ) -> AnalisisOPRead:
+        expediente_service.obtener(expediente_id)
+        op = self._obtener_op(expediente_id, documento_op_id)
+        return self._analizar(
+            expediente_id,
+            op=op,
+            permitir_asociacion=False,
+            exigir_documento_analizable=True,
+        )
 
     def _analizar(
         self,
         expediente_id: str,
         *,
+        op: DocumentoRead | None,
         permitir_asociacion: bool,
+        exigir_documento_analizable: bool,
     ) -> AnalisisOPRead:
         expediente = expediente_service.obtener(expediente_id)
         fecha_referencia = expediente.creado.date()
         documentos = documento_service.listar_por_expediente(expediente_id)
         checklist = checklist_fisico_service.obtener(expediente_id)
-        op = next((doc for doc in documentos if doc.tipo == "OP"), None)
-
         if op is None:
             return AnalisisOPRead(
                 expediente_id=expediente_id,
+                documento_op_id=None,
                 modo="ALFA_PDF_TEXTO",
                 op_detectada=False,
                 proveedor=None,
@@ -100,7 +183,12 @@ class AnalisisOPService:
             raise ConfiguracionUCNoAsociadaError(expediente_id)
 
         ruta = Path(__file__).resolve().parents[3] / op.ruta
+        if exigir_documento_analizable and not ruta.is_file():
+            raise ArchivoOPNoDisponibleError(op.id)
         datos = extraer_datos_op_desde_pdf(ruta)
+
+        if exigir_documento_analizable and not datos.texto_extraido:
+            raise ArchivoOPNoAnalizableError(op.id)
 
         if datos.texto_extraido:
             importe_bruto = datos.monto_total_facturas or datos.importe_pago or datos.importe_probable
@@ -273,6 +361,7 @@ class AnalisisOPService:
 
             return AnalisisOPRead(
                 expediente_id=expediente_id,
+                documento_op_id=getattr(op, "id", None),
                 modo="ALFA_PDF_TEXTO",
                 op_detectada=True,
                 proveedor=datos.proveedor,
@@ -329,6 +418,7 @@ class AnalisisOPService:
 
         return AnalisisOPRead(
             expediente_id=expediente_id,
+            documento_op_id=getattr(op, "id", None),
             modo="EXTRACCION_FALLIDA",
             op_detectada=True,
             proveedor=None,
@@ -354,3 +444,34 @@ class AnalisisOPService:
             ],
             faltantes=["Lectura válida de la Orden de Pago"],
         )
+
+    @staticmethod
+    def _seleccionar_primera_op_legacy(
+        expediente_id: str,
+    ) -> DocumentoRead | None:
+        documentos = documento_service.listar_por_expediente(expediente_id)
+        return next(
+            (
+                documento
+                for documento in documentos
+                if documento.tipo.upper() == "OP"
+            ),
+            None,
+        )
+
+    @staticmethod
+    def _obtener_op(
+        expediente_id: str,
+        documento_op_id: str,
+    ) -> DocumentoRead:
+        documento = documento_service.obtener_por_id(documento_op_id)
+        if documento is None:
+            raise DocumentoOPNoEncontradoError(documento_op_id)
+        if documento.expediente_id != expediente_id:
+            raise DocumentoOPExpedienteInconsistenteError(
+                documento_op_id,
+                expediente_id,
+            )
+        if documento.tipo.upper() != "OP":
+            raise DocumentoNoEsOPError(documento_op_id)
+        return documento

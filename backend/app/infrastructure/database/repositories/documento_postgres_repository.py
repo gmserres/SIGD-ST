@@ -77,6 +77,22 @@ class PostgresDocumentoRepository:
             ).all()
             return [a_schema(modelo) for modelo in modelos]
 
+    def obtener_por_id(
+        self,
+        documento_id: str,
+    ) -> DocumentoRead | None:
+        secuencia = self._obtener_secuencia(documento_id)
+        if secuencia is None:
+            return None
+
+        with self._session_factory() as session:
+            modelo = session.scalar(
+                select(DocumentoModel).where(
+                    DocumentoModel.secuencia == secuencia
+                )
+            )
+            return a_schema(modelo) if modelo is not None else None
+
     @staticmethod
     def _obtener_secuencia(documento_id: str) -> int | None:
         prefijo = "DOC-"

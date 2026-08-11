@@ -19,6 +19,7 @@ class RetencionExtraida(BaseModel):
 
 class AnalisisOPRead(BaseModel):
     expediente_id: str
+    documento_op_id: str | None = None
     modo: str
     op_detectada: bool
     proveedor: Optional[str]

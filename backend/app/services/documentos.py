@@ -29,6 +29,9 @@ class DocumentoService:
     def obtener(self, expediente_id: str, documento_id: str) -> DocumentoRead | None:
         return self._repository.obtener(expediente_id, documento_id)
 
+    def obtener_por_id(self, documento_id: str) -> DocumentoRead | None:
+        return self._repository.obtener_por_id(documento_id)
+
     def agregar_op(
         self,
         expediente_id: str,

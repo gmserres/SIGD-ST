@@ -32,8 +32,13 @@ from app.application.configuracion_uc.obtener_configuracion_uc_vigente import (
     ConfiguracionUCVigenteNoEncontradaError,
 )
 from app.services.analisis_op import (
+    ArchivoOPNoAnalizableError,
+    ArchivoOPNoDisponibleError,
     ConfiguracionUCNoAsociadaError,
     ConfiguracionUCHistoricaNoEncontradaError,
+    DocumentoNoEsOPError,
+    DocumentoOPExpedienteInconsistenteError,
+    DocumentoOPNoEncontradoError,
 )
 from app.composition.documento import documento_service
 from app.services.disposiciones import disposicion_service
@@ -301,7 +306,11 @@ def _verificar_op_legible_para_disposicion(expediente_id: str) -> AnalisisOPRead
     return analisis
 
 
-@router.post("/{expediente_id}/analizar-op", response_model=AnalisisOPRead)
+@router.post(
+    "/{expediente_id}/analizar-op",
+    response_model=AnalisisOPRead,
+    deprecated=True,
+)
 def analizar_op(expediente_id: str):
     obtener_expediente(expediente_id)
     if not validacion_service.tiene_op(expediente_id):
@@ -321,10 +330,112 @@ def analizar_op(expediente_id: str):
     return analisis
 
 
-@router.get("/{expediente_id}/analisis-op", response_model=AnalisisOPRead)
+def _analizar_documento_op_o_error(
+    expediente_id: str,
+    documento_id: str,
+    *,
+    reconstruir: bool = False,
+) -> AnalisisOPRead:
+    try:
+        if reconstruir:
+            return analisis_op_service.reconstruir_documento(
+                expediente_id,
+                documento_id,
+            )
+        return analisis_op_service.analizar_documento(
+            expediente_id,
+            documento_id,
+        )
+    except DocumentoOPNoEncontradoError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except DocumentoOPExpedienteInconsistenteError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except DocumentoNoEsOPError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except ArchivoOPNoDisponibleError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except ArchivoOPNoAnalizableError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except ConfiguracionUCVigenteNoEncontradaError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "mensaje": str(exc),
+                "errores": [
+                    "No existe una Configuración UC vigente para analizar "
+                    "la Orden de Pago."
+                ],
+            },
+        ) from exc
+    except ConfiguracionUCHistoricaNoEncontradaError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "mensaje": str(exc),
+                "errores": [
+                    "La referencia histórica de Configuración UC "
+                    "no pudo ser recuperada."
+                ],
+            },
+        ) from exc
+    except ConfiguracionUCNoAsociadaError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "mensaje": str(exc),
+                "errores": [
+                    "Ejecute el análisis explícito de la Orden de Pago "
+                    "seleccionada para asociar la Configuración UC."
+                ],
+            },
+        ) from exc
+
+
+@router.get(
+    "/{expediente_id}/analisis-op",
+    response_model=AnalisisOPRead,
+    deprecated=True,
+)
 def obtener_analisis_op(expediente_id: str):
     obtener_expediente(expediente_id)
     return _analizar_op_o_conflicto(expediente_id, reconstruir=True)
+
+
+@router.post(
+    "/{expediente_id}/documentos/{documento_id}/analisis-op",
+    response_model=AnalisisOPRead,
+)
+def analizar_documento_op(
+    expediente_id: str,
+    documento_id: str,
+):
+    obtener_expediente(expediente_id)
+    analisis = _analizar_documento_op_o_error(
+        expediente_id,
+        documento_id,
+    )
+    historial_service.registrar(
+        expediente_id,
+        "OP_ANALIZADA_IA",
+        detalle=f"Documento {documento_id} | Modo {analisis.modo}",
+    )
+    return analisis
+
+
+@router.get(
+    "/{expediente_id}/documentos/{documento_id}/analisis-op",
+    response_model=AnalisisOPRead,
+)
+def obtener_analisis_documento_op(
+    expediente_id: str,
+    documento_id: str,
+):
+    obtener_expediente(expediente_id)
+    return _analizar_documento_op_o_error(
+        expediente_id,
+        documento_id,
+        reconstruir=True,
+    )
 
 
 @router.get("/{expediente_id}/checklist-fisico", response_model=ChecklistFisicoRead | None)
