@@ -6,6 +6,7 @@ from app.api.catalogos import router as catalogos_router
 from app.api.decisiones import router as decisiones_router
 from app.api.expedientes import router as expedientes_router
 from app.api.proveedores import router as proveedores_router
+from app.api.selecciones_proveedor import router as selecciones_proveedor_router
 from app.api.solicitudes import router as solicitudes_router
 from app.api.sistema import router as sistema_router
 from app.core.settings import APP_STATE, APP_VERSION, STORAGE_DIR
@@ -32,6 +33,11 @@ app.include_router(expedientes_router, prefix="/expedientes", tags=["Expedientes
 app.include_router(proveedores_router, prefix="/proveedores", tags=["Proveedores"])
 app.include_router(decisiones_router, prefix="/decisiones", tags=["Decisiones"])
 app.include_router(solicitudes_router, prefix="/solicitudes", tags=["Solicitudes"])
+app.include_router(
+    selecciones_proveedor_router,
+    prefix="/solicitudes",
+    tags=["Selección de Proveedor"],
+)
 app.include_router(catalogos_router, prefix="/catalogos", tags=["Catálogos"])
 
 

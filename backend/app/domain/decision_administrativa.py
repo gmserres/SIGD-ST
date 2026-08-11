@@ -13,3 +13,7 @@ class DecisionAdministrativa:
     fondo_interviniente: str | None
     descripcion_fondo: str | None
     usuario_registrante: str
+
+    @property
+    def aprueba_intervencion(self) -> bool:
+        return self.resultado == "Aprobar intervención"
