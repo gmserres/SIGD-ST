@@ -91,7 +91,7 @@ class EmisionDisposicionPersistenciaTest(unittest.TestCase):
 
     def test_conflictos_publicos_conservan_misma_semantica(self):
         for indice, criterio in enumerate(
-            ("id", "expediente", "numero_disposicion")
+            ("id", "numero_disposicion")
         ):
             with self.subTest(criterio=criterio):
                 session = MagicMock()
@@ -99,7 +99,7 @@ class EmisionDisposicionPersistenciaTest(unittest.TestCase):
                     self._modelo_expediente_mock(),
                     *[
                         self._disposicion() if posicion == indice else None
-                        for posicion in range(3)
+                        for posicion in range(2)
                     ],
                 ]
                 factory = MagicMock()
@@ -117,7 +117,6 @@ class EmisionDisposicionPersistenciaTest(unittest.TestCase):
     def test_integrity_errors_conocidos_y_desconocido(self):
         casos = (
             ("id", "UNIQUE constraint failed: disposiciones.id_disposicion"),
-            ("expediente", "UNIQUE constraint failed: disposiciones.expediente_id"),
             (
                 "numero_disposicion",
                 "UNIQUE constraint failed: disposiciones.numero_disposicion",
@@ -127,7 +126,7 @@ class EmisionDisposicionPersistenciaTest(unittest.TestCase):
             with self.subTest(criterio=criterio):
                 session = MagicMock()
                 session.scalar.side_effect = [
-                    self._modelo_expediente_mock(), None, None, None
+                    self._modelo_expediente_mock(), None, None
                 ]
                 session.flush.side_effect = IntegrityError(
                     "insert", {}, Exception(mensaje)
@@ -149,7 +148,7 @@ class EmisionDisposicionPersistenciaTest(unittest.TestCase):
         )
         session = MagicMock()
         session.scalar.side_effect = [
-            self._modelo_expediente_mock(), None, None, None
+            self._modelo_expediente_mock(), None, None
         ]
         session.flush.side_effect = error
         factory = MagicMock()

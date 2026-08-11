@@ -3,6 +3,8 @@ from datetime import datetime
 from decimal import Decimal
 from pathlib import PurePosixPath, PureWindowsPath
 
+from app.domain.proveedor import normalizar_cuit
+
 
 @dataclass(frozen=True)
 class Disposicion:
@@ -25,6 +27,12 @@ class Disposicion:
     norma_uc: str
     texto_emitido: str
     ruta_docx: str
+    documento_op_id: str | None = None
+    control_proveedor_op_id: str | None = None
+    seleccion_proveedor_id: str | None = None
+    proveedor_definitivo_id: str | None = None
+    proveedor_definitivo_cuit: str | None = None
+    proveedor_definitivo_razon_social: str | None = None
 
     def __post_init__(self) -> None:
         obligatorios = {
@@ -54,6 +62,48 @@ class Disposicion:
         }.items():
             if not isinstance(valor, Decimal):
                 raise TypeError(f"{nombre} debe ser Decimal.")
+
+        for nombre in (
+            "documento_op_id",
+            "control_proveedor_op_id",
+            "seleccion_proveedor_id",
+            "proveedor_definitivo_id",
+        ):
+            valor = getattr(self, nombre)
+            if valor is None:
+                continue
+            if not isinstance(valor, str):
+                raise TypeError(f"{nombre} debe ser texto.")
+            valor = valor.strip()
+            if not valor:
+                raise ValueError(f"{nombre} no puede estar vacío.")
+            object.__setattr__(self, nombre, valor)
+
+        if self.proveedor_definitivo_cuit is not None:
+            object.__setattr__(
+                self,
+                "proveedor_definitivo_cuit",
+                normalizar_cuit(self.proveedor_definitivo_cuit),
+            )
+
+        if self.proveedor_definitivo_razon_social is not None:
+            if not isinstance(
+                self.proveedor_definitivo_razon_social,
+                str,
+            ):
+                raise TypeError(
+                    "proveedor_definitivo_razon_social debe ser texto."
+                )
+            razon_social = self.proveedor_definitivo_razon_social.strip()
+            if not razon_social:
+                raise ValueError(
+                    "proveedor_definitivo_razon_social no puede estar vacía."
+                )
+            object.__setattr__(
+                self,
+                "proveedor_definitivo_razon_social",
+                razon_social,
+            )
 
         partes_ruta = self.ruta_docx.split("/")
         ruta_windows = PureWindowsPath(self.ruta_docx)

@@ -5,6 +5,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Index,
+    Integer,
     Numeric,
     String,
     Text,
@@ -18,20 +19,41 @@ from app.infrastructure.database.models.configuracion_uc_model import (
     ConfiguracionUCModel,
 )
 from app.infrastructure.database.models.expediente_model import ExpedienteModel
+from app.infrastructure.database.models.documento_model import DocumentoModel
+from app.infrastructure.database.models.control_proveedor_op_model import (
+    ControlProveedorOPModel,
+)
+from app.infrastructure.database.models.proveedor_model import ProveedorModel
+from app.infrastructure.database.models.seleccion_proveedor_model import (
+    SeleccionProveedorModel,
+)
 
 
 class DisposicionModel(Base):
     __tablename__ = "disposiciones"
     __table_args__ = (
         UniqueConstraint(
-            "expediente_id",
-            name="uq_disposiciones_expediente",
+            "documento_op_secuencia",
+            name="uq_disposiciones_documento_op",
         ),
         UniqueConstraint(
             "numero_disposicion",
             name="uq_disposiciones_numero",
         ),
         Index("ix_disposiciones_configuracion_uc", "configuracion_uc_id"),
+        Index("ix_disposiciones_expediente", "expediente_id"),
+        Index(
+            "ix_disposiciones_control_proveedor_op",
+            "control_proveedor_op_id",
+        ),
+        Index(
+            "ix_disposiciones_seleccion_proveedor",
+            "seleccion_proveedor_id",
+        ),
+        Index(
+            "ix_disposiciones_proveedor_definitivo",
+            "proveedor_definitivo_id",
+        ),
         Index("ix_disposiciones_fecha_emision", "fecha_emision"),
         Index("ix_disposiciones_numero_op", "numero_op"),
     )
@@ -85,3 +107,35 @@ class DisposicionModel(Base):
     norma_uc: Mapped[str] = mapped_column(Text, nullable=False)
     texto_emitido: Mapped[str] = mapped_column(Text, nullable=False)
     ruta_docx: Mapped[str] = mapped_column(Text, nullable=False)
+    documento_op_secuencia: Mapped[int | None] = mapped_column(
+        Integer,
+        ForeignKey(DocumentoModel.secuencia, ondelete="RESTRICT"),
+        nullable=True,
+    )
+    control_proveedor_op_id: Mapped[str | None] = mapped_column(
+        Uuid(as_uuid=False),
+        ForeignKey(
+            ControlProveedorOPModel.id_control,
+            ondelete="RESTRICT",
+        ),
+        nullable=True,
+    )
+    seleccion_proveedor_id: Mapped[str | None] = mapped_column(
+        Uuid(as_uuid=False),
+        ForeignKey(
+            SeleccionProveedorModel.id_seleccion,
+            ondelete="RESTRICT",
+        ),
+        nullable=True,
+    )
+    proveedor_definitivo_id: Mapped[str | None] = mapped_column(
+        Uuid(as_uuid=False),
+        ForeignKey(ProveedorModel.id_proveedor, ondelete="RESTRICT"),
+        nullable=True,
+    )
+    proveedor_definitivo_cuit: Mapped[str | None] = mapped_column(
+        String(11), nullable=True
+    )
+    proveedor_definitivo_razon_social: Mapped[str | None] = mapped_column(
+        Text, nullable=True
+    )

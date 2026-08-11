@@ -1,5 +1,6 @@
 from app.domain.disposicion import Disposicion
 from app.repositories.disposicion_repository import (
+    DisposicionExpedienteAmbiguoError,
     DisposicionYaRegistradaError,
 )
 
@@ -9,19 +10,22 @@ class InMemoryDisposicionRepository:
         self._por_id: dict[str, Disposicion] = {}
 
     def guardar(self, disposicion: Disposicion) -> None:
-        conflictos = (
+        conflictos = [
             ("id", disposicion.id_disposicion, self.obtener_por_id),
-            (
-                "expediente",
-                disposicion.expediente_id,
-                self.obtener_por_expediente,
-            ),
             (
                 "numero_disposicion",
                 disposicion.numero_disposicion,
                 self.obtener_por_numero,
             ),
-        )
+        ]
+        if disposicion.documento_op_id is not None:
+            conflictos.append(
+                (
+                    "documento_op",
+                    disposicion.documento_op_id,
+                    self.obtener_por_documento_op,
+                )
+            )
         for criterio, valor, obtener in conflictos:
             if obtener(valor) is not None:
                 raise DisposicionYaRegistradaError(criterio, valor)
@@ -35,11 +39,34 @@ class InMemoryDisposicionRepository:
     def obtener_por_expediente(
         self, expediente_id: str
     ) -> Disposicion | None:
-        return next(
+        disposiciones = self.listar_por_expediente(expediente_id)
+        if len(disposiciones) > 1:
+            raise DisposicionExpedienteAmbiguoError(expediente_id)
+        return disposiciones[0] if disposiciones else None
+
+    def listar_por_expediente(
+        self, expediente_id: str
+    ) -> list[Disposicion]:
+        return sorted(
             (
                 item
                 for item in self._por_id.values()
                 if item.expediente_id == expediente_id
+            ),
+            key=lambda item: (
+                item.fecha_emision,
+                item.id_disposicion,
+            ),
+        )
+
+    def obtener_por_documento_op(
+        self, documento_op_id: str
+    ) -> Disposicion | None:
+        return next(
+            (
+                item
+                for item in self._por_id.values()
+                if item.documento_op_id == documento_op_id
             ),
             None,
         )

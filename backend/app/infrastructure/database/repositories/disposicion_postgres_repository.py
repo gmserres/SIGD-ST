@@ -7,12 +7,18 @@ from app.infrastructure.database.mappers.disposicion_mapper import (
     a_dominio,
     a_modelo,
 )
+from app.infrastructure.database.mappers.control_proveedor_op_mapper import (
+    documento_id_a_secuencia,
+)
 from app.infrastructure.database.models.disposicion_model import (
     DisposicionModel,
 )
 from app.infrastructure.database.persistence.disposicion_conflicts import (
     traducir_integrity_error_disposicion,
     verificar_disposicion_duplicada,
+)
+from app.repositories.disposicion_repository import (
+    DisposicionExpedienteAmbiguoError,
 )
 
 
@@ -50,8 +56,31 @@ class PostgresDisposicionRepository:
     def obtener_por_expediente(
         self, expediente_id: str
     ) -> Disposicion | None:
+        disposiciones = self.listar_por_expediente(expediente_id)
+        if len(disposiciones) > 1:
+            raise DisposicionExpedienteAmbiguoError(expediente_id)
+        return disposiciones[0] if disposiciones else None
+
+    def listar_por_expediente(
+        self, expediente_id: str
+    ) -> list[Disposicion]:
+        with self._session_factory() as session:
+            modelos = session.scalars(
+                select(DisposicionModel)
+                .where(DisposicionModel.expediente_id == expediente_id)
+                .order_by(
+                    DisposicionModel.fecha_emision,
+                    DisposicionModel.id_disposicion,
+                )
+            ).all()
+            return [a_dominio(modelo) for modelo in modelos]
+
+    def obtener_por_documento_op(
+        self, documento_op_id: str
+    ) -> Disposicion | None:
         return self._obtener_por(
-            DisposicionModel.expediente_id, expediente_id
+            DisposicionModel.documento_op_secuencia,
+            documento_id_a_secuencia(documento_op_id),
         )
 
     def obtener_por_numero(

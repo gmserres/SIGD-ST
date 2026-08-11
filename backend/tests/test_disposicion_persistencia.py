@@ -37,7 +37,10 @@ class DisposicionPersistenciaTest(unittest.TestCase):
         original = self._crear()
         modelo = a_modelo(original)
         for campo, valor in original.__dict__.items():
+            if campo == "documento_op_id":
+                continue
             self.assertEqual(getattr(modelo, campo), valor)
+        self.assertIsNone(modelo.documento_op_secuencia)
         self.assertEqual(a_dominio(modelo), original)
 
     def test_guarda_y_recupera_desde_nueva_instancia(self):
@@ -63,14 +66,6 @@ class DisposicionPersistenciaTest(unittest.TestCase):
         repo.guardar(original)
         casos = (
             ("id", {"expediente_id": "EXP-2", "numero_disposicion": "2/2026"}),
-            (
-                "expediente",
-                {
-                    "id_disposicion":
-                        "00000000-0000-0000-0000-000000000002",
-                    "numero_disposicion": "2/2026",
-                },
-            ),
             (
                 "numero_disposicion",
                 {
@@ -98,7 +93,6 @@ class DisposicionPersistenciaTest(unittest.TestCase):
     def test_traduce_solamente_integrity_errors_conocidos(self):
         casos = (
             ("id", "UNIQUE constraint failed: disposiciones.id_disposicion"),
-            ("expediente", "UNIQUE constraint failed: disposiciones.expediente_id"),
             (
                 "numero_disposicion",
                 "UNIQUE constraint failed: disposiciones.numero_disposicion",

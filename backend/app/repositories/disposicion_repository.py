@@ -12,6 +12,15 @@ class DisposicionYaRegistradaError(ValueError):
         )
 
 
+class DisposicionExpedienteAmbiguoError(LookupError):
+    def __init__(self, expediente_id: str) -> None:
+        self.expediente_id = expediente_id
+        super().__init__(
+            f"El Expediente {expediente_id} posee más de una "
+            "Disposición; la consulta debe direccionarse por OP."
+        )
+
+
 class DisposicionRepository(Protocol):
     def guardar(self, disposicion: Disposicion) -> None:
         ...
@@ -29,4 +38,14 @@ class DisposicionRepository(Protocol):
     def obtener_por_numero(
         self, numero_disposicion: str
     ) -> Disposicion | None:
+        ...
+
+    def obtener_por_documento_op(
+        self, documento_op_id: str
+    ) -> Disposicion | None:
+        ...
+
+    def listar_por_expediente(
+        self, expediente_id: str
+    ) -> list[Disposicion]:
         ...

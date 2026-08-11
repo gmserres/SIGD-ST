@@ -2,6 +2,12 @@ from app.domain.disposicion import Disposicion
 from app.infrastructure.database.models.disposicion_model import (
     DisposicionModel,
 )
+# Reutilización provisional de conversores genéricos de Documento.
+# Se extraerán a un módulo neutral junto con F4 en un refactor posterior.
+from app.infrastructure.database.mappers.control_proveedor_op_mapper import (
+    documento_id_a_secuencia,
+    secuencia_a_documento_id,
+)
 
 
 def a_modelo(disposicion: Disposicion) -> DisposicionModel:
@@ -27,6 +33,18 @@ def a_modelo(disposicion: Disposicion) -> DisposicionModel:
         norma_uc=disposicion.norma_uc,
         texto_emitido=disposicion.texto_emitido,
         ruta_docx=disposicion.ruta_docx,
+        documento_op_secuencia=(
+            documento_id_a_secuencia(disposicion.documento_op_id)
+            if disposicion.documento_op_id is not None
+            else None
+        ),
+        control_proveedor_op_id=disposicion.control_proveedor_op_id,
+        seleccion_proveedor_id=disposicion.seleccion_proveedor_id,
+        proveedor_definitivo_id=disposicion.proveedor_definitivo_id,
+        proveedor_definitivo_cuit=disposicion.proveedor_definitivo_cuit,
+        proveedor_definitivo_razon_social=(
+            disposicion.proveedor_definitivo_razon_social
+        ),
     )
 
 
@@ -51,4 +69,16 @@ def a_dominio(modelo: DisposicionModel) -> Disposicion:
         norma_uc=modelo.norma_uc,
         texto_emitido=modelo.texto_emitido,
         ruta_docx=modelo.ruta_docx,
+        documento_op_id=(
+            secuencia_a_documento_id(modelo.documento_op_secuencia)
+            if modelo.documento_op_secuencia is not None
+            else None
+        ),
+        control_proveedor_op_id=modelo.control_proveedor_op_id,
+        seleccion_proveedor_id=modelo.seleccion_proveedor_id,
+        proveedor_definitivo_id=modelo.proveedor_definitivo_id,
+        proveedor_definitivo_cuit=modelo.proveedor_definitivo_cuit,
+        proveedor_definitivo_razon_social=(
+            modelo.proveedor_definitivo_razon_social
+        ),
     )
