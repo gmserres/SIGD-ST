@@ -5,18 +5,23 @@ import {
 } from 'react';
 import {
   obtenerSeleccionProveedorVigente,
+  reemplazarProveedor,
   seleccionarProveedor,
 } from '../../api/seleccionesProveedor';
+import { ApiError } from '../../api/apiError';
 import type {
   SeleccionProveedor,
 } from '../../api/seleccionesProveedor';
 import type { Proveedor } from '../../api/proveedores';
+import { HistorialProveedoresModal } from './HistorialProveedoresModal';
 import { ProveedorSelectorModal } from './ProveedorSelectorModal';
 
 type ProveedorActualCardProps = {
   solicitudId: string;
   seleccionadoPor: string;
 };
+
+type SelectorModo = 'inicial' | 'reemplazo';
 
 function mostrarCuit(cuit: string): string {
   const digitos = cuit.replace(/\D/g, '');
@@ -51,7 +56,9 @@ export function ProveedorActualCard({
     useState<SeleccionProveedor | null>(null);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
-  const [selectorAbierto, setSelectorAbierto] = useState(false);
+  const [selectorModo, setSelectorModo] =
+    useState<SelectorModo | null>(null);
+  const [historialAbierto, setHistorialAbierto] = useState(false);
 
   const cargarSeleccion = useCallback(async () => {
     setCargando(true);
@@ -75,25 +82,31 @@ export function ProveedorActualCard({
     void cargarSeleccion();
   }, [cargarSeleccion]);
 
-  async function confirmarSeleccion(proveedor: Proveedor) {
+  async function confirmarSeleccion(
+    proveedor: Proveedor,
+    motivoReemplazo: string | null,
+  ) {
     try {
-      const nuevaSeleccion = await seleccionarProveedor(
-        solicitudId,
-        {
+      const nuevaSeleccion = selectorModo === 'reemplazo'
+        ? await reemplazarProveedor(solicitudId, {
           proveedor_id: proveedor.id_proveedor,
           seleccionado_por: seleccionadoPor,
-        },
-      );
+          motivo_reemplazo: motivoReemplazo ?? '',
+        })
+        : await seleccionarProveedor(solicitudId, {
+          proveedor_id: proveedor.id_proveedor,
+          seleccionado_por: seleccionadoPor,
+        });
+
       setSeleccion(nuevaSeleccion);
       setError('');
-      setSelectorAbierto(false);
+      setSelectorModo(null);
     } catch (errorDesconocido) {
       if (
-        errorDesconocido instanceof Error
-        && errorDesconocido.message
-          === 'La Solicitud ya posee una selección vigente.'
+        errorDesconocido instanceof ApiError
+        && (errorDesconocido.status === 404
+          || errorDesconocido.status === 409)
       ) {
-        setSelectorAbierto(false);
         await cargarSeleccion();
       }
 
@@ -128,20 +141,39 @@ export function ProveedorActualCard({
             </button>
           </div>
         ) : seleccion ? (
-          <div className="proveedor-actual-data">
-            <div>
-              <strong>{seleccion.proveedor_razon_social}</strong>
-              <span>
-                CUIT {mostrarCuit(seleccion.proveedor_cuit)}
-              </span>
+          <>
+            <div className="proveedor-actual-data">
+              <div>
+                <strong>{seleccion.proveedor_razon_social}</strong>
+                <span>
+                  CUIT {mostrarCuit(seleccion.proveedor_cuit)}
+                </span>
+              </div>
+              <div className="proveedor-actual-metadata">
+                <span>
+                  Seleccionado el {mostrarFecha(seleccion.fecha_seleccion)}
+                </span>
+                <span>por {seleccion.seleccionado_por}</span>
+              </div>
             </div>
-            <div className="proveedor-actual-metadata">
-              <span>
-                Seleccionado el {mostrarFecha(seleccion.fecha_seleccion)}
-              </span>
-              <span>por {seleccion.seleccionado_por}</span>
+
+            <div className="proveedor-actual-actions">
+              <button
+                className="small-button"
+                type="button"
+                onClick={() => setSelectorModo('reemplazo')}
+              >
+                Reemplazar proveedor
+              </button>
+              <button
+                className="link"
+                type="button"
+                onClick={() => setHistorialAbierto(true)}
+              >
+                Ver historial
+              </button>
             </div>
-          </div>
+          </>
         ) : (
           <div className="proveedor-actual-empty">
             <div>
@@ -151,7 +183,7 @@ export function ProveedorActualCard({
             <button
               className="primary"
               type="button"
-              onClick={() => setSelectorAbierto(true)}
+              onClick={() => setSelectorModo('inicial')}
             >
               Seleccionar proveedor
             </button>
@@ -159,10 +191,21 @@ export function ProveedorActualCard({
         )}
       </section>
 
-      {selectorAbierto && (
+      {selectorModo && (
         <ProveedorSelectorModal
-          onClose={() => setSelectorAbierto(false)}
+          modo={selectorModo}
+          proveedorActual={
+            selectorModo === 'reemplazo' ? seleccion : null
+          }
+          onClose={() => setSelectorModo(null)}
           onConfirmar={confirmarSeleccion}
+        />
+      )}
+
+      {historialAbierto && (
+        <HistorialProveedoresModal
+          solicitudId={solicitudId}
+          onClose={() => setHistorialAbierto(false)}
         />
       )}
     </>

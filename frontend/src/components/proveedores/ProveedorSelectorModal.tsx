@@ -9,10 +9,18 @@ import {
   listarProveedores,
 } from '../../api/proveedores';
 import type { Proveedor } from '../../api/proveedores';
+import type {
+  SeleccionProveedor,
+} from '../../api/seleccionesProveedor';
 
 type ProveedorSelectorModalProps = {
+  modo: 'inicial' | 'reemplazo';
+  proveedorActual: SeleccionProveedor | null;
   onClose: () => void;
-  onConfirmar: (proveedor: Proveedor) => Promise<void>;
+  onConfirmar: (
+    proveedor: Proveedor,
+    motivoReemplazo: string | null,
+  ) => Promise<void>;
 };
 
 function mostrarCuit(cuit: string): string {
@@ -34,9 +42,12 @@ function mensajeError(
 }
 
 export function ProveedorSelectorModal({
+  modo,
+  proveedorActual,
   onClose,
   onConfirmar,
 }: ProveedorSelectorModalProps) {
+  const esReemplazo = modo === 'reemplazo';
   const consultaActual = useRef(0);
   const busquedaRef = useRef<HTMLInputElement>(null);
   const [proveedores, setProveedores] = useState<Proveedor[]>([]);
@@ -44,6 +55,7 @@ export function ProveedorSelectorModal({
   const [busquedaAplicada, setBusquedaAplicada] = useState('');
   const [proveedorSeleccionadoId, setProveedorSeleccionadoId] =
     useState<string | null>(null);
+  const [motivoReemplazo, setMotivoReemplazo] = useState('');
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState('');
@@ -121,11 +133,20 @@ export function ProveedorSelectorModal({
     );
     if (!proveedor) return;
 
+    const motivoNormalizado = motivoReemplazo.trim();
+    if (esReemplazo && !motivoNormalizado) {
+      setError('El motivo del reemplazo es obligatorio.');
+      return;
+    }
+
     setGuardando(true);
     setError('');
 
     try {
-      await onConfirmar(proveedor);
+      await onConfirmar(
+        proveedor,
+        esReemplazo ? motivoNormalizado : null,
+      );
     } catch (errorDesconocido) {
       setError(mensajeError(
         errorDesconocido,
@@ -137,8 +158,16 @@ export function ProveedorSelectorModal({
     }
   }
 
+  const proveedoresAlternativos = esReemplazo && proveedorActual
+    ? proveedores.filter(
+      (proveedor) =>
+        proveedor.id_proveedor !== proveedorActual.proveedor_id,
+    )
+    : proveedores;
   const busquedaSinResultados = Boolean(busquedaAplicada)
-    && proveedores.length === 0;
+    && proveedoresAlternativos.length === 0;
+  const puedeConfirmar = Boolean(proveedorSeleccionadoId)
+    && (!esReemplazo || Boolean(motivoReemplazo.trim()));
 
   return (
     <div className="modal-backdrop">
@@ -152,7 +181,9 @@ export function ProveedorSelectorModal({
           <div>
             <span className="eyebrow">Maestro de Proveedores</span>
             <h3 id="proveedor-selector-title">
-              Seleccionar proveedor
+              {esReemplazo
+                ? 'Reemplazar proveedor'
+                : 'Seleccionar proveedor'}
             </h3>
           </div>
           <button
@@ -165,13 +196,25 @@ export function ProveedorSelectorModal({
           </button>
         </div>
 
+        {esReemplazo && proveedorActual && (
+          <section className="proveedor-selector-current">
+            <span>Proveedor actual</span>
+            <strong>{proveedorActual.proveedor_razon_social}</strong>
+            <small>
+              CUIT {mostrarCuit(proveedorActual.proveedor_cuit)}
+            </small>
+          </section>
+        )}
+
         <form
           className="proveedores-search"
           role="search"
           onSubmit={buscar}
         >
           <label htmlFor="buscar-proveedor-seleccion">
-            Buscar por CUIT o razón social
+            {esReemplazo
+              ? 'Buscar nuevo proveedor'
+              : 'Buscar por CUIT o razón social'}
           </label>
           <div>
             <input
@@ -201,12 +244,14 @@ export function ProveedorSelectorModal({
         <div className="proveedor-selector-results">
           {cargando ? (
             <p className="empty">Cargando proveedores activos...</p>
-          ) : proveedores.length === 0 ? (
+          ) : proveedoresAlternativos.length === 0 ? (
             <div className="proveedor-selector-empty">
               <strong>
                 {busquedaSinResultados
-                  ? 'No se encontraron proveedores activos.'
-                  : 'No hay proveedores activos disponibles.'}
+                  ? 'No se encontraron otros proveedores activos.'
+                  : esReemplazo
+                    ? 'No hay otros proveedores activos disponibles.'
+                    : 'No hay proveedores activos disponibles.'}
               </strong>
               <p>
                 Administre proveedores desde Administración.
@@ -218,7 +263,7 @@ export function ProveedorSelectorModal({
               role="radiogroup"
               aria-label="Proveedores activos"
             >
-              {proveedores.map((proveedor) => (
+              {proveedoresAlternativos.map((proveedor) => (
                 <label
                   className={`proveedor-selector-option ${
                     proveedorSeleccionadoId
@@ -253,6 +298,24 @@ export function ProveedorSelectorModal({
           )}
         </div>
 
+        {esReemplazo && (
+          <div className="proveedor-reemplazo-motivo">
+            <label htmlFor="motivo-reemplazo">
+              Motivo del reemplazo
+            </label>
+            <textarea
+              id="motivo-reemplazo"
+              value={motivoReemplazo}
+              disabled={guardando}
+              onChange={(evento) => {
+                setMotivoReemplazo(evento.target.value);
+                setError('');
+              }}
+              placeholder="Indique el motivo administrativo del cambio."
+            />
+          </div>
+        )}
+
         <div className="actions proveedor-selector-actions">
           <button
             className="secondary"
@@ -266,9 +329,13 @@ export function ProveedorSelectorModal({
             className="primary"
             type="button"
             onClick={() => void confirmar()}
-            disabled={!proveedorSeleccionadoId || guardando}
+            disabled={!puedeConfirmar || guardando}
           >
-            {guardando ? 'Guardando...' : 'Confirmar selección'}
+            {guardando
+              ? 'Guardando...'
+              : esReemplazo
+                ? 'Confirmar reemplazo'
+                : 'Confirmar selección'}
           </button>
         </div>
       </section>

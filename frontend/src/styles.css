@@ -366,6 +366,9 @@ th { color: #64748b; font-weight: 700; }
 .proveedor-actual-data > div:first-child strong { font-size: 16px; }
 .proveedor-actual-data span { color: #64748b; font-size: 12px; }
 .proveedor-actual-metadata { display: grid; gap: 3px; text-align: right; }
+.proveedor-actual-actions { display: flex; justify-content: flex-end; gap: 12px; align-items: center; padding-top: 9px; border-top: 1px solid #dbeafe; }
+.proveedor-actual-actions .small-button { margin: 0; }
+.proveedor-actual-actions .link { font-weight: 700; }
 .proveedor-actual-empty { display: flex; justify-content: space-between; gap: 16px; align-items: center; }
 .proveedor-actual-empty p { margin: 4px 0 0; color: #64748b; }
 .proveedor-actual-empty .primary { flex: 0 0 auto; margin-top: 0; }
@@ -373,6 +376,9 @@ th { color: #64748b; font-weight: 700; }
 .proveedor-selector-modal { width: min(680px, 96vw); }
 .proveedor-selector-heading { align-items: flex-start; margin-bottom: 14px; }
 .proveedor-selector-heading h3 { margin-top: 3px; }
+.proveedor-selector-current { display: grid; gap: 3px; margin-bottom: 13px; padding: 11px 12px; border: 1px solid #bfdbfe; border-radius: 11px; background: #eff6ff; }
+.proveedor-selector-current > span { color: #64748b; font-size: 11px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
+.proveedor-selector-current small { color: #64748b; }
 .proveedor-selector-results { min-height: 120px; margin-top: 14px; }
 .proveedor-selector-list { display: grid; gap: 8px; }
 .proveedor-selector-option { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px; align-items: center; margin: 0; padding: 11px 12px; border: 1px solid #dbe1ea; border-radius: 11px; background: #fff; color: #172033; cursor: pointer; }
@@ -385,8 +391,21 @@ th { color: #64748b; font-weight: 700; }
 .proveedor-selector-empty { padding: 18px; border: 1px dashed #cbd5e1; border-radius: 12px; background: #f8fafc; text-align: center; }
 .proveedor-selector-empty p { margin: 6px 0 0; color: #64748b; }
 .proveedor-selector-error { margin: 14px 0 0; }
+.proveedor-reemplazo-motivo { margin-top: 13px; }
+.proveedor-reemplazo-motivo textarea { min-height: 72px; }
 .proveedor-selector-actions { justify-content: flex-end; border-top: 1px solid #e2e8f0; margin-top: 14px; padding-top: 2px; }
 .proveedor-selector-actions .primary, .proveedor-selector-actions .secondary { margin-top: 12px; }
+.historial-proveedores-modal { width: min(700px, 96vw); }
+.historial-proveedores-heading { align-items: flex-start; margin-bottom: 14px; }
+.historial-proveedores-heading h3 { margin-top: 3px; }
+.historial-proveedores-list { display: grid; gap: 9px; margin: 0; padding: 0; list-style: none; }
+.historial-proveedor-item { display: grid; gap: 8px; padding: 12px 13px; border: 1px solid #e2e8f0; border-radius: 12px; background: #fbfdff; }
+.historial-proveedor-title { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
+.historial-proveedor-title > div { display: grid; gap: 3px; }
+.historial-proveedor-title span, .historial-proveedor-metadata { color: #64748b; font-size: 12px; }
+.historial-proveedor-metadata { display: flex; flex-wrap: wrap; gap: 5px 16px; }
+.historial-proveedor-item p { margin: 0; color: #334155; }
+.historial-proveedores-error { display: flex; justify-content: space-between; gap: 12px; align-items: center; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 .subcard { border: 1px solid #e2e8f0; background: #fbfdff; border-radius: 12px; padding: 12px 13px; margin-top: 11px; }
 .subcard h4 { margin-top: 0; }
@@ -455,8 +474,12 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .proveedor-actual-data, .proveedor-actual-empty { display: grid; }
   .proveedor-actual-metadata { text-align: left; }
   .proveedor-actual-empty .primary { width: 100%; }
+  .proveedor-actual-actions { display: grid; grid-template-columns: 1fr; }
+  .proveedor-actual-actions .small-button, .proveedor-actual-actions .link { width: 100%; justify-content: center; }
   .proveedor-selector-actions { display: grid; grid-template-columns: 1fr; }
   .proveedor-selector-actions .primary, .proveedor-selector-actions .secondary { width: 100%; }
+  .historial-proveedor-title { display: grid; }
+  .historial-proveedor-title .badge { justify-self: start; }
   .administracion-summary-heading { display: grid; }
   .administracion-summary .admin-grid { grid-template-columns: 1fr; }
   .proveedores-admin-heading { display: grid; }
