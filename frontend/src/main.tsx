@@ -32,6 +32,9 @@ import {
 } from 'lucide-react';
 import { API_URL } from './api/config';
 import { PanelBusquedaFiltros } from './components/PanelBusquedaFiltros';
+import {
+  ControlProveedorOPCard,
+} from './components/proveedores/ControlProveedorOPCard';
 import { ProveedorActualCard } from './components/proveedores/ProveedorActualCard';
 import { ProveedoresAdmin } from './components/proveedores/ProveedoresAdmin';
 import './styles.css';
@@ -3656,16 +3659,29 @@ function App() {
                         <thead><tr><th>Tipo</th><th>Archivo</th><th>Tamaño</th><th>Fecha</th><th>Acción</th></tr></thead>
                         <tbody>
                           {documentos.map(doc => (
-                            <tr key={doc.id}>
-                              <td><span className="badge blue">{doc.tipo}</span></td>
-                              <td>{doc.nombre_archivo}</td>
-                              <td>{bytes(doc.tamano_bytes)}</td>
-                              <td>{new Date(doc.fecha_carga).toLocaleString()}</td>
-                              <td>
-                                <button className="small-button" onClick={() => abrirVistaPrevia(doc)}>Vista previa</button>
-                                <a className="small-link icon-link" href={`${API_URL}/expedientes/${seleccionado.id}/documentos/${doc.id}/descargar`} target="_blank"><Download aria-hidden="true" />Descargar</a>
-                              </td>
-                            </tr>
+                            <React.Fragment key={doc.id}>
+                              <tr>
+                                <td><span className="badge blue">{doc.tipo}</span></td>
+                                <td>{doc.nombre_archivo}</td>
+                                <td>{bytes(doc.tamano_bytes)}</td>
+                                <td>{new Date(doc.fecha_carga).toLocaleString()}</td>
+                                <td>
+                                  <button className="small-button" onClick={() => abrirVistaPrevia(doc)}>Vista previa</button>
+                                  <a className="small-link icon-link" href={`${API_URL}/expedientes/${seleccionado.id}/documentos/${doc.id}/descargar`} target="_blank"><Download aria-hidden="true" />Descargar</a>
+                                </td>
+                              </tr>
+                              {doc.tipo === 'OP' && (
+                                <tr className="control-proveedor-op-row">
+                                  <td colSpan={5}>
+                                    <ControlProveedorOPCard
+                                      expedienteId={seleccionado.id}
+                                      documentoOpId={doc.id}
+                                      nombreArchivo={doc.nombre_archivo}
+                                    />
+                                  </td>
+                                </tr>
+                              )}
+                            </React.Fragment>
                           ))}
                         </tbody>
                       </table>

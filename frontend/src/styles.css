@@ -434,6 +434,26 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .ok { color: #166534; }
 .warn { color: #92400e; }
 .warning-panel { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; border-radius: 12px; padding: 14px; font-weight: 700; }
+.control-proveedor-op-row > td { padding: 0 8px 12px; background: #f8fafc; }
+.control-proveedor-op-card { display: grid; gap: 10px; padding: 12px 14px; border: 1px solid #cbd5e1; border-radius: 12px; background: #fff; }
+.control-proveedor-op-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 14px; }
+.control-proveedor-op-heading > div { display: grid; gap: 2px; min-width: 0; }
+.control-proveedor-op-heading strong, .control-proveedor-op-heading small { overflow-wrap: anywhere; }
+.control-proveedor-op-heading small { color: #64748b; }
+.control-proveedor-op-evidence { margin: 0; color: #475569; font-size: 12px; font-weight: 700; }
+.control-proveedor-op-comparison { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)) minmax(120px, auto); gap: 12px; padding-top: 10px; border-top: 1px solid #e2e8f0; }
+.control-proveedor-op-comparison > div { display: grid; gap: 2px; min-width: 0; }
+.control-proveedor-op-comparison span { color: #64748b; font-size: 12px; font-weight: 700; }
+.control-proveedor-op-comparison strong, .control-proveedor-op-comparison small { overflow-wrap: anywhere; }
+.control-proveedor-op-comparison small { color: #475569; }
+.control-proveedor-op-result { align-content: start; }
+.control-proveedor-op-message { display: grid; gap: 3px; padding: 9px 11px; border-left: 3px solid #93c5fd; background: #f8fafc; }
+.control-proveedor-op-message p { margin: 0; color: #1e293b; }
+.control-proveedor-op-message small { color: #475569; }
+.control-proveedor-op-warning { margin: 0; color: #92400e; font-size: 13px; }
+.control-proveedor-op-card .notice { margin: 0; }
+.control-proveedor-op-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.control-proveedor-op-actions .secondary, .control-proveedor-op-actions .small-button { margin: 0; }
 @media (max-width: 1000px) {
   .administracion-summary .admin-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .operational-advanced-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -471,6 +491,10 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 }
 
 @media (max-width: 720px) {
+  .control-proveedor-op-heading, .control-proveedor-op-comparison { display: grid; grid-template-columns: 1fr; }
+  .control-proveedor-op-heading .badge { justify-self: start; }
+  .control-proveedor-op-actions { display: grid; grid-template-columns: 1fr; }
+  .control-proveedor-op-actions .secondary, .control-proveedor-op-actions .small-button { width: 100%; }
   .proveedor-actual-data, .proveedor-actual-empty { display: grid; }
   .proveedor-actual-metadata { text-align: left; }
   .proveedor-actual-empty .primary { width: 100%; }
