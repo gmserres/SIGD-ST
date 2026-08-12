@@ -32,6 +32,7 @@ import {
 } from 'lucide-react';
 import { API_URL } from './api/config';
 import { PanelBusquedaFiltros } from './components/PanelBusquedaFiltros';
+import { ProveedoresAdmin } from './components/proveedores/ProveedoresAdmin';
 import './styles.css';
 
 const procedenciasDisponibles = [
@@ -4144,40 +4145,40 @@ function App() {
         )}
 
         {pantalla === 'administracion' && (
-          <section className="card">
-            <div className="card-title">
-              <h3>Administración</h3>
-              <span className="badge blue">Consulta informativa</span>
-            </div>
+          <div className="administracion-page">
+            <section className="card administracion-summary">
+              <div className="card-title administracion-summary-heading">
+                <div>
+                  <h3>Administración</h3>
+                  <p className="muted">
+                    Configuración institucional y catálogos del sistema.
+                  </p>
+                </div>
+                <span className="badge blue">Configuración</span>
+              </div>
 
-            <p>
-              Este módulo centralizará la configuración institucional y los
-              catálogos del sistema.
-            </p>
-            <p className="muted">
-              Actualmente la información se encuentra disponible únicamente
-              para consulta.
-            </p>
+              <div className="admin-grid">
+                <div>
+                  <strong>Parámetros institucionales</strong>
+                  <span>Datos del organismo, distrito y localidad.</span>
+                </div>
+                <div>
+                  <strong>Catálogos administrativos</strong>
+                  <span>Autoridades, resultados y datos auxiliares.</span>
+                </div>
+                <div>
+                  <strong>Fondos y Unidad de Contratación</strong>
+                  <span>Configuración institucional de fondos y UC.</span>
+                </div>
+                <div>
+                  <strong>Usuarios y plantillas</strong>
+                  <span>Permisos y plantillas documentales.</span>
+                </div>
+              </div>
+            </section>
 
-            <div className="admin-grid">
-              <div>
-                <strong>Parámetros institucionales</strong>
-                <p>Datos del organismo, distrito y localidad.</p>
-              </div>
-              <div>
-                <strong>Catálogos administrativos</strong>
-                <p>Autoridades, resultados y datos auxiliares.</p>
-              </div>
-              <div>
-                <strong>Fondos y Unidad de Contratación</strong>
-                <p>Configuración de fondos y valores anuales de UC.</p>
-              </div>
-              <div>
-                <strong>Usuarios y plantillas</strong>
-                <p>Permisos y plantillas documentales institucionales.</p>
-              </div>
-            </div>
-          </section>
+            <ProveedoresAdmin />
+          </div>
         )}
       </section>
       {mostrarChecklistFisico && (
