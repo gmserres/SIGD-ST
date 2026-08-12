@@ -30,10 +30,10 @@ import {
   Settings,
   TriangleAlert,
 } from 'lucide-react';
+import { API_URL } from './api/config';
 import { PanelBusquedaFiltros } from './components/PanelBusquedaFiltros';
 import './styles.css';
 
-const API_URL = 'http://localhost:8000';
 const procedenciasDisponibles = [
   'SUNA',
   'MESA DE ENTRADA',
