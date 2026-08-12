@@ -62,7 +62,13 @@ from app.services.analisis_op import (
     DocumentoOPNoEncontradoError,
 )
 from app.composition.documento import documento_service
-from app.services.disposiciones import disposicion_service
+from app.services.disposiciones import (
+    BorradorDisposicionNoHabilitadoError,
+    BorradorDisposicionObsoletoError,
+    DisposicionOPAmbiguaError,
+    DisposicionOPNoEncontradaError,
+    disposicion_service,
+)
 from app.repositories.disposicion_repository import (
     DisposicionYaRegistradaError,
 )
@@ -686,7 +692,54 @@ def validar_expediente_con_observaciones(expediente_id: str, data: ValidacionObs
     return expediente
 
 
-@router.post("/{expediente_id}/disposicion/borrador", response_model=DisposicionRead)
+def _traducir_error_borrador(exc: Exception) -> HTTPException:
+    if isinstance(exc, BorradorDisposicionNoHabilitadoError):
+        return HTTPException(
+            status_code=409,
+            detail={
+                "estado": exc.estado.value,
+                "mensaje": exc.mensaje,
+                "proxima_accion": exc.proxima_accion,
+                "documento_op_id": exc.documento_op_id,
+            },
+        )
+    if isinstance(exc, BorradorDisposicionObsoletoError):
+        return HTTPException(
+            status_code=409,
+            detail={
+                "mensaje": exc.mensaje,
+                "documento_op_id": exc.documento_op_id,
+            },
+        )
+    if isinstance(exc, DisposicionOPNoEncontradaError):
+        return HTTPException(status_code=404, detail=str(exc))
+    if isinstance(exc, DisposicionOPAmbiguaError):
+        return HTTPException(status_code=409, detail=str(exc))
+    if isinstance(exc, DocumentoOPNoEncontradoError):
+        return HTTPException(status_code=404, detail=str(exc))
+    if isinstance(exc, DocumentoOPExpedienteInconsistenteError):
+        return HTTPException(status_code=409, detail=str(exc))
+    if isinstance(exc, DocumentoNoEsOPError):
+        return HTTPException(status_code=422, detail=str(exc))
+    return HTTPException(status_code=422, detail=str(exc))
+
+
+def _texto_borrador(borrador: DisposicionRead) -> str:
+    return (
+        f"DISPOSICIÓN Nº {borrador.numero_disposicion or '____/____'}\n\n"
+        f"VISTO:\n{borrador.visto}\n\n"
+        f"CONSIDERANDO:\n{borrador.considerando}\n\n"
+        f"{borrador.dispone}\n\n"
+        "OBSERVACIONES IA\n"
+        + "\n".join(f"- {obs}" for obs in borrador.observaciones_ia)
+    )
+
+
+@router.post(
+    "/{expediente_id}/disposicion/borrador",
+    response_model=DisposicionRead,
+    deprecated=True,
+)
 def generar_borrador_disposicion(expediente_id: str, regenerar: bool = False):
     expediente = obtener_expediente(expediente_id)
     if expediente.estado != EstadoExpediente.VALIDADO:
@@ -697,22 +750,40 @@ def generar_borrador_disposicion(expediente_id: str, regenerar: bool = False):
                 "errores": ["El expediente debe estar VALIDADO."],
             },
         )
-    _verificar_op_legible_para_disposicion(expediente_id)
-    return disposicion_service.generar_borrador(expediente_id, regenerar=regenerar)
+    try:
+        return disposicion_service.generar_borrador_legacy(
+            expediente_id, regenerar=regenerar
+        )
+    except Exception as exc:
+        raise _traducir_error_borrador(exc) from exc
 
 
-@router.get("/{expediente_id}/disposicion/borrador", response_model=DisposicionRead)
+@router.get(
+    "/{expediente_id}/disposicion/borrador",
+    response_model=DisposicionRead,
+    deprecated=True,
+)
 def obtener_borrador_disposicion(expediente_id: str):
     obtener_expediente(expediente_id)
-    _verificar_op_legible_para_disposicion(expediente_id)
-    return disposicion_service.obtener(expediente_id)
+    try:
+        return disposicion_service.obtener(expediente_id)
+    except Exception as exc:
+        raise _traducir_error_borrador(exc) from exc
 
 
-@router.put("/{expediente_id}/disposicion/borrador", response_model=DisposicionRead)
+@router.put(
+    "/{expediente_id}/disposicion/borrador",
+    response_model=DisposicionRead,
+    deprecated=True,
+)
 def actualizar_borrador_disposicion(expediente_id: str, data: DisposicionUpdate):
     obtener_expediente(expediente_id)
-    _verificar_op_legible_para_disposicion(expediente_id)
-    return disposicion_service.actualizar_borrador(expediente_id, data)
+    try:
+        return disposicion_service.actualizar_borrador_legacy(
+            expediente_id, data
+        )
+    except Exception as exc:
+        raise _traducir_error_borrador(exc) from exc
 
 
 
@@ -720,11 +791,13 @@ def actualizar_borrador_disposicion(expediente_id: str, data: DisposicionUpdate)
 
 
 
-@router.get("/{expediente_id}/disposicion/borrador/docx")
+@router.get("/{expediente_id}/disposicion/borrador/docx", deprecated=True)
 def descargar_borrador_disposicion_docx(expediente_id: str):
     obtener_expediente(expediente_id)
-    _verificar_op_legible_para_disposicion(expediente_id)
-    ruta = disposicion_docx_service.generar_docx(expediente_id)
+    try:
+        ruta = disposicion_docx_service.generar_docx(expediente_id)
+    except Exception as exc:
+        raise _traducir_error_borrador(exc) from exc
     return FileResponse(
         path=ruta,
         filename=ruta.name,
@@ -732,20 +805,105 @@ def descargar_borrador_disposicion_docx(expediente_id: str):
     )
 
 
-@router.get("/{expediente_id}/disposicion/borrador/texto")
+@router.get("/{expediente_id}/disposicion/borrador/texto", deprecated=True)
 def exportar_borrador_disposicion_texto(expediente_id: str):
     obtener_expediente(expediente_id)
-    _verificar_op_legible_para_disposicion(expediente_id)
-    borrador = disposicion_service.obtener(expediente_id)
-    contenido = (
-        f"DISPOSICIÓN Nº {borrador.numero_disposicion or '____/____'}\n\n"
-        f"VISTO:\n{borrador.visto}\n\n"
-        f"CONSIDERANDO:\n{borrador.considerando}\n\n"
-        f"{borrador.dispone}\n\n"
-        "OBSERVACIONES IA\n"
-        + "\n".join(f"- {obs}" for obs in borrador.observaciones_ia)
-    )
+    try:
+        borrador = disposicion_service.obtener(expediente_id)
+    except Exception as exc:
+        raise _traducir_error_borrador(exc) from exc
+    contenido = _texto_borrador(borrador)
     return PlainTextResponse(contenido, media_type="text/plain; charset=utf-8")
+
+
+@router.post(
+    "/{expediente_id}/documentos/{documento_id}/disposicion/borrador",
+    response_model=DisposicionRead,
+)
+def generar_borrador_disposicion_documento(
+    expediente_id: str, documento_id: str, regenerar: bool = False
+):
+    obtener_expediente(expediente_id)
+    try:
+        return disposicion_service.generar_borrador(
+            expediente_id, documento_id, regenerar=regenerar
+        )
+    except Exception as exc:
+        raise _traducir_error_borrador(exc) from exc
+
+
+@router.get(
+    "/{expediente_id}/documentos/{documento_id}/disposicion/borrador",
+    response_model=DisposicionRead,
+)
+def obtener_borrador_disposicion_documento(
+    expediente_id: str, documento_id: str
+):
+    obtener_expediente(expediente_id)
+    try:
+        return disposicion_service.obtener_borrador(
+            expediente_id, documento_id
+        )
+    except Exception as exc:
+        raise _traducir_error_borrador(exc) from exc
+
+
+@router.put(
+    "/{expediente_id}/documentos/{documento_id}/disposicion/borrador",
+    response_model=DisposicionRead,
+)
+def actualizar_borrador_disposicion_documento(
+    expediente_id: str, documento_id: str, data: DisposicionUpdate
+):
+    obtener_expediente(expediente_id)
+    try:
+        return disposicion_service.actualizar_borrador(
+            expediente_id, documento_id, data
+        )
+    except Exception as exc:
+        raise _traducir_error_borrador(exc) from exc
+
+
+@router.get(
+    "/{expediente_id}/documentos/{documento_id}/disposicion/borrador/docx"
+)
+def descargar_borrador_disposicion_documento_docx(
+    expediente_id: str, documento_id: str
+):
+    obtener_expediente(expediente_id)
+    try:
+        ruta = disposicion_docx_service.generar_docx(
+            expediente_id, documento_id
+        )
+    except Exception as exc:
+        raise _traducir_error_borrador(exc) from exc
+    return FileResponse(
+        path=ruta,
+        filename=ruta.name,
+        media_type=(
+            "application/vnd.openxmlformats-officedocument."
+            "wordprocessingml.document"
+        ),
+    )
+
+
+@router.get(
+    "/{expediente_id}/documentos/{documento_id}/disposicion/borrador/texto"
+)
+def exportar_borrador_disposicion_documento_texto(
+    expediente_id: str, documento_id: str
+):
+    obtener_expediente(expediente_id)
+    try:
+        borrador = disposicion_service.obtener_borrador(
+            expediente_id, documento_id
+        )
+    except Exception as exc:
+        raise _traducir_error_borrador(exc) from exc
+    return PlainTextResponse(
+        _texto_borrador(borrador),
+        media_type="text/plain; charset=utf-8",
+    )
 
 
 @router.post("/{expediente_id}/generar-disposicion", response_model=ExpedienteRead)

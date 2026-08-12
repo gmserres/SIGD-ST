@@ -26,15 +26,27 @@ class DisposicionDocxService:
     def __init__(self, export_dir: Path) -> None:
         self._export_dir = export_dir.resolve()
 
-    def generar_docx(self, expediente_id: str) -> Path:
+    def generar_docx(
+        self,
+        expediente_id: str,
+        documento_op_id: str | None = None,
+    ) -> Path:
+        if documento_op_id is None:
+            documento_op_id = (
+                disposicion_service.resolver_documento_op_legacy(
+                    expediente_id
+                )
+            )
         expediente = expediente_service.obtener(expediente_id)
-        borrador = disposicion_service.obtener(expediente_id)
+        borrador = disposicion_service.obtener_exportable(
+            expediente_id, documento_op_id
+        )
 
         doc = Document()
         self._configurar_documento(doc)
         self._agregar_disposicion(doc, borrador, expediente)
 
-        out_dir = self._export_dir / expediente_id
+        out_dir = self._export_dir / expediente_id / documento_op_id
         out_dir.mkdir(parents=True, exist_ok=True)
         safe_numero = re.sub(r"[^0-9A-Za-z_-]+", "_", expediente.numero_disposicion or expediente_id)
         salida = out_dir / f"DISPOSICION_{safe_numero}.docx"
@@ -43,7 +55,10 @@ class DisposicionDocxService:
         historial_service.registrar(
             expediente_id,
             "DISPOSICION_DOCX_GENERADA",
-            detalle=f"Archivo generado: {salida.name}",
+            detalle=(
+                f"Documento OP: {documento_op_id} | "
+                f"Archivo generado: {salida.name}"
+            ),
         )
         return salida
 

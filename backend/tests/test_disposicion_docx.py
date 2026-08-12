@@ -136,7 +136,7 @@ class DisposicionDocxServiceTest(unittest.TestCase):
                     ),
                     patch(
                         "app.services.disposicion_docx."
-                        "disposicion_service.obtener",
+                        "disposicion_service.obtener_exportable",
                         return_value=borrador,
                     ),
                     patch(
@@ -144,14 +144,14 @@ class DisposicionDocxServiceTest(unittest.TestCase):
                         "historial_service.registrar"
                     ),
                 ):
-                    salida = service.generar_docx("EXP-1")
+                    salida = service.generar_docx("EXP-1", "DOC-000001")
             finally:
                 os.chdir(cwd_original)
 
             self.assertTrue(salida.is_file())
             self.assertEqual(
                 salida.parent,
-                export_dir.resolve() / "EXP-1",
+                export_dir.resolve() / "EXP-1" / "DOC-000001",
             )
             self.assertEqual(
                 salida.name,

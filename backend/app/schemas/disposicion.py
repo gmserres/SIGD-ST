@@ -2,9 +2,21 @@ from datetime import datetime
 from decimal import Decimal
 from pydantic import BaseModel
 
+from app.domain.habilitacion_proveedor_op import (
+    EstadoHabilitacionProveedorOP,
+)
+
 
 class DisposicionRead(BaseModel):
     expediente_id: str
+    documento_op_id: str | None = None
+    control_proveedor_op_id: str | None = None
+    seleccion_proveedor_id: str | None = None
+    proveedor_definitivo_id: str | None = None
+    proveedor_definitivo_cuit: str | None = None
+    proveedor_definitivo_razon_social: str | None = None
+    estado_habilitacion_actual: EstadoHabilitacionProveedorOP | None = None
+    obsoleto: bool = False
     numero_disposicion: str | None
     estado: str
     visto: str
