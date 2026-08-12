@@ -32,6 +32,7 @@ import {
 } from 'lucide-react';
 import { API_URL } from './api/config';
 import { PanelBusquedaFiltros } from './components/PanelBusquedaFiltros';
+import { ProveedorActualCard } from './components/proveedores/ProveedorActualCard';
 import { ProveedoresAdmin } from './components/proveedores/ProveedoresAdmin';
 import './styles.css';
 
@@ -1980,6 +1981,9 @@ function App() {
   const solicitudYaAprobada = decisiones.some(
     (decision) => decision.resultado === 'Aprobar intervención',
   );
+  const decisionActual = decisiones.length > 0
+    ? decisiones[decisiones.length - 1]
+    : null;
 
   const etapaWorkflow = expedienteFirmado || expedienteArchivado
     ? 'archivo'
@@ -3003,6 +3007,18 @@ function App() {
                                       {decision.resultado === 'Aprobar intervención'
                                         && decision.fondo_interviniente === 'FONDO_COMPENSADOR' && (
                                         <>
+                                          {decision.id_decision
+                                            === decisionActual?.id_decision && (
+                                            <ProveedorActualCard
+                                              solicitudId={
+                                                solicitudSeleccionada.id_solicitud
+                                              }
+                                              seleccionadoPor={
+                                                decisionUsuarioRegistrante
+                                              }
+                                            />
+                                          )}
+
                                           {expedientesDecision.length > 0 && (
                                             <div className="subcard">
                                               <h4>Expedientes generados</h4>
