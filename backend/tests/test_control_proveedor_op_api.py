@@ -13,6 +13,9 @@ from app.api.expedientes import (
 from app.schemas.control_proveedor_op import (
     EstadoControlProveedorOPAdministrativo,
 )
+from app.repositories.control_proveedor_op_repository import (
+    SeleccionControlObsoletaError,
+)
 from app.schemas.control_proveedor_op_registro import (
     ControlProveedorOPRegistroRead,
 )
@@ -92,6 +95,19 @@ class ControlProveedorOPApiTest(unittest.TestCase):
         self.assertIs(resultado, esperado)
         self.assertEqual(response.status_code, 201)
         registrar.assert_called_once_with("EXP-1", "DOC-1")
+
+    def test_post_traduce_seleccion_obsoleta_a_409(self) -> None:
+        response = Response()
+        with patch(
+            (
+                "app.api.expedientes."
+                "registrar_control_proveedor_op_service.ejecutar"
+            ),
+            side_effect=SeleccionControlObsoletaError(),
+        ):
+            with self.assertRaises(HTTPException) as contexto:
+                ejecutar_control_proveedor_op("EXP-1", "DOC-1", response)
+        self.assertEqual(contexto.exception.status_code, 409)
 
     def test_post_no_persistible_y_get_responden_200(
         self,

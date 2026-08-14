@@ -20,14 +20,14 @@ class SeleccionProveedorRepository(Protocol):
     ) -> SeleccionProveedor | None:
         ...
 
-    def obtener_vigente_por_solicitud(
+    def obtener_vigente_por_expediente(
         self,
-        solicitud_id: str,
+        expediente_id: str,
     ) -> SeleccionProveedor | None:
         ...
 
-    def listar_por_solicitud(
+    def listar_por_expediente(
         self,
-        solicitud_id: str,
+        expediente_id: str,
     ) -> list[SeleccionProveedor]:
         ...

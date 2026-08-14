@@ -35,7 +35,7 @@ app.include_router(decisiones_router, prefix="/decisiones", tags=["Decisiones"])
 app.include_router(solicitudes_router, prefix="/solicitudes", tags=["Solicitudes"])
 app.include_router(
     selecciones_proveedor_router,
-    prefix="/solicitudes",
+    prefix="/expedientes",
     tags=["Selección de Proveedor"],
 )
 app.include_router(catalogos_router, prefix="/catalogos", tags=["Catálogos"])

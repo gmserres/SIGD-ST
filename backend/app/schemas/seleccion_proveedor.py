@@ -30,6 +30,7 @@ class ReemplazoProveedorCreate(SeleccionProveedorCreate):
 
 class SeleccionProveedorRead(BaseModel):
     id_seleccion: str
+    expediente_id: str
     solicitud_intervencion_id: str
     decision_administrativa_id: str
     proveedor_id: str

@@ -5,6 +5,9 @@ from app.domain.seleccion_proveedor import (
     DecisionNoAprobatoriaError,
     DecisionSeleccionInexistenteError,
     DecisionSolicitudInconsistenteError,
+    ExpedienteSeleccionIncompletoError,
+    ExpedienteSeleccionInexistenteError,
+    FondoSeleccionIncompatibleError,
     MismoProveedorSeleccionadoError,
     ProveedorInactivoError,
     ProveedorSeleccionInexistenteError,
@@ -17,12 +20,15 @@ from app.schemas.seleccion_proveedor import ReemplazoProveedorCreate, SeleccionP
 
 router = APIRouter()
 ERRORES_NO_ENCONTRADOS = (
+    ExpedienteSeleccionInexistenteError,
     SolicitudSeleccionInexistenteError,
     DecisionSeleccionInexistenteError,
     ProveedorSeleccionInexistenteError,
     SeleccionProveedorInexistenteError,
 )
 ERRORES_CONFLICTO = (
+    ExpedienteSeleccionIncompletoError,
+    FondoSeleccionIncompatibleError,
     DecisionNoAprobatoriaError,
     DecisionSolicitudInconsistenteError,
     ProveedorInactivoError,
@@ -42,11 +48,14 @@ def _traducir_error(exc: Exception) -> HTTPException:
     )
 
 
-@router.post("/{solicitud_id}/seleccion-proveedor", response_model=SeleccionProveedorRead, status_code=status.HTTP_201_CREATED)
-def seleccionar_proveedor(solicitud_id: str, data: SeleccionProveedorCreate) -> SeleccionProveedorRead:
+@router.post("/{expediente_id}/seleccion-proveedor", response_model=SeleccionProveedorRead, status_code=status.HTTP_201_CREATED)
+def seleccionar_proveedor(expediente_id: str, data: SeleccionProveedorCreate) -> SeleccionProveedorRead:
     try:
-        return seleccion_proveedor_service.seleccionar(solicitud_id, data)
+        return seleccion_proveedor_service.seleccionar(expediente_id, data)
     except (
+        ExpedienteSeleccionInexistenteError,
+        ExpedienteSeleccionIncompletoError,
+        FondoSeleccionIncompatibleError,
         SolicitudSeleccionInexistenteError,
         DecisionSeleccionInexistenteError,
         ProveedorSeleccionInexistenteError,
@@ -60,22 +69,27 @@ def seleccionar_proveedor(solicitud_id: str, data: SeleccionProveedorCreate) -> 
         raise _traducir_error(exc) from exc
 
 
-@router.get("/{solicitud_id}/seleccion-proveedor", response_model=SeleccionProveedorRead)
-def obtener_seleccion_vigente(solicitud_id: str) -> SeleccionProveedorRead:
+@router.get("/{expediente_id}/seleccion-proveedor", response_model=SeleccionProveedorRead)
+def obtener_seleccion_vigente(expediente_id: str) -> SeleccionProveedorRead:
     try:
-        return seleccion_proveedor_service.obtener_vigente(solicitud_id)
+        return seleccion_proveedor_service.obtener_vigente(expediente_id)
     except (
+        ExpedienteSeleccionInexistenteError,
+        ExpedienteSeleccionIncompletoError,
         SolicitudSeleccionInexistenteError,
         SeleccionProveedorInexistenteError,
     ) as exc:
         raise _traducir_error(exc) from exc
 
 
-@router.post("/{solicitud_id}/seleccion-proveedor/reemplazos", response_model=SeleccionProveedorRead, status_code=status.HTTP_201_CREATED)
-def reemplazar_proveedor(solicitud_id: str, data: ReemplazoProveedorCreate) -> SeleccionProveedorRead:
+@router.post("/{expediente_id}/seleccion-proveedor/reemplazos", response_model=SeleccionProveedorRead, status_code=status.HTTP_201_CREATED)
+def reemplazar_proveedor(expediente_id: str, data: ReemplazoProveedorCreate) -> SeleccionProveedorRead:
     try:
-        return seleccion_proveedor_service.reemplazar(solicitud_id, data)
+        return seleccion_proveedor_service.reemplazar(expediente_id, data)
     except (
+        ExpedienteSeleccionInexistenteError,
+        ExpedienteSeleccionIncompletoError,
+        FondoSeleccionIncompatibleError,
         SolicitudSeleccionInexistenteError,
         DecisionSeleccionInexistenteError,
         ProveedorSeleccionInexistenteError,
@@ -91,9 +105,13 @@ def reemplazar_proveedor(solicitud_id: str, data: ReemplazoProveedorCreate) -> S
         raise _traducir_error(exc) from exc
 
 
-@router.get("/{solicitud_id}/selecciones-proveedor", response_model=list[SeleccionProveedorRead])
-def listar_selecciones_proveedor(solicitud_id: str) -> list[SeleccionProveedorRead]:
+@router.get("/{expediente_id}/seleccion-proveedor/historial", response_model=list[SeleccionProveedorRead])
+def listar_selecciones_proveedor(expediente_id: str) -> list[SeleccionProveedorRead]:
     try:
-        return seleccion_proveedor_service.listar_historial(solicitud_id)
-    except SolicitudSeleccionInexistenteError as exc:
+        return seleccion_proveedor_service.listar_historial(expediente_id)
+    except (
+        ExpedienteSeleccionInexistenteError,
+        ExpedienteSeleccionIncompletoError,
+        SolicitudSeleccionInexistenteError,
+    ) as exc:
         raise _traducir_error(exc) from exc

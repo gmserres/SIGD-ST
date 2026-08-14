@@ -5,6 +5,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.infrastructure.database.base import Base
 from app.infrastructure.database.models.decision_administrativa_model import DecisionAdministrativaModel
+from app.infrastructure.database.models.expediente_model import ExpedienteModel
 from app.infrastructure.database.models.proveedor_model import ProveedorModel
 from app.infrastructure.database.models.solicitud_intervencion_model import SolicitudIntervencionModel
 
@@ -12,13 +13,14 @@ from app.infrastructure.database.models.solicitud_intervencion_model import Soli
 class SeleccionProveedorModel(Base):
     __tablename__ = "selecciones_proveedor"
     __table_args__ = (
+        Index("ix_selecciones_proveedor_expediente", "expediente_id"),
         Index("ix_selecciones_proveedor_solicitud", "solicitud_intervencion_id"),
         Index("ix_selecciones_proveedor_decision", "decision_administrativa_id"),
         Index("ix_selecciones_proveedor_proveedor", "proveedor_id"),
         Index("ix_selecciones_proveedor_fecha", "fecha_seleccion"),
         Index(
-            "uq_selecciones_proveedor_solicitud_vigente",
-            "solicitud_intervencion_id",
+            "uq_selecciones_proveedor_expediente_vigente",
+            "expediente_id",
             unique=True,
             postgresql_where=text("vigente IS TRUE"),
             sqlite_where=text("vigente = 1"),
@@ -26,6 +28,11 @@ class SeleccionProveedorModel(Base):
     )
 
     id_seleccion: Mapped[str] = mapped_column(Uuid(as_uuid=False), primary_key=True)
+    expediente_id: Mapped[str] = mapped_column(
+        String(32),
+        ForeignKey(ExpedienteModel.id, ondelete="RESTRICT"),
+        nullable=False,
+    )
     solicitud_intervencion_id: Mapped[str] = mapped_column(
         Uuid(as_uuid=False),
         ForeignKey(SolicitudIntervencionModel.id_solicitud, ondelete="RESTRICT"),

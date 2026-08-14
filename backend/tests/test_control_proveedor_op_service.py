@@ -39,12 +39,13 @@ class ControlProveedorOPServiceTest(unittest.TestCase):
         )
         self.seleccion = SimpleNamespace(
             id_seleccion="SEL-B",
+            expediente_id="EXP-1",
             solicitud_intervencion_id="SOL-1",
             proveedor_cuit="30718078063",
             proveedor_razon_social="Proveedor B S.R.L.",
             vigente=True,
         )
-        self.selecciones.obtener_vigente_por_solicitud.return_value = (
+        self.selecciones.obtener_vigente_por_expediente.return_value = (
             self.seleccion
         )
         self.analisis.analizar_documento.return_value = (
@@ -106,11 +107,11 @@ class ControlProveedorOPServiceTest(unittest.TestCase):
                 .SIN_SOLICITUD_ASOCIADA
             ),
         )
-        self.selecciones.obtener_vigente_por_solicitud.assert_not_called()
+        self.selecciones.obtener_vigente_por_expediente.assert_not_called()
         self.analisis.analizar_documento.assert_not_called()
 
     def test_solicitud_sin_seleccion_no_lee_op(self) -> None:
-        self.selecciones.obtener_vigente_por_solicitud.return_value = (
+        self.selecciones.obtener_vigente_por_expediente.return_value = (
             None
         )
 
@@ -131,11 +132,11 @@ class ControlProveedorOPServiceTest(unittest.TestCase):
         self.servicio.ejecutar("EXP-1", "DOC-1")
 
         (
-            self.selecciones.obtener_vigente_por_solicitud
-            .assert_called_once_with("SOL-1")
+            self.selecciones.obtener_vigente_por_expediente
+            .assert_called_once_with("EXP-1")
         )
         self.assertFalse(
-            self.selecciones.listar_por_solicitud.called
+            self.selecciones.listar_por_expediente.called
         )
 
     def test_reemplazo_previo_usa_nueva_seleccion(self) -> None:
@@ -254,7 +255,7 @@ class ControlProveedorOPServiceTest(unittest.TestCase):
 
         self.assertEqual(
             self.selecciones.method_calls,
-            [call.obtener_vigente_por_solicitud("SOL-1")],
+            [call.obtener_vigente_por_expediente("EXP-1")],
         )
 
     def test_no_modifica_seleccion(self) -> None:

@@ -1,4 +1,5 @@
 from app.composition.decision_administrativa import decision_administrativa_repository
+from app.composition.expediente import expediente_repository
 from app.composition.proveedor import proveedor_repository
 from app.composition.solicitud_intervencion import solicitud_intervencion_repository
 from app.core.settings import get_database_url
@@ -13,6 +14,7 @@ seleccion_proveedor_repository = PostgresSeleccionProveedorRepository(
     _session_factory
 )
 seleccion_proveedor_service = SeleccionProveedorService(
+    expediente_repository=expediente_repository,
     solicitud_repository=solicitud_intervencion_repository,
     decision_repository=decision_administrativa_repository,
     proveedor_repository=proveedor_repository,

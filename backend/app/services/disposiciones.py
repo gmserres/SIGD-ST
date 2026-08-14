@@ -108,7 +108,8 @@ class DisposicionService:
         )
         if proveedor_presentacion is None:
             seleccion = self._obtener_seleccion_habilitante(
-                habilitacion.seleccion_proveedor_id
+                habilitacion.seleccion_proveedor_id,
+                expediente_id,
             )
             proveedor_presentacion = seleccion.proveedor_razon_social
 
@@ -415,7 +416,10 @@ class DisposicionService:
         return habilitacion
 
     @staticmethod
-    def _obtener_seleccion_habilitante(seleccion_proveedor_id: str | None):
+    def _obtener_seleccion_habilitante(
+        seleccion_proveedor_id: str | None,
+        expediente_id: str,
+    ):
         if seleccion_proveedor_id is None:
             raise RuntimeError(
                 "La habilitación no identifica la selección de proveedor."
@@ -429,6 +433,10 @@ class DisposicionService:
         ):
             raise RuntimeError(
                 "No se encontró la selección de proveedor habilitante."
+            )
+        if seleccion.expediente_id != expediente_id:
+            raise RuntimeError(
+                "La selección habilitante no pertenece al Expediente."
             )
         return seleccion
 

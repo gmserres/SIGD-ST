@@ -24,12 +24,19 @@ class PostgresSeleccionProveedorRepository:
     def reemplazar(self, anterior: SeleccionProveedor, nueva: SeleccionProveedor) -> None:
         with self._session_factory() as session:
             try:
-                modelo_anterior = session.get(SeleccionProveedorModel, anterior.id_seleccion)
+                modelo_anterior = session.scalar(
+                    select(SeleccionProveedorModel)
+                    .where(
+                        SeleccionProveedorModel.id_seleccion
+                        == anterior.id_seleccion
+                    )
+                    .with_for_update()
+                )
                 if (
                     modelo_anterior is None
                     or not modelo_anterior.vigente
-                    or modelo_anterior.solicitud_intervencion_id
-                    != anterior.solicitud_intervencion_id
+                    or modelo_anterior.expediente_id
+                    != anterior.expediente_id
                 ):
                     raise SeleccionProveedorVigenteError(
                         "La selección vigente cambió antes del reemplazo."
@@ -51,21 +58,21 @@ class PostgresSeleccionProveedorRepository:
             modelo = session.get(SeleccionProveedorModel, seleccion_id)
             return None if modelo is None else a_dominio(modelo)
 
-    def obtener_vigente_por_solicitud(self, solicitud_id: str) -> SeleccionProveedor | None:
+    def obtener_vigente_por_expediente(self, expediente_id: str) -> SeleccionProveedor | None:
         with self._session_factory() as session:
             modelo = session.scalar(
                 select(SeleccionProveedorModel).where(
-                    SeleccionProveedorModel.solicitud_intervencion_id == solicitud_id,
+                    SeleccionProveedorModel.expediente_id == expediente_id,
                     SeleccionProveedorModel.vigente.is_(True),
                 )
             )
             return None if modelo is None else a_dominio(modelo)
 
-    def listar_por_solicitud(self, solicitud_id: str) -> list[SeleccionProveedor]:
+    def listar_por_expediente(self, expediente_id: str) -> list[SeleccionProveedor]:
         with self._session_factory() as session:
             modelos = session.scalars(
                 select(SeleccionProveedorModel)
-                .where(SeleccionProveedorModel.solicitud_intervencion_id == solicitud_id)
+                .where(SeleccionProveedorModel.expediente_id == expediente_id)
                 .order_by(
                     SeleccionProveedorModel.fecha_seleccion,
                     SeleccionProveedorModel.id_seleccion,
@@ -77,7 +84,7 @@ class PostgresSeleccionProveedorRepository:
     def _traducir_integridad(exc: IntegrityError) -> None:
         diagnostico = getattr(exc.orig, "diag", None)
         nombre_restriccion = getattr(diagnostico, "constraint_name", None)
-        if nombre_restriccion == "uq_selecciones_proveedor_solicitud_vigente":
+        if nombre_restriccion == "uq_selecciones_proveedor_expediente_vigente":
             raise SeleccionProveedorVigenteError(
-                "La Solicitud ya posee una selección vigente."
+                "El Expediente ya posee una selección vigente."
             ) from exc

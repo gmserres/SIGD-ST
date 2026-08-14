@@ -10,6 +10,7 @@ from app.domain.seleccion_proveedor import (
     DecisionNoAprobatoriaError,
     DecisionSeleccionInexistenteError,
     DecisionSolicitudInconsistenteError,
+    ExpedienteSeleccionInexistenteError,
     MismoProveedorSeleccionadoError,
     ProveedorInactivoError,
     ProveedorSeleccionInexistenteError,
@@ -28,6 +29,21 @@ DECISION_ANTERIOR_ID = "00000000-0000-0000-0000-000000000300"
 DECISION_POSTERIOR_ID = "00000000-0000-0000-0000-000000000302"
 PROVEEDOR_ID = "00000000-0000-0000-0000-000000000401"
 PROVEEDOR_NUEVO_ID = "00000000-0000-0000-0000-000000000402"
+EXPEDIENTE_ID = "EXP-000001"
+
+
+class ExpedienteRepositoryFake:
+    def __init__(self):
+        self.expedientes = {
+            EXPEDIENTE_ID: type("Expediente", (), {
+                "id": EXPEDIENTE_ID,
+                "solicitud_intervencion_id": SOLICITUD_ID,
+                "decision_administrativa_id": DECISION_ID,
+            })()
+        }
+
+    def obtener_por_id(self, expediente_id):
+        return self.expedientes.get(expediente_id)
 
 
 class SolicitudRepositoryFake:
@@ -56,6 +72,12 @@ class DecisionRepositoryFake:
     def listar(self, *, solicitud_intervencion_id=None):
         return list(self.decisiones)
 
+    def obtener_por_id(self, decision_id):
+        return next(
+            (item for item in self.decisiones if item.id_decision == decision_id),
+            None,
+        )
+
 
 class ProveedorRepositoryFake:
     def __init__(self):
@@ -82,23 +104,25 @@ class SeleccionRepositoryFake:
         ]
         self.selecciones.append(nueva)
 
-    def obtener_vigente_por_solicitud(self, solicitud_id):
-        return next((item for item in self.selecciones if item.solicitud_intervencion_id == solicitud_id and item.vigente), None)
+    def obtener_vigente_por_expediente(self, expediente_id):
+        return next((item for item in self.selecciones if item.expediente_id == expediente_id and item.vigente), None)
 
-    def listar_por_solicitud(self, solicitud_id):
+    def listar_por_expediente(self, expediente_id):
         return sorted(
-            (item for item in self.selecciones if item.solicitud_intervencion_id == solicitud_id),
+            (item for item in self.selecciones if item.expediente_id == expediente_id),
             key=lambda item: (item.fecha_seleccion, item.id_seleccion),
         )
 
 
 class SeleccionProveedorServiceTest(unittest.TestCase):
     def setUp(self):
+        self.expedientes = ExpedienteRepositoryFake()
         self.solicitudes = SolicitudRepositoryFake()
         self.decisiones = DecisionRepositoryFake()
         self.proveedores = ProveedorRepositoryFake()
         self.selecciones = SeleccionRepositoryFake()
         self.service = SeleccionProveedorService(
+            self.expedientes,
             self.solicitudes,
             self.decisiones,
             self.proveedores,
@@ -107,7 +131,7 @@ class SeleccionProveedorServiceTest(unittest.TestCase):
 
     def test_selecciona_con_unica_decision_aprobatoria(self):
         self.decisiones.decisiones = [self._decision(DECISION_ID, "Aprobar intervención")]
-        seleccion = self.service.seleccionar(SOLICITUD_ID, self._data())
+        seleccion = self.service.seleccionar(EXPEDIENTE_ID, self._data())
         self.assertEqual(seleccion.decision_administrativa_id, DECISION_ID)
         self.assertEqual(seleccion.solicitud_intervencion_id, SOLICITUD_ID)
         self.assertTrue(seleccion.vigente)
@@ -117,7 +141,8 @@ class SeleccionProveedorServiceTest(unittest.TestCase):
             self._decision(DECISION_ANTERIOR_ID, "Solicitar información adicional", fecha=date(2026, 8, 9)),
             self._decision(DECISION_POSTERIOR_ID, "Aprobar intervención", fecha=date(2026, 8, 10)),
         ]
-        seleccion = self.service.seleccionar(SOLICITUD_ID, self._data())
+        self.expedientes.expedientes[EXPEDIENTE_ID].decision_administrativa_id = DECISION_POSTERIOR_ID
+        seleccion = self.service.seleccionar(EXPEDIENTE_ID, self._data())
         self.assertEqual(seleccion.decision_administrativa_id, DECISION_POSTERIOR_ID)
 
     def test_impide_seleccion_si_la_ultima_decision_no_es_aprobatoria(self):
@@ -125,27 +150,28 @@ class SeleccionProveedorServiceTest(unittest.TestCase):
             self._decision(DECISION_ANTERIOR_ID, "Aprobar intervención", fecha=date(2026, 8, 9)),
             self._decision(DECISION_POSTERIOR_ID, "Rechazar intervención", fecha=date(2026, 8, 10)),
         ]
-        with self.assertRaisesRegex(DecisionNoAprobatoriaError, "La última Decisión no aprueba la intervención."):
-            self.service.seleccionar(SOLICITUD_ID, self._data())
+        self.expedientes.expedientes[EXPEDIENTE_ID].decision_administrativa_id = DECISION_POSTERIOR_ID
+        with self.assertRaisesRegex(DecisionNoAprobatoriaError, "no aprueba la intervención"):
+            self.service.seleccionar(EXPEDIENTE_ID, self._data())
         self.assertEqual(self.selecciones.selecciones, [])
 
     def test_impide_seleccion_para_solicitud_inexistente(self):
-        with self.assertRaises(SolicitudSeleccionInexistenteError):
-            self.service.seleccionar(OTRA_SOLICITUD_ID, self._data())
+        with self.assertRaises(ExpedienteSeleccionInexistenteError):
+            self.service.seleccionar("EXP-INEXISTENTE", self._data())
 
     def test_impide_seleccion_sin_decision(self):
         with self.assertRaises(DecisionSeleccionInexistenteError):
-            self.service.seleccionar(SOLICITUD_ID, self._data())
+            self.service.seleccionar(EXPEDIENTE_ID, self._data())
 
     def test_impide_decision_incongruente_con_solicitud(self):
         self.decisiones.decisiones = [self._decision(DECISION_ID, "Aprobar intervención", solicitud=OTRA_SOLICITUD_ID)]
         with self.assertRaises(DecisionSolicitudInconsistenteError):
-            self.service.seleccionar(SOLICITUD_ID, self._data())
+            self.service.seleccionar(EXPEDIENTE_ID, self._data())
 
     def test_impide_seleccion_de_proveedor_inexistente(self):
         self._aprobar()
         with self.assertRaises(ProveedorSeleccionInexistenteError):
-            self.service.seleccionar(SOLICITUD_ID, SeleccionProveedorCreate(
+            self.service.seleccionar(EXPEDIENTE_ID, SeleccionProveedorCreate(
                 proveedor_id="00000000-0000-0000-0000-999999999999",
                 seleccionado_por="Secretaría Técnica",
             ))
@@ -154,25 +180,45 @@ class SeleccionProveedorServiceTest(unittest.TestCase):
         self._aprobar()
         self.proveedores.proveedores[PROVEEDOR_ID] = self.proveedores.proveedores[PROVEEDOR_ID].inactivar()
         with self.assertRaises(ProveedorInactivoError):
-            self.service.seleccionar(SOLICITUD_ID, self._data())
+            self.service.seleccionar(EXPEDIENTE_ID, self._data())
 
     def test_impide_segunda_seleccion_vigente(self):
         self._aprobar()
-        self.service.seleccionar(SOLICITUD_ID, self._data())
+        self.service.seleccionar(EXPEDIENTE_ID, self._data())
         with self.assertRaises(SeleccionProveedorVigenteError):
-            self.service.seleccionar(SOLICITUD_ID, SeleccionProveedorCreate(
+            self.service.seleccionar(EXPEDIENTE_ID, SeleccionProveedorCreate(
                 proveedor_id=PROVEEDOR_NUEVO_ID,
                 seleccionado_por="Secretaría Técnica",
             ))
         self.assertEqual(len(self.selecciones.selecciones), 1)
 
+    def test_dos_expedientes_misma_solicitud_seleccionan_proveedores_distintos(self):
+        self._aprobar()
+        segundo_id = "EXP-000002"
+        self.expedientes.expedientes[segundo_id] = type("Expediente", (), {
+            "id": segundo_id,
+            "solicitud_intervencion_id": SOLICITUD_ID,
+            "decision_administrativa_id": DECISION_ID,
+        })()
+        seleccion_a = self.service.seleccionar(EXPEDIENTE_ID, self._data())
+        seleccion_b = self.service.seleccionar(
+            segundo_id,
+            SeleccionProveedorCreate(
+                proveedor_id=PROVEEDOR_NUEVO_ID,
+                seleccionado_por="Secretaría Técnica",
+            ),
+        )
+        self.assertEqual(seleccion_a.expediente_id, EXPEDIENTE_ID)
+        self.assertEqual(seleccion_b.expediente_id, segundo_id)
+        self.assertNotEqual(seleccion_a.proveedor_id, seleccion_b.proveedor_id)
+
     def test_construye_snapshots_desde_maestro(self):
         self._aprobar()
-        seleccion = self.service.seleccionar(SOLICITUD_ID, self._data())
+        seleccion = self.service.seleccionar(EXPEDIENTE_ID, self._data())
         self.assertEqual(seleccion.proveedor_cuit, "30718078063")
         self.assertEqual(seleccion.proveedor_razon_social, "Proveedor Original")
         self.proveedores.proveedores[PROVEEDOR_ID] = self.proveedores.proveedores[PROVEEDOR_ID].modificar_razon_social("Razón Social Posterior")
-        self.assertEqual(self.service.obtener_vigente(SOLICITUD_ID).proveedor_razon_social, "Proveedor Original")
+        self.assertEqual(self.service.obtener_vigente(EXPEDIENTE_ID).proveedor_razon_social, "Proveedor Original")
 
     def test_reemplaza_y_preserva_seleccion_anterior(self):
         self._aprobar()
@@ -182,11 +228,11 @@ class SeleccionProveedorServiceTest(unittest.TestCase):
         ) as reloj:
             reloj.now.return_value = instante
             anterior = self.service.seleccionar(
-                SOLICITUD_ID,
+                EXPEDIENTE_ID,
                 self._data(),
             )
             nueva = self.service.reemplazar(
-                SOLICITUD_ID,
+                EXPEDIENTE_ID,
                 ReemplazoProveedorCreate(
                     proveedor_id=PROVEEDOR_NUEVO_ID,
                     seleccionado_por="Secretaría Técnica",
@@ -196,7 +242,7 @@ class SeleccionProveedorServiceTest(unittest.TestCase):
                 ),
             )
 
-        historial = self.service.listar_historial(SOLICITUD_ID)
+        historial = self.service.listar_historial(EXPEDIENTE_ID)
 
         self.assertEqual(len(historial), 2)
         self.assertEqual(historial[0].id_seleccion, anterior.id_seleccion)
@@ -214,16 +260,16 @@ class SeleccionProveedorServiceTest(unittest.TestCase):
 
     def test_reemplazo_exige_motivo_y_proveedor_diferente(self):
         self._aprobar()
-        self.service.seleccionar(SOLICITUD_ID, self._data())
+        self.service.seleccionar(EXPEDIENTE_ID, self._data())
         sin_motivo = ReemplazoProveedorCreate.model_construct(
             proveedor_id=PROVEEDOR_NUEVO_ID,
             seleccionado_por="Secretaría Técnica",
             motivo_reemplazo="   ",
         )
         with self.assertRaises(ValueError):
-            self.service.reemplazar(SOLICITUD_ID, sin_motivo)
+            self.service.reemplazar(EXPEDIENTE_ID, sin_motivo)
         with self.assertRaises(MismoProveedorSeleccionadoError):
-            self.service.reemplazar(SOLICITUD_ID, ReemplazoProveedorCreate(
+            self.service.reemplazar(EXPEDIENTE_ID, ReemplazoProveedorCreate(
                 proveedor_id=PROVEEDOR_ID,
                 seleccionado_por="Secretaría Técnica",
                 motivo_reemplazo="Reasignación",

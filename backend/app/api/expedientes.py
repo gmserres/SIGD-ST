@@ -72,6 +72,9 @@ from app.services.disposiciones import (
 from app.repositories.disposicion_repository import (
     DisposicionYaRegistradaError,
 )
+from app.repositories.control_proveedor_op_repository import (
+    SeleccionControlObsoletaError,
+)
 from app.repositories.emitir_disposicion_persistence import (
     EstadoExpedienteIncompatibleError,
     ExpedienteNoEncontradoAlEmitirError,
@@ -513,6 +516,8 @@ def _registrar_control_proveedor_op_o_error(
             expediente_id,
             documento_id,
         )
+    except SeleccionControlObsoletaError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     except KeyError as exc:
         raise HTTPException(
             status_code=404,

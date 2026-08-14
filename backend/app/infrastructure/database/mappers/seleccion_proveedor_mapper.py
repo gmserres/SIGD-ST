@@ -5,6 +5,7 @@ from app.infrastructure.database.models.seleccion_proveedor_model import Selecci
 def a_modelo(seleccion: SeleccionProveedor) -> SeleccionProveedorModel:
     return SeleccionProveedorModel(
         id_seleccion=seleccion.id_seleccion,
+        expediente_id=seleccion.expediente_id,
         solicitud_intervencion_id=seleccion.solicitud_intervencion_id,
         decision_administrativa_id=seleccion.decision_administrativa_id,
         proveedor_id=seleccion.proveedor_id,
@@ -20,6 +21,7 @@ def a_modelo(seleccion: SeleccionProveedor) -> SeleccionProveedorModel:
 def a_dominio(modelo: SeleccionProveedorModel) -> SeleccionProveedor:
     return SeleccionProveedor(
         id_seleccion=modelo.id_seleccion,
+        expediente_id=modelo.expediente_id,
         solicitud_intervencion_id=modelo.solicitud_intervencion_id,
         decision_administrativa_id=modelo.decision_administrativa_id,
         proveedor_id=modelo.proveedor_id,

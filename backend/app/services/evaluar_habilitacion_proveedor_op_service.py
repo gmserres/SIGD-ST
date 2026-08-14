@@ -57,8 +57,8 @@ class EvaluarHabilitacionProveedorOPService:
                 ),
             )
 
-        seleccion = self._selecciones.obtener_vigente_por_solicitud(
-            solicitud_id
+        seleccion = self._selecciones.obtener_vigente_por_expediente(
+            expediente_id
         )
         if seleccion is None:
             return self._resultado(
@@ -73,6 +73,14 @@ class EvaluarHabilitacionProveedorOPService:
                     "Registrar administrativamente al proveedor identificado "
                     "en la OP y ejecutar un nuevo control."
                 ),
+            )
+
+        if (
+            seleccion.expediente_id != expediente_id
+            or seleccion.solicitud_intervencion_id != solicitud_id
+        ):
+            raise RuntimeError(
+                "La selección vigente no corresponde al Expediente."
             )
 
         ultimo = self._controles.obtener_ultimo_por_documento(documento_op_id)

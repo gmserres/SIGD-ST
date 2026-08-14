@@ -5,6 +5,14 @@ from app.domain.control_proveedor_op_evidencia import (
 )
 
 
+class SeleccionControlObsoletaError(ValueError):
+    def __init__(self) -> None:
+        super().__init__(
+            "La selección de proveedor cambió antes de registrar el control. "
+            "Ejecute nuevamente el control."
+        )
+
+
 class ControlProveedorOPRepository(Protocol):
     def guardar(
         self,

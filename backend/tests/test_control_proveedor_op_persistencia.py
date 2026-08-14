@@ -25,6 +25,9 @@ from app.infrastructure.database.models.seleccion_proveedor_model import (
 from app.infrastructure.database.models.solicitud_intervencion_model import (
     SolicitudIntervencionModel,
 )
+from app.repositories.control_proveedor_op_repository import (
+    SeleccionControlObsoletaError,
+)
 from app.infrastructure.database.repositories.control_proveedor_op_postgres_repository import (
     PostgresControlProveedorOPRepository,
 )
@@ -101,21 +104,28 @@ class ControlProveedorOPPersistenciaTest(unittest.TestCase):
         self.assertIsNone(recuperado.cuit_detectado)
 
     def test_preserva_snapshot_seleccionado(self) -> None:
-        recuperado = self.repository.guardar(
-            self._control(
-                proveedor_razon_social_seleccionada=(
-                    "Proveedor Histórico S.R.L."
-                )
-            )
-        )
+        recuperado = self.repository.guardar(self._control())
 
         self.assertEqual(
             recuperado.proveedor_cuit_seleccionado, "30718078063"
         )
         self.assertEqual(
             recuperado.proveedor_razon_social_seleccionada,
-            "Proveedor Histórico S.R.L.",
+            "Proveedor A",
         )
+
+    def test_no_persiste_control_si_seleccion_dejo_de_ser_vigente(self) -> None:
+        with self.session_factory() as session:
+            seleccion = session.get(SeleccionProveedorModel, SELECCION_A_ID)
+            seleccion.vigente = False
+            session.commit()
+        with self.assertRaises(SeleccionControlObsoletaError):
+            self.repository.guardar(self._control())
+        with self.session_factory() as session:
+            self.assertEqual(
+                session.query(ControlProveedorOPModel).count(),
+                0,
+            )
 
     def test_preserva_snapshot_detectado(self) -> None:
         recuperado = self.repository.guardar(
@@ -197,7 +207,11 @@ class ControlProveedorOPPersistenciaTest(unittest.TestCase):
         )
         for indice, cambios in enumerate(casos, start=1):
             with self.subTest(cambios=cambios):
-                with self.assertRaises(IntegrityError):
+                with self.assertRaises((
+                    IntegrityError,
+                    SeleccionControlObsoletaError,
+                    ValueError,
+                )):
                     self.repository.guardar(
                         self._control(
                             id_control=(
@@ -330,6 +344,7 @@ class ControlProveedorOPPersistenciaTest(unittest.TestCase):
             session.add(
                 SeleccionProveedorModel(
                     id_seleccion=SELECCION_A_ID,
+                    expediente_id=EXPEDIENTE_ID,
                     solicitud_intervencion_id=SOLICITUD_ID,
                     decision_administrativa_id=DECISION_ID,
                     proveedor_id=PROVEEDOR_A_ID,
@@ -347,6 +362,7 @@ class ControlProveedorOPPersistenciaTest(unittest.TestCase):
     def _seleccion_b() -> SeleccionProveedorModel:
         return SeleccionProveedorModel(
             id_seleccion=SELECCION_B_ID,
+            expediente_id=EXPEDIENTE_ID,
             solicitud_intervencion_id=SOLICITUD_ID,
             decision_administrativa_id=DECISION_ID,
             proveedor_id=PROVEEDOR_B_ID,

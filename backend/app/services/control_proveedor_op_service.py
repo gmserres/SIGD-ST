@@ -110,7 +110,7 @@ class ControlProveedorOPService:
 
         seleccion = (
             self._seleccion_proveedor_repository
-            .obtener_vigente_por_solicitud(solicitud_id)
+            .obtener_vigente_por_expediente(expediente_id)
         )
         if seleccion is None:
             return self._resultado_sin_trazabilidad(
@@ -121,6 +121,14 @@ class ControlProveedorOPService:
                     EstadoControlProveedorOPAdministrativo
                     .SIN_PROVEEDOR_SELECCIONADO
                 ),
+            )
+
+        if (
+            seleccion.expediente_id != expediente_id
+            or seleccion.solicitud_intervencion_id != solicitud_id
+        ):
+            raise RuntimeError(
+                "La selección vigente no corresponde al Expediente."
             )
 
         if reconstruir:

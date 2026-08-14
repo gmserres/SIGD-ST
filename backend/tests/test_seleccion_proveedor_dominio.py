@@ -75,6 +75,7 @@ class SeleccionProveedorDominioTest(unittest.TestCase):
     def _crear(
         *,
         id_seleccion="00000000-0000-0000-0000-000000000101",
+        expediente_id="EXP-000001",
         solicitud_intervencion_id="00000000-0000-0000-0000-000000000201",
         decision_administrativa_id="00000000-0000-0000-0000-000000000301",
         proveedor_id="00000000-0000-0000-0000-000000000401",
@@ -87,6 +88,7 @@ class SeleccionProveedorDominioTest(unittest.TestCase):
     ) -> SeleccionProveedor:
         return SeleccionProveedor(
             id_seleccion=id_seleccion,
+            expediente_id=expediente_id,
             solicitud_intervencion_id=solicitud_intervencion_id,
             decision_administrativa_id=decision_administrativa_id,
             proveedor_id=proveedor_id,

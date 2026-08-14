@@ -24,7 +24,7 @@ class HabilitacionProveedorOPServiceTest(unittest.TestCase):
             id="DOC-1", expediente_id="EXP-1", tipo="OP"
         )
         self.seleccion = self._seleccion()
-        self.selecciones.obtener_vigente_por_solicitud.return_value = self.seleccion
+        self.selecciones.obtener_vigente_por_expediente.return_value = self.seleccion
         self.controles.obtener_ultimo_por_documento.return_value = self._control()
         self.proveedores.obtener_por_cuit.return_value = None
         self.servicio = EvaluarHabilitacionProveedorOPService(
@@ -46,6 +46,65 @@ class HabilitacionProveedorOPServiceTest(unittest.TestCase):
         )
         self.proveedores.obtener_por_cuit.assert_not_called()
 
+    def test_reemplazo_en_a_no_afecta_habilitacion_de_b(self) -> None:
+        selecciones = {
+            "EXP-A": self._seleccion(
+                id_seleccion="SEL-A", expediente_id="EXP-A"
+            ),
+            "EXP-B": self._seleccion(
+                id_seleccion="SEL-B",
+                expediente_id="EXP-B",
+                proveedor_id="PROV-B",
+            ),
+        }
+        controles = {
+            "DOC-A": self._control(
+                expediente_id="EXP-A",
+                documento_op_id="DOC-A",
+                seleccion_proveedor_id="SEL-A",
+            ),
+            "DOC-B": self._control(
+                expediente_id="EXP-B",
+                documento_op_id="DOC-B",
+                seleccion_proveedor_id="SEL-B",
+            ),
+        }
+        self.expedientes.obtener.side_effect = lambda _: SimpleNamespace(
+            solicitud_intervencion_id="SOL-1"
+        )
+        self.documentos.obtener_por_id.side_effect = lambda documento_id: (
+            SimpleNamespace(
+                id=documento_id,
+                expediente_id="EXP-A" if documento_id == "DOC-A" else "EXP-B",
+                tipo="OP",
+            )
+        )
+        self.selecciones.obtener_vigente_por_expediente.side_effect = (
+            lambda expediente_id: selecciones[expediente_id]
+        )
+        self.controles.obtener_ultimo_por_documento.side_effect = (
+            lambda documento_id: controles[documento_id]
+        )
+        self.assertEqual(
+            self.servicio.evaluar("EXP-A", "DOC-A").estado,
+            EstadoHabilitacionProveedorOP.HABILITADO,
+        )
+        self.assertEqual(
+            self.servicio.evaluar("EXP-B", "DOC-B").estado,
+            EstadoHabilitacionProveedorOP.HABILITADO,
+        )
+        selecciones["EXP-A"] = self._seleccion(
+            id_seleccion="SEL-C", expediente_id="EXP-A"
+        )
+        self.assertEqual(
+            self.servicio.evaluar("EXP-A", "DOC-A").estado,
+            EstadoHabilitacionProveedorOP.REQUIERE_NUEVO_CONTROL,
+        )
+        self.assertEqual(
+            self.servicio.evaluar("EXP-B", "DOC-B").estado,
+            EstadoHabilitacionProveedorOP.HABILITADO,
+        )
+
     def test_cuit_diferente_requiere_reasignacion_sin_reasignar(self) -> None:
         self.controles.obtener_ultimo_por_documento.return_value = self._control(
             estado=EstadoControlProveedorOP.CUIT_DIFERENTE,
@@ -60,11 +119,11 @@ class HabilitacionProveedorOPServiceTest(unittest.TestCase):
         self.assertFalse(resultado.proveedor_op_en_maestro)
         self.assertEqual(
             self.selecciones.method_calls,
-            [call.obtener_vigente_por_solicitud("SOL-1")],
+            [call.obtener_vigente_por_expediente("EXP-1")],
         )
 
     def test_reasignacion_sin_nuevo_control_requiere_control(self) -> None:
-        self.selecciones.obtener_vigente_por_solicitud.return_value = self._seleccion(
+        self.selecciones.obtener_vigente_por_expediente.return_value = self._seleccion(
             id_seleccion="SEL-B", proveedor_id="PROV-B"
         )
         resultado = self.servicio.evaluar("EXP-1", "DOC-1")
@@ -75,7 +134,7 @@ class HabilitacionProveedorOPServiceTest(unittest.TestCase):
         self.assertEqual(resultado.seleccion_proveedor_id, "SEL-B")
 
     def test_reasignacion_y_nuevo_coincide_habilita(self) -> None:
-        self.selecciones.obtener_vigente_por_solicitud.return_value = self._seleccion(
+        self.selecciones.obtener_vigente_por_expediente.return_value = self._seleccion(
             id_seleccion="SEL-B", proveedor_id="PROV-B"
         )
         self.controles.obtener_ultimo_por_documento.return_value = self._control(
@@ -88,7 +147,7 @@ class HabilitacionProveedorOPServiceTest(unittest.TestCase):
         self.assertEqual(resultado.proveedor_definitivo_id, "PROV-B")
 
     def test_coincide_historico_con_seleccion_reemplazada_no_habilita(self) -> None:
-        self.selecciones.obtener_vigente_por_solicitud.return_value = self._seleccion(
+        self.selecciones.obtener_vigente_por_expediente.return_value = self._seleccion(
             id_seleccion="SEL-B", proveedor_id="PROV-B"
         )
         resultado = self.servicio.evaluar("EXP-1", "DOC-1")
@@ -110,7 +169,7 @@ class HabilitacionProveedorOPServiceTest(unittest.TestCase):
         )
 
     def test_sin_seleccion_requiere_seleccion(self) -> None:
-        self.selecciones.obtener_vigente_por_solicitud.return_value = None
+        self.selecciones.obtener_vigente_por_expediente.return_value = None
         resultado = self.servicio.evaluar("EXP-1", "DOC-1")
         self.assertEqual(
             resultado.estado,
@@ -127,7 +186,7 @@ class HabilitacionProveedorOPServiceTest(unittest.TestCase):
             resultado.estado,
             EstadoHabilitacionProveedorOP.SIN_SOLICITUD_ASOCIADA,
         )
-        self.selecciones.obtener_vigente_por_solicitud.assert_not_called()
+        self.selecciones.obtener_vigente_por_expediente.assert_not_called()
 
     def test_solo_importa_ultimo_control_autoritativo(self) -> None:
         self.controles.obtener_ultimo_por_documento.return_value = self._control(
@@ -206,6 +265,7 @@ class HabilitacionProveedorOPServiceTest(unittest.TestCase):
     def _seleccion(**cambios):
         valores = {
             "id_seleccion": "SEL-A",
+            "expediente_id": "EXP-1",
             "solicitud_intervencion_id": "SOL-1",
             "proveedor_id": "PROV-A",
             "proveedor_cuit": "30718078063",

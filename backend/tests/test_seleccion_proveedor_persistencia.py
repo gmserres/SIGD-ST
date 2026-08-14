@@ -9,6 +9,7 @@ from app.domain.seleccion_proveedor import SeleccionProveedor
 from app.infrastructure.database.base import Base
 from app.infrastructure.database.mappers.seleccion_proveedor_mapper import a_dominio, a_modelo
 from app.infrastructure.database.models.decision_administrativa_model import DecisionAdministrativaModel
+from app.infrastructure.database.models.expediente_model import ExpedienteModel
 from app.infrastructure.database.models.proveedor_model import ProveedorModel
 from app.infrastructure.database.models.solicitud_intervencion_model import SolicitudIntervencionModel
 from app.infrastructure.database.repositories.seleccion_proveedor_postgres_repository import PostgresSeleccionProveedorRepository
@@ -20,6 +21,7 @@ PROVEEDOR_ID = "00000000-0000-0000-0000-000000000401"
 PROVEEDOR_NUEVO_ID = "00000000-0000-0000-0000-000000000402"
 SELECCION_ID = "00000000-0000-0000-0000-000000000101"
 SELECCION_NUEVA_ID = "00000000-0000-0000-0000-000000000102"
+EXPEDIENTE_ID = "EXP-000001"
 
 
 class SeleccionProveedorPersistenciaTest(unittest.TestCase):
@@ -49,7 +51,7 @@ class SeleccionProveedorPersistenciaTest(unittest.TestCase):
         seleccion = self._crear_seleccion()
         self.repository.guardar(seleccion)
         self.assertEqual(self.repository.obtener_por_id(seleccion.id_seleccion), seleccion)
-        self.assertEqual(self.repository.obtener_vigente_por_solicitud(SOLICITUD_ID), seleccion)
+        self.assertEqual(self.repository.obtener_vigente_por_expediente(EXPEDIENTE_ID), seleccion)
 
     def test_impide_dos_selecciones_vigentes_para_solicitud(self):
         primera = self._crear_seleccion()
@@ -62,7 +64,46 @@ class SeleccionProveedorPersistenciaTest(unittest.TestCase):
         self.repository.guardar(primera)
         with self.assertRaises(IntegrityError):
             self.repository.guardar(segunda)
-        self.assertEqual(self.repository.obtener_vigente_por_solicitud(SOLICITUD_ID), primera)
+        self.assertEqual(self.repository.obtener_vigente_por_expediente(EXPEDIENTE_ID), primera)
+
+    def test_dos_expedientes_de_una_solicitud_tienen_vigentes_independientes(self):
+        segundo_id = "EXP-000002"
+        with self.session_factory() as session:
+            session.add(ExpedienteModel(
+                secuencia=2,
+                id=segundo_id,
+                numero_interno="033-002/2026",
+                numero_gdeba=None,
+                solicitud_intervencion_id=SOLICITUD_ID,
+                decision_administrativa_id=DECISION_ID,
+                configuracion_uc_id=None,
+                id_suna="SUNA-1",
+                tipo_tramite="FONDO_COMPENSADOR",
+                estado="BORRADOR",
+                establecimiento="EP N.º 1",
+                objeto="Segunda contratación",
+                numero_disposicion=None,
+                creado=datetime(2026, 8, 10, 12),
+            ))
+            session.commit()
+        primera = self._crear_seleccion()
+        segunda = self._crear_seleccion(
+            id_seleccion=SELECCION_NUEVA_ID,
+            expediente_id=segundo_id,
+            proveedor_id=PROVEEDOR_NUEVO_ID,
+            proveedor_cuit="30000000007",
+            proveedor_razon_social="Proveedor Nuevo",
+        )
+        self.repository.guardar(primera)
+        self.repository.guardar(segunda)
+        self.assertEqual(
+            self.repository.obtener_vigente_por_expediente(EXPEDIENTE_ID),
+            primera,
+        )
+        self.assertEqual(
+            self.repository.obtener_vigente_por_expediente(segundo_id),
+            segunda,
+        )
 
     def test_reemplazo_preserva_anterior_y_deja_una_vigente(self):
         anterior = self._crear_seleccion()
@@ -70,9 +111,9 @@ class SeleccionProveedorPersistenciaTest(unittest.TestCase):
         self.repository.guardar(anterior)
         self.repository.reemplazar(anterior, nueva)
         anterior_persistida = self.repository.obtener_por_id(anterior.id_seleccion)
-        historial = self.repository.listar_por_solicitud(SOLICITUD_ID)
+        historial = self.repository.listar_por_expediente(EXPEDIENTE_ID)
         self.assertFalse(anterior_persistida.vigente)
-        self.assertEqual(self.repository.obtener_vigente_por_solicitud(SOLICITUD_ID), nueva)
+        self.assertEqual(self.repository.obtener_vigente_por_expediente(EXPEDIENTE_ID), nueva)
         self.assertEqual(len(historial), 2)
         self.assertEqual(sum(item.vigente for item in historial), 1)
 
@@ -82,7 +123,7 @@ class SeleccionProveedorPersistenciaTest(unittest.TestCase):
         self.repository.guardar(anterior)
         self.repository.reemplazar(anterior, nueva)
         self.assertEqual(
-            [item.id_seleccion for item in self.repository.listar_por_solicitud(SOLICITUD_ID)],
+            [item.id_seleccion for item in self.repository.listar_por_expediente(EXPEDIENTE_ID)],
             [SELECCION_ID, SELECCION_NUEVA_ID],
         )
 
@@ -123,8 +164,8 @@ class SeleccionProveedorPersistenciaTest(unittest.TestCase):
         self.repository.guardar(anterior)
         with self.assertRaises(IntegrityError):
             self.repository.reemplazar(anterior, nueva_invalida)
-        historial = self.repository.listar_por_solicitud(SOLICITUD_ID)
-        self.assertEqual(self.repository.obtener_vigente_por_solicitud(SOLICITUD_ID), anterior)
+        historial = self.repository.listar_por_expediente(EXPEDIENTE_ID)
+        self.assertEqual(self.repository.obtener_vigente_por_expediente(EXPEDIENTE_ID), anterior)
         self.assertEqual(historial, [anterior])
         self.assertTrue(historial[0].vigente)
 
@@ -157,12 +198,29 @@ class SeleccionProveedorPersistenciaTest(unittest.TestCase):
                 ProveedorModel(id_proveedor=PROVEEDOR_ID, cuit="30718078063", razon_social="Proveedor Original", activo=True),
                 ProveedorModel(id_proveedor=PROVEEDOR_NUEVO_ID, cuit="30000000007", razon_social="Proveedor Nuevo", activo=True),
             ])
+            session.add(ExpedienteModel(
+                secuencia=1,
+                id=EXPEDIENTE_ID,
+                numero_interno="033-001/2026",
+                numero_gdeba=None,
+                solicitud_intervencion_id=SOLICITUD_ID,
+                decision_administrativa_id=DECISION_ID,
+                configuracion_uc_id=None,
+                id_suna="SUNA-1",
+                tipo_tramite="FONDO_COMPENSADOR",
+                estado="BORRADOR",
+                establecimiento="EP N.º 1",
+                objeto="Intervención de prueba",
+                numero_disposicion=None,
+                creado=datetime(2026, 8, 10, 11),
+            ))
             session.commit()
 
     @staticmethod
     def _crear_seleccion(
         *,
         id_seleccion=SELECCION_ID,
+        expediente_id=EXPEDIENTE_ID,
         solicitud_intervencion_id=SOLICITUD_ID,
         decision_administrativa_id=DECISION_ID,
         proveedor_id=PROVEEDOR_ID,
@@ -175,6 +233,7 @@ class SeleccionProveedorPersistenciaTest(unittest.TestCase):
     ):
         return SeleccionProveedor(
             id_seleccion=id_seleccion,
+            expediente_id=expediente_id,
             solicitud_intervencion_id=solicitud_intervencion_id,
             decision_administrativa_id=decision_administrativa_id,
             proveedor_id=proveedor_id,

@@ -40,6 +40,7 @@ class SeleccionProveedorApiTest(unittest.TestCase):
         self.patch.start()
         self.seleccion = SeleccionProveedorRead(
             id_seleccion=SELECCION_ID,
+            expediente_id="EXP-000001",
             solicitud_intervencion_id=SOLICITUD_ID,
             decision_administrativa_id=DECISION_ID,
             proveedor_id=PROVEEDOR_ID,
@@ -59,7 +60,7 @@ class SeleccionProveedorApiTest(unittest.TestCase):
             ruta
             for ruta in router.routes
             if isinstance(ruta, APIRoute)
-            and ruta.path == "/{solicitud_id}/seleccion-proveedor"
+            and ruta.path == "/{expediente_id}/seleccion-proveedor"
             and "POST" in ruta.methods
         )
         reemplazo = next(
@@ -67,7 +68,7 @@ class SeleccionProveedorApiTest(unittest.TestCase):
             for ruta in router.routes
             if isinstance(ruta, APIRoute)
             and ruta.path
-            == "/{solicitud_id}/seleccion-proveedor/reemplazos"
+            == "/{expediente_id}/seleccion-proveedor/reemplazos"
             and "POST" in ruta.methods
         )
         self.assertIn("POST", seleccion.methods)

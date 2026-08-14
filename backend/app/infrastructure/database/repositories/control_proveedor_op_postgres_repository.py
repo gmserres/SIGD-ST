@@ -12,6 +12,13 @@ from app.infrastructure.database.mappers.control_proveedor_op_mapper import (
 from app.infrastructure.database.models.control_proveedor_op_model import (
     ControlProveedorOPModel,
 )
+from app.infrastructure.database.models.documento_model import DocumentoModel
+from app.infrastructure.database.models.seleccion_proveedor_model import (
+    SeleccionProveedorModel,
+)
+from app.repositories.control_proveedor_op_repository import (
+    SeleccionControlObsoletaError,
+)
 
 
 class PostgresControlProveedorOPRepository:
@@ -27,6 +34,39 @@ class PostgresControlProveedorOPRepository:
     ) -> ControlProveedorOPEvidencia:
         with self._session_factory() as session:
             try:
+                seleccion = session.scalar(
+                    select(SeleccionProveedorModel)
+                    .where(
+                        SeleccionProveedorModel.id_seleccion
+                        == control.seleccion_proveedor_id
+                    )
+                    .with_for_update()
+                )
+                if (
+                    seleccion is None
+                    or not seleccion.vigente
+                    or seleccion.expediente_id != control.expediente_id
+                    or str(seleccion.solicitud_intervencion_id)
+                    != control.solicitud_intervencion_id
+                    or seleccion.proveedor_cuit
+                    != control.proveedor_cuit_seleccionado
+                    or seleccion.proveedor_razon_social
+                    != control.proveedor_razon_social_seleccionada
+                ):
+                    raise SeleccionControlObsoletaError()
+
+                documento = session.get(
+                    DocumentoModel,
+                    documento_id_a_secuencia(control.documento_op_id),
+                )
+                if (
+                    documento is None
+                    or documento.expediente_id != control.expediente_id
+                    or documento.tipo.upper() != "OP"
+                ):
+                    raise ValueError(
+                        "El Documento OP no corresponde al Expediente."
+                    )
                 modelo = a_modelo(control)
                 self._preparar_secuencia_sqlite(session, modelo)
                 session.add(modelo)

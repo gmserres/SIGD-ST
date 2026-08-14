@@ -94,6 +94,7 @@ class BorradorDisposicionDireccionadoTest(unittest.TestCase):
         )
         self.mocks["seleccion"].return_value = SimpleNamespace(
             id_seleccion="SEL-1",
+            expediente_id="EXP-1",
             proveedor_razon_social="Razón selección histórica",
         )
         self.servicio = DisposicionService()
@@ -195,6 +196,18 @@ class BorradorDisposicionDireccionadoTest(unittest.TestCase):
             proveedor_razon_social="Otra",
         )
         with self.assertRaises(RuntimeError):
+            self.servicio.generar_borrador("EXP-1", "DOC-000001")
+
+    def test_fallback_rechaza_seleccion_de_otro_expediente(self) -> None:
+        self.mocks["habilitar"].return_value = self._habilitacion(
+            "DOC-000001", razon=None
+        )
+        self.mocks["seleccion"].return_value = SimpleNamespace(
+            id_seleccion="SEL-1",
+            expediente_id="EXP-OTRO",
+            proveedor_razon_social="Otra",
+        )
+        with self.assertRaisesRegex(RuntimeError, "no pertenece"):
             self.servicio.generar_borrador("EXP-1", "DOC-000001")
 
     def test_no_existe_dependencia_del_maestro(self) -> None:

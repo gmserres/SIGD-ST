@@ -20,6 +20,14 @@ class SolicitudSeleccionInexistenteError(LookupError):
     pass
 
 
+class ExpedienteSeleccionInexistenteError(LookupError):
+    pass
+
+
+class ExpedienteSeleccionIncompletoError(SeleccionProveedorError):
+    pass
+
+
 class DecisionSeleccionInexistenteError(LookupError):
     pass
 
@@ -29,6 +37,10 @@ class DecisionNoAprobatoriaError(SeleccionProveedorError):
 
 
 class DecisionSolicitudInconsistenteError(SeleccionProveedorError):
+    pass
+
+
+class FondoSeleccionIncompatibleError(SeleccionProveedorError):
     pass
 
 
@@ -47,6 +59,7 @@ class MismoProveedorSeleccionadoError(SeleccionProveedorError):
 @dataclass(frozen=True)
 class SeleccionProveedor:
     id_seleccion: str
+    expediente_id: str
     solicitud_intervencion_id: str
     decision_administrativa_id: str
     proveedor_id: str
@@ -60,6 +73,7 @@ class SeleccionProveedor:
     def __post_init__(self) -> None:
         campos_textuales = (
             "id_seleccion",
+            "expediente_id",
             "solicitud_intervencion_id",
             "decision_administrativa_id",
             "proveedor_id",
