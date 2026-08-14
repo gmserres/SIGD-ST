@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useRef,
   useState,
 } from 'react';
 import {
@@ -17,7 +18,7 @@ import { HistorialProveedoresModal } from './HistorialProveedoresModal';
 import { ProveedorSelectorModal } from './ProveedorSelectorModal';
 
 type ProveedorActualCardProps = {
-  solicitudId: string;
+  expedienteId: string;
   seleccionadoPor: string;
 };
 
@@ -49,9 +50,10 @@ function mensajeError(
 }
 
 export function ProveedorActualCard({
-  solicitudId,
+  expedienteId,
   seleccionadoPor,
 }: ProveedorActualCardProps) {
+  const consultaActual = useRef(0);
   const [seleccion, setSeleccion] =
     useState<SeleccionProveedor | null>(null);
   const [cargando, setCargando] = useState(true);
@@ -61,22 +63,31 @@ export function ProveedorActualCard({
   const [historialAbierto, setHistorialAbierto] = useState(false);
 
   const cargarSeleccion = useCallback(async () => {
+    const numeroConsulta = consultaActual.current + 1;
+    consultaActual.current = numeroConsulta;
     setCargando(true);
     setError('');
 
     try {
-      setSeleccion(
-        await obtenerSeleccionProveedorVigente(solicitudId),
-      );
+      const resultado =
+        await obtenerSeleccionProveedorVigente(expedienteId);
+
+      if (consultaActual.current === numeroConsulta) {
+        setSeleccion(resultado);
+      }
     } catch (errorDesconocido) {
-      setError(mensajeError(
-        errorDesconocido,
-        'No fue posible consultar el proveedor seleccionado.',
-      ));
+      if (consultaActual.current === numeroConsulta) {
+        setError(mensajeError(
+          errorDesconocido,
+          'No fue posible consultar el proveedor seleccionado.',
+        ));
+      }
     } finally {
-      setCargando(false);
+      if (consultaActual.current === numeroConsulta) {
+        setCargando(false);
+      }
     }
-  }, [solicitudId]);
+  }, [expedienteId]);
 
   useEffect(() => {
     void cargarSeleccion();
@@ -88,12 +99,12 @@ export function ProveedorActualCard({
   ) {
     try {
       const nuevaSeleccion = selectorModo === 'reemplazo'
-        ? await reemplazarProveedor(solicitudId, {
+        ? await reemplazarProveedor(expedienteId, {
           proveedor_id: proveedor.id_proveedor,
           seleccionado_por: seleccionadoPor,
           motivo_reemplazo: motivoReemplazo ?? '',
         })
-        : await seleccionarProveedor(solicitudId, {
+        : await seleccionarProveedor(expedienteId, {
           proveedor_id: proveedor.id_proveedor,
           seleccionado_por: seleccionadoPor,
         });
@@ -178,7 +189,7 @@ export function ProveedorActualCard({
           <div className="proveedor-actual-empty">
             <div>
               <strong>Sin proveedor seleccionado.</strong>
-              <p>Seleccione el proveedor previsto para la intervención.</p>
+              <p>Seleccione el proveedor previsto para este expediente.</p>
             </div>
             <button
               className="primary"
@@ -204,7 +215,7 @@ export function ProveedorActualCard({
 
       {historialAbierto && (
         <HistorialProveedoresModal
-          solicitudId={solicitudId}
+          expedienteId={expedienteId}
           onClose={() => setHistorialAbierto(false)}
         />
       )}

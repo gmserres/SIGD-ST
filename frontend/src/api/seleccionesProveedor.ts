@@ -2,6 +2,7 @@ import { ApiError, apiRequest } from './apiError';
 
 export type SeleccionProveedor = {
   id_seleccion: string;
+  expediente_id: string;
   solicitud_intervencion_id: string;
   decision_administrativa_id: string;
   proveedor_id: string;
@@ -22,16 +23,16 @@ export type ReemplazoProveedorCrear = SeleccionProveedorCrear & {
   motivo_reemplazo: string;
 };
 
-function rutaSolicitud(solicitudId: string): string {
-  return `/solicitudes/${encodeURIComponent(solicitudId)}`;
+function rutaExpediente(expedienteId: string): string {
+  return `/expedientes/${encodeURIComponent(expedienteId)}`;
 }
 
 export async function obtenerSeleccionProveedorVigente(
-  solicitudId: string,
+  expedienteId: string,
 ): Promise<SeleccionProveedor | null> {
   try {
     return await apiRequest<SeleccionProveedor>(
-      `${rutaSolicitud(solicitudId)}/seleccion-proveedor`,
+      `${rutaExpediente(expedienteId)}/seleccion-proveedor`,
     );
   } catch (error) {
     if (error instanceof ApiError && error.status === 404) {
@@ -43,11 +44,11 @@ export async function obtenerSeleccionProveedorVigente(
 }
 
 export function seleccionarProveedor(
-  solicitudId: string,
+  expedienteId: string,
   datos: SeleccionProveedorCrear,
 ): Promise<SeleccionProveedor> {
   return apiRequest<SeleccionProveedor>(
-    `${rutaSolicitud(solicitudId)}/seleccion-proveedor`,
+    `${rutaExpediente(expedienteId)}/seleccion-proveedor`,
     {
       method: 'POST',
       body: JSON.stringify(datos),
@@ -56,11 +57,11 @@ export function seleccionarProveedor(
 }
 
 export function reemplazarProveedor(
-  solicitudId: string,
+  expedienteId: string,
   datos: ReemplazoProveedorCrear,
 ): Promise<SeleccionProveedor> {
   return apiRequest<SeleccionProveedor>(
-    `${rutaSolicitud(solicitudId)}/seleccion-proveedor/reemplazos`,
+    `${rutaExpediente(expedienteId)}/seleccion-proveedor/reemplazos`,
     {
       method: 'POST',
       body: JSON.stringify(datos),
@@ -69,9 +70,9 @@ export function reemplazarProveedor(
 }
 
 export function listarHistorialProveedores(
-  solicitudId: string,
+  expedienteId: string,
 ): Promise<SeleccionProveedor[]> {
   return apiRequest<SeleccionProveedor[]>(
-    `${rutaSolicitud(solicitudId)}/selecciones-proveedor`,
+    `${rutaExpediente(expedienteId)}/seleccion-proveedor/historial`,
   );
 }

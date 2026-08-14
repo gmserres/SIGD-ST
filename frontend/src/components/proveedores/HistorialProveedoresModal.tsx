@@ -12,7 +12,7 @@ import type {
 } from '../../api/seleccionesProveedor';
 
 type HistorialProveedoresModalProps = {
-  solicitudId: string;
+  expedienteId: string;
   onClose: () => void;
 };
 
@@ -41,7 +41,7 @@ function mensajeError(error: unknown): string {
 }
 
 export function HistorialProveedoresModal({
-  solicitudId,
+  expedienteId,
   onClose,
 }: HistorialProveedoresModalProps) {
   const cerrarRef = useRef<HTMLButtonElement>(null);
@@ -56,14 +56,14 @@ export function HistorialProveedoresModal({
 
     try {
       setHistorial(
-        await listarHistorialProveedores(solicitudId),
+        await listarHistorialProveedores(expedienteId),
       );
     } catch (errorDesconocido) {
       setError(mensajeError(errorDesconocido));
     } finally {
       setCargando(false);
     }
-  }, [solicitudId]);
+  }, [expedienteId]);
 
   useEffect(() => {
     cerrarRef.current?.focus();
