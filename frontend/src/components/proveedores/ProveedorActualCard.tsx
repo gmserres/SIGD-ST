@@ -20,6 +20,7 @@ import { ProveedorSelectorModal } from './ProveedorSelectorModal';
 type ProveedorActualCardProps = {
   expedienteId: string;
   seleccionadoPor: string;
+  revisionProveedor: number;
 };
 
 type SelectorModo = 'inicial' | 'reemplazo';
@@ -52,6 +53,7 @@ function mensajeError(
 export function ProveedorActualCard({
   expedienteId,
   seleccionadoPor,
+  revisionProveedor,
 }: ProveedorActualCardProps) {
   const consultaActual = useRef(0);
   const [seleccion, setSeleccion] =
@@ -87,7 +89,7 @@ export function ProveedorActualCard({
         setCargando(false);
       }
     }
-  }, [expedienteId]);
+  }, [expedienteId, revisionProveedor]);
 
   useEffect(() => {
     void cargarSeleccion();

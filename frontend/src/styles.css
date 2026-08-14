@@ -454,6 +454,14 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .control-proveedor-op-card .notice { margin: 0; }
 .control-proveedor-op-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .control-proveedor-op-actions .secondary, .control-proveedor-op-actions .small-button { margin: 0; }
+.regularizar-proveedor-op-modal { width: min(680px, 96vw); }
+.regularizar-proveedor-op-comparison { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 14px 0; }
+.regularizar-proveedor-op-comparison section { display: grid; gap: 4px; padding: 12px; border: 1px solid #dbe1ea; border-radius: 11px; background: #f8fafc; min-width: 0; }
+.regularizar-proveedor-op-comparison span, .regularizar-proveedor-op-comparison small, .regularizar-proveedor-op-help { color: #64748b; }
+.regularizar-proveedor-op-comparison strong, .regularizar-proveedor-op-comparison small { overflow-wrap: anywhere; }
+.regularizar-proveedor-op-help { display: block; margin-top: 5px; }
+.regularizar-proveedor-op-note { margin: 10px 0 0; color: #475569; font-size: 13px; }
+.regularizar-proveedor-op-actions { justify-content: flex-end; }
 @media (max-width: 1000px) {
   .administracion-summary .admin-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .operational-advanced-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -491,6 +499,9 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 }
 
 @media (max-width: 720px) {
+  .regularizar-proveedor-op-comparison { grid-template-columns: 1fr; }
+  .regularizar-proveedor-op-actions { display: grid; grid-template-columns: 1fr; }
+  .regularizar-proveedor-op-actions button { width: 100%; }
   .control-proveedor-op-heading, .control-proveedor-op-comparison { display: grid; grid-template-columns: 1fr; }
   .control-proveedor-op-heading .badge { justify-self: start; }
   .control-proveedor-op-actions { display: grid; grid-template-columns: 1fr; }

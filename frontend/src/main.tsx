@@ -533,6 +533,7 @@ function App() {
   const [cargandoExpedientes, setCargandoExpedientes] = useState(false);
   const [errorExpedientes, setErrorExpedientes] = useState('');
   const [seleccionado, setSeleccionado] = useState<Expediente | null>(null);
+  const [revisionProveedor, setRevisionProveedor] = useState(0);
   const [documentos, setDocumentos] = useState<Documento[]>([]);
   const [historial, setHistorial] = useState<Historial[]>([]);
   const [analisis, setAnalisis] = useState<AnalisisOP | null>(null);
@@ -3359,6 +3360,7 @@ function App() {
             <ProveedorActualCard
               expedienteId={seleccionado.id}
               seleccionadoPor={decisionUsuarioRegistrante}
+              revisionProveedor={revisionProveedor}
             />
 
             <section
@@ -3667,6 +3669,15 @@ function App() {
                                       expedienteId={seleccionado.id}
                                       documentoOpId={doc.id}
                                       nombreArchivo={doc.nombre_archivo}
+                                      seleccionadoPor={
+                                        decisionUsuarioRegistrante
+                                      }
+                                      revisionProveedor={revisionProveedor}
+                                      onProveedorRegularizado={() => {
+                                        setRevisionProveedor(
+                                          (revision) => revision + 1,
+                                        );
+                                      }}
                                     />
                                   </td>
                                 </tr>

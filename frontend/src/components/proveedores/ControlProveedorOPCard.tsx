@@ -15,11 +15,17 @@ import type {
   EstadoHabilitacionProveedorOP,
   HabilitacionProveedorOP,
 } from '../../api/controlProveedorOP';
+import {
+  RegularizarProveedorOPModal,
+} from './RegularizarProveedorOPModal';
 
 type ControlProveedorOPCardProps = {
   expedienteId: string;
   documentoOpId: string;
   nombreArchivo: string;
+  seleccionadoPor: string;
+  revisionProveedor: number;
+  onProveedorRegularizado: () => void;
 };
 
 const etiquetasControl: Record<EstadoControlProveedorOP, string> = {
@@ -100,6 +106,9 @@ export function ControlProveedorOPCard({
   expedienteId,
   documentoOpId,
   nombreArchivo,
+  seleccionadoPor,
+  revisionProveedor,
+  onProveedorRegularizado,
 }: ControlProveedorOPCardProps) {
   const consultaActual = useRef(0);
   const [control, setControl] =
@@ -111,6 +120,7 @@ export function ControlProveedorOPCard({
   const [errorControl, setErrorControl] = useState('');
   const [errorHabilitacion, setErrorHabilitacion] = useState('');
   const [errorAccion, setErrorAccion] = useState('');
+  const [regularizando, setRegularizando] = useState(false);
 
   const cargar = useCallback(async () => {
     const numeroConsulta = consultaActual.current + 1;
@@ -152,7 +162,7 @@ export function ControlProveedorOPCard({
     }
 
     setCargando(false);
-  }, [documentoOpId, expedienteId]);
+  }, [documentoOpId, expedienteId, revisionProveedor]);
 
   useEffect(() => {
     void cargar();
@@ -187,6 +197,12 @@ export function ControlProveedorOPCard({
     }
   }
 
+  async function proveedorRegularizado() {
+    setRegularizando(false);
+    await cargar();
+    onProveedorRegularizado();
+  }
+
   const accionControl = habilitacion?.estado ===
     'REQUIERE_NUEVO_CONTROL'
     ? 'Controlar proveedor'
@@ -195,6 +211,32 @@ export function ControlProveedorOPCard({
       : null;
   const estadoMaestro = habilitacion
     ? etiquetaMaestro(habilitacion)
+    : null;
+  const puedeRegularizar = (
+    control?.estado === 'CUIT_DIFERENTE'
+    && habilitacion?.estado === 'REQUIERE_REASIGNACION_PROVEEDOR'
+    && habilitacion.proveedor_op_en_maestro === true
+    && habilitacion.proveedor_op_activo === true
+    && habilitacion.proveedor_definitivo_id !== null
+    && control.cuit_seleccionado !== null
+    && control.cuit_detectado !== null
+    && control.razon_social_seleccionada !== null
+  );
+  const impedimentoRegularizacion = habilitacion?.estado ===
+    'REQUIERE_REASIGNACION_PROVEEDOR'
+    ? habilitacion.proveedor_op_en_maestro === false
+      ? (
+        'El proveedor informado por la OP no existe en el Maestro de '
+        + 'Proveedores. Regístrelo desde Administración y vuelva a '
+        + 'consultar esta OP.'
+      )
+      : habilitacion.proveedor_op_activo === false
+        ? (
+          'El proveedor informado por la OP existe en el Maestro, pero '
+          + 'está inactivo. Reactívelo desde Administración antes de '
+          + 'regularizar la selección.'
+        )
+        : null
     : null;
 
   return (
@@ -280,6 +322,12 @@ export function ControlProveedorOPCard({
             </p>
           ))}
 
+          {impedimentoRegularizacion && (
+            <p className="control-proveedor-op-warning">
+              {impedimentoRegularizacion}
+            </p>
+          )}
+
           {errorControl && (
             <div className="notice error">{errorControl}</div>
           )}
@@ -311,8 +359,40 @@ export function ControlProveedorOPCard({
                 {ejecutando ? 'Controlando...' : accionControl}
               </button>
             )}
+            {puedeRegularizar && (
+              <button
+                className="secondary"
+                type="button"
+                onClick={() => setRegularizando(true)}
+              >
+                Regularizar proveedor
+              </button>
+            )}
           </div>
         </>
+      )}
+
+      {regularizando
+        && control
+        && habilitacion?.proveedor_definitivo_id
+        && control.cuit_seleccionado
+        && control.cuit_detectado
+        && control.razon_social_seleccionada && (
+        <RegularizarProveedorOPModal
+          expedienteId={expedienteId}
+          proveedorId={habilitacion.proveedor_definitivo_id}
+          seleccionadoPor={seleccionadoPor}
+          proveedorActualRazonSocial={
+            control.razon_social_seleccionada
+          }
+          proveedorActualCuit={control.cuit_seleccionado}
+          proveedorDetectadoRazonSocial={
+            control.razon_social_detectada
+          }
+          proveedorDetectadoCuit={control.cuit_detectado}
+          onClose={() => setRegularizando(false)}
+          onRegularizado={proveedorRegularizado}
+        />
       )}
     </section>
   );
