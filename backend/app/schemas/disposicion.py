@@ -1,6 +1,6 @@
 from datetime import datetime
 from decimal import Decimal
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.domain.habilitacion_proveedor_op import (
     EstadoHabilitacionProveedorOP,
@@ -33,9 +33,19 @@ class DisposicionUpdate(BaseModel):
     dispone: str | None = None
 
 
+class DisposicionEmitirCreate(BaseModel):
+    numero_disposicion: str = Field(min_length=1, max_length=255)
+
+
 class DisposicionEmitidaRead(BaseModel):
     id_disposicion: str
     expediente_id: str
+    documento_op_id: str | None = None
+    control_proveedor_op_id: str | None = None
+    seleccion_proveedor_id: str | None = None
+    proveedor_definitivo_id: str | None = None
+    proveedor_definitivo_cuit: str | None = None
+    proveedor_definitivo_razon_social: str | None = None
     configuracion_uc_id: str
     numero_disposicion: str
     fecha_emision: datetime

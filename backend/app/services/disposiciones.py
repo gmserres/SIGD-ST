@@ -124,7 +124,7 @@ class DisposicionService:
         render = template_engine.renderizar(plantilla, variables)
         visto, considerando, dispone = dividir_disposicion(render.contenido)
 
-        numero = expediente.numero_disposicion or "____/____"
+        numero = None
         observaciones = [
             "Borrador generado con motor de plantillas institucionales.",
             f"Plantilla: {self._plantilla_version}.",
@@ -312,7 +312,7 @@ class DisposicionService:
             ),
             "ID_SUNA": expediente.id_suna or "ID SUNA pendiente",
             "EXPEDIENTE": expediente.numero_interno,
-            "DISPOSICION": expediente.numero_disposicion or "____/____",
+            "DISPOSICION": "____/____",
             "PROVEEDOR": (
                 proveedor
                 if proveedor is not None
@@ -456,6 +456,8 @@ class DisposicionService:
                 == habilitacion.proveedor_definitivo_id,
                 borrador.proveedor_definitivo_cuit
                 == habilitacion.proveedor_definitivo_cuit,
+                borrador.proveedor_definitivo_razon_social
+                == habilitacion.proveedor_definitivo_razon_social,
             )
         )
         return borrador.model_copy(

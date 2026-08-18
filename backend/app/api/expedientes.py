@@ -18,6 +18,7 @@ from app.schemas.control_proveedor_op_registro import (
 )
 from app.schemas.documento import DocumentoCreate, DocumentoRead
 from app.schemas.disposicion import (
+    DisposicionEmitirCreate,
     DisposicionEmitidaRead,
     DisposicionRead,
     DisposicionUpdate,
@@ -76,13 +77,17 @@ from app.repositories.control_proveedor_op_repository import (
     SeleccionControlObsoletaError,
 )
 from app.repositories.emitir_disposicion_persistence import (
+    ContextoEmisionObsoletoError,
     EstadoExpedienteIncompatibleError,
     ExpedienteNoEncontradoAlEmitirError,
 )
 from app.services.consulta_disposicion import (
     DisposicionEmitidaNoEncontradaError,
 )
-from app.services.emision_disposicion import EmisionDisposicionError
+from app.services.emision_disposicion import (
+    EmisionDisposicionError,
+    EmisionProveedorOPNoHabilitadoError,
+)
 from app.repositories.registrar_firma_persistence import (
     DisposicionEmitidaNoEncontradaAlFirmarError,
     EstadoExpedienteIncompatibleParaFirmaError,
@@ -911,10 +916,14 @@ def exportar_borrador_disposicion_documento_texto(
     )
 
 
-@router.post("/{expediente_id}/generar-disposicion", response_model=ExpedienteRead)
+@router.post(
+    "/{expediente_id}/generar-disposicion",
+    response_model=ExpedienteRead,
+    deprecated=True,
+)
 def generar_disposicion(expediente_id: str):
     try:
-        expediente = emision_disposicion_service.emitir(expediente_id)
+        disposicion = emision_disposicion_service.emitir(expediente_id)
     except ExpedienteNoEncontradoAlEmitirError as exc:
         raise HTTPException(
             status_code=404,
@@ -952,12 +961,72 @@ def generar_disposicion(expediente_id: str):
             },
         ) from exc
     historial_service.registrar(expediente_id, "DISPOSICION_GENERADA")
-    return expediente
+    return disposicion
+
+
+@router.post(
+    "/{expediente_id}/documentos/{documento_id}/disposicion",
+    response_model=DisposicionEmitidaRead,
+    status_code=201,
+)
+def emitir_disposicion_documento(
+    expediente_id: str,
+    documento_id: str,
+    data: DisposicionEmitirCreate,
+):
+    try:
+        resultado = emision_disposicion_service.emitir(
+            expediente_id,
+            documento_id,
+            data.numero_disposicion,
+        )
+    except ExpedienteNoEncontradoAlEmitirError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except DocumentoOPNoEncontradoError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except DocumentoNoEsOPError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except (
+        DocumentoOPExpedienteInconsistenteError,
+        DisposicionYaRegistradaError,
+        EstadoExpedienteIncompatibleError,
+        ContextoEmisionObsoletoError,
+        BorradorDisposicionObsoletoError,
+        EmisionDisposicionError,
+        EmisionProveedorOPNoHabilitadoError,
+    ) as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    historial_service.registrar(
+        expediente_id,
+        "DISPOSICION_GENERADA",
+        detalle=(
+            f"Documento OP: {documento_id} | "
+            f"Disposición: {resultado.numero_disposicion}"
+        ),
+    )
+    return resultado
+
+
+@router.get(
+    "/{expediente_id}/documentos/{documento_id}/disposicion",
+    response_model=DisposicionEmitidaRead,
+)
+def obtener_disposicion_emitida_documento(
+    expediente_id: str,
+    documento_id: str,
+):
+    try:
+        return consulta_disposicion_service.obtener_por_documento_op(
+            expediente_id, documento_id
+        )
+    except DisposicionEmitidaNoEncontradaError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @router.get(
     "/{expediente_id}/disposicion",
     response_model=DisposicionEmitidaRead,
+    deprecated=True,
 )
 def obtener_disposicion_emitida(expediente_id: str):
     try:

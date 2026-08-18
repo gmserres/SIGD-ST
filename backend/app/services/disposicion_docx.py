@@ -62,6 +62,38 @@ class DisposicionDocxService:
         )
         return salida
 
+    def generar_docx_definitivo(
+        self,
+        expediente_id: str,
+        documento_op_id: str,
+        id_disposicion: str,
+        numero_disposicion: str,
+        borrador,
+    ) -> Path:
+        expediente = expediente_service.obtener(expediente_id)
+        definitivo = borrador.model_copy(update={
+            "numero_disposicion": numero_disposicion,
+            "visto": borrador.visto.replace("____/____", numero_disposicion),
+            "considerando": borrador.considerando.replace(
+                "____/____", numero_disposicion
+            ),
+            "dispone": borrador.dispone.replace(
+                "____/____", numero_disposicion
+            ),
+        })
+        doc = Document()
+        self._configurar_documento(doc)
+        self._agregar_disposicion(
+            doc, definitivo, expediente, numero_disposicion
+        )
+        out_dir = (
+            self._export_dir / expediente_id / documento_op_id / "definitivas"
+        )
+        out_dir.mkdir(parents=True, exist_ok=True)
+        salida = out_dir / f"{id_disposicion}.docx"
+        doc.save(salida)
+        return salida
+
     def _configurar_documento(self, doc: Document) -> None:
         section = doc.sections[0]
         section.top_margin = Cm(2.0)
@@ -75,7 +107,10 @@ class DisposicionDocxService:
         normal._element.rPr.rFonts.set(qn("w:eastAsia"), "Times New Roman")
         normal.font.size = Pt(11)
 
-    def _agregar_disposicion(self, doc: Document, borrador, expediente) -> None:
+    def _agregar_disposicion(
+        self, doc: Document, borrador, expediente,
+        numero_disposicion: str | None = None,
+    ) -> None:
         texto = self.construir_texto_emitido(borrador)
 
         for bloque in texto.split("\n\n"):
@@ -90,7 +125,7 @@ class DisposicionDocxService:
             for linea in bloque.splitlines():
                 self._agregar_parrafo(doc, linea.strip())
 
-        self._agregar_pie(doc, expediente)
+        self._agregar_pie(doc, expediente, numero_disposicion)
 
     def construir_texto_emitido(self, borrador) -> str:
         partes = [
@@ -197,10 +232,14 @@ class DisposicionDocxService:
             element.set(qn("w:space"), "0")
             element.set(qn("w:color"), "auto")
 
-    def _agregar_pie(self, doc: Document, expediente) -> None:
+    def _agregar_pie(
+        self, doc: Document, expediente,
+        numero_disposicion: str | None = None,
+    ) -> None:
         p = doc.add_paragraph()
         p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-        run = p.add_run(f"DISPOSICION N° {expediente.numero_disposicion or '____/____'}")
+        numero = numero_disposicion or expediente.numero_disposicion or "____/____"
+        run = p.add_run(f"DISPOSICION N° {numero}")
         run.font.name = "Times New Roman"
         run.font.size = Pt(11)
         run.bold = True

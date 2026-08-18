@@ -18,10 +18,14 @@ class EstadoExpedienteIncompatibleError(ValueError):
         )
 
 
+class ContextoEmisionObsoletoError(ValueError):
+    pass
+
+
 class EmitirDisposicionPersistence(Protocol):
     def emitir(
         self,
         disposicion: Disposicion,
         expediente_id: str,
-    ) -> Expediente:
+    ) -> Disposicion | Expediente:
         ...

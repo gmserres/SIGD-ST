@@ -21,6 +21,7 @@ class ContextoEmisionDisposicion:
     expediente: Any
     decision: Any | None
     analisis_op: Any | None
+    documento_op_id: str | None = None
 
 
 class EvaluadorHabilitacionDisposicion:
@@ -161,4 +162,113 @@ class EvaluadorHabilitacionDisposicion:
             expediente=expediente,
             decision=decision,
             analisis_op=analisis,
+        )
+
+    def evaluar_para_emision_documento(
+        self,
+        expediente_id: str,
+        documento_op_id: str,
+    ) -> tuple[HabilitacionDisposicion, ContextoEmisionDisposicion]:
+        expediente = self._expedientes.obtener(expediente_id)
+        motivos: list[MotivoNoHabilitacion] = []
+
+        if expediente.estado == EstadoExpediente.PENDIENTE_REVALIDACION:
+            motivos.append(MotivoNoHabilitacion(
+                "PENDIENTE_REVALIDACION",
+                "El Expediente requiere una nueva validación administrativa.",
+            ))
+        elif expediente.estado != EstadoExpediente.VALIDADO:
+            motivos.append(MotivoNoHabilitacion(
+                "EXPEDIENTE_NO_VALIDADO",
+                "El Expediente no se encuentra en estado VALIDADO.",
+            ))
+
+        if (
+            self._validacion.obtener_vigente(expediente_id) is None
+            and expediente.estado != EstadoExpediente.PENDIENTE_REVALIDACION
+        ):
+            motivos.append(MotivoNoHabilitacion(
+                "SIN_VALIDACION_VIGENTE",
+                "El Expediente no posee una validación administrativa vigente.",
+            ))
+
+        documento = self._documentos.obtener_por_id(documento_op_id)
+        documento_valido = True
+        if documento is None:
+            documento_valido = False
+            motivos.append(MotivoNoHabilitacion(
+                "SIN_OP", "La Orden de Pago solicitada no existe."
+            ))
+        elif documento.expediente_id != expediente_id:
+            documento_valido = False
+            motivos.append(MotivoNoHabilitacion(
+                "OP_AJENA",
+                "La Orden de Pago no pertenece al Expediente.",
+            ))
+        elif documento.tipo.upper() != "OP":
+            documento_valido = False
+            motivos.append(MotivoNoHabilitacion(
+                "DOCUMENTO_NO_ES_OP",
+                "El documento solicitado no es una Orden de Pago.",
+            ))
+
+        decision = None
+        datos_insuficientes = any(
+            not (getattr(expediente, nombre, None) or "").strip()
+            for nombre in (
+                "objeto", "establecimiento", "decision_administrativa_id"
+            )
+        )
+        if not datos_insuficientes:
+            try:
+                decision = self._decisiones.obtener_por_id(
+                    expediente.decision_administrativa_id
+                )
+            except KeyError:
+                datos_insuficientes = True
+            else:
+                if not (decision.fondo_interviniente or "").strip():
+                    datos_insuficientes = True
+        if not expediente.configuracion_uc_id:
+            datos_insuficientes = True
+
+        analisis = None
+        if documento_valido and expediente.configuracion_uc_id:
+            try:
+                analisis = self._analisis_op.reconstruir_documento(
+                    expediente_id, documento_op_id
+                )
+            except (FileNotFoundError, ValueError):
+                analisis = None
+            if analisis is None or any(
+                valor is None
+                or (isinstance(valor, str) and not valor.strip())
+                for valor in (
+                    getattr(analisis, "orden_pago", None),
+                    getattr(analisis, "importe_bruto", None),
+                    getattr(analisis, "valor_uc", None),
+                    getattr(analisis, "cantidad_uc", None),
+                    getattr(analisis, "procedimiento", None),
+                    getattr(analisis, "norma_uc", None),
+                )
+            ):
+                motivos.append(MotivoNoHabilitacion(
+                    "OP_NO_APTA",
+                    "La Orden de Pago no permite obtener los datos necesarios para emitir.",
+                ))
+
+        if datos_insuficientes:
+            motivos.append(MotivoNoHabilitacion(
+                "DATOS_INSUFICIENTES",
+                "Falta información mínima requerida para emitir la Disposición.",
+            ))
+
+        return HabilitacionDisposicion(
+            habilitada=not motivos,
+            motivos=tuple(motivos),
+        ), ContextoEmisionDisposicion(
+            expediente=expediente,
+            decision=decision,
+            analisis_op=analisis,
+            documento_op_id=documento_op_id,
         )

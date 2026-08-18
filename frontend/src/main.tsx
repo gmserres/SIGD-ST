@@ -35,6 +35,7 @@ import { PanelBusquedaFiltros } from './components/PanelBusquedaFiltros';
 import {
   ControlProveedorOPCard,
 } from './components/proveedores/ControlProveedorOPCard';
+import { DisposicionOPCard } from './components/disposiciones/DisposicionOPCard';
 import { ProveedorActualCard } from './components/proveedores/ProveedorActualCard';
 import { ProveedoresAdmin } from './components/proveedores/ProveedoresAdmin';
 import './styles.css';
@@ -2089,9 +2090,9 @@ function App() {
 
     if (opAnalizadaCorrectamente) {
       return {
-        descripcion: 'La Orden de Pago fue analizada y puede generarse el borrador de Disposición.',
-        etiqueta: 'Generar borrador de Disposición',
-        ejecutar: () => prepararDisposicion(false),
+        descripcion: 'Administre el control y la Disposición desde cada Orden de Pago.',
+        etiqueta: 'Ver Órdenes de Pago',
+        ejecutar: () => setTabDetalle('documentos'),
       };
     }
 
@@ -3678,6 +3679,12 @@ function App() {
                                           (revision) => revision + 1,
                                         );
                                       }}
+                                    />
+                                    <DisposicionOPCard
+                                      expedienteId={seleccionado.id}
+                                      documentoOpId={doc.id}
+                                      nombreArchivo={doc.nombre_archivo}
+                                      revisionProveedor={revisionProveedor}
                                     />
                                   </td>
                                 </tr>
