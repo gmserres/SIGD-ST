@@ -1,10 +1,11 @@
-import { Download, FileSignature, RefreshCw, Save } from 'lucide-react';
+import { CheckCircle2, Download, FileSignature, RefreshCw, Save } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { API_URL } from '../../api/config';
 import { consultarHabilitacionProveedorOP } from '../../api/controlProveedorOP';
 import type { HabilitacionProveedorOP } from '../../api/controlProveedorOP';
 import {
   emitirDisposicionOP,
+  formalizarDisposicion,
   generarBorradorDisposicionOP,
   guardarBorradorDisposicionOP,
   obtenerDisposicionOP,
@@ -25,6 +26,12 @@ const errorMensaje = (error: unknown) => (
   error instanceof Error ? error.message : 'No fue posible completar la operación.'
 );
 
+const fechaLocalISO = () => {
+  const hoy = new Date();
+  const offset = hoy.getTimezoneOffset() * 60_000;
+  return new Date(hoy.getTime() - offset).toISOString().slice(0, 10);
+};
+
 export function DisposicionOPCard({
   expedienteId,
   documentoOpId,
@@ -39,6 +46,8 @@ export function DisposicionOPCard({
   const [cargando, setCargando] = useState(true);
   const [procesando, setProcesando] = useState(false);
   const [error, setError] = useState('');
+  const [confirmandoFormalizacion, setConfirmandoFormalizacion] = useState(false);
+  const [fechaFormalizacion, setFechaFormalizacion] = useState(fechaLocalISO());
 
   const cargar = useCallback(async () => {
     const actual = ++consulta.current;
@@ -111,6 +120,24 @@ export function DisposicionOPCard({
     }
   }
 
+  async function formalizar() {
+    if (!emitida || !fechaFormalizacion) return;
+    setProcesando(true);
+    setError('');
+    try {
+      setEmitida(await formalizarDisposicion(
+        emitida.id_disposicion,
+        fechaFormalizacion,
+      ));
+      setConfirmandoFormalizacion(false);
+    } catch (errorDesconocido) {
+      setError(errorMensaje(errorDesconocido));
+      await cargar();
+    } finally {
+      setProcesando(false);
+    }
+  }
+
   const descargar = () => {
     if (!emitida) return;
     window.open(`${API_URL}/storage/${emitida.ruta_docx.replace(/^\/+/, '')}`, '_blank');
@@ -120,7 +147,9 @@ export function DisposicionOPCard({
     <section className="disposicion-op-card">
       <div className="disposicion-op-heading">
         <div><span className="eyebrow">Disposición de esta OP</span><strong>{nombreArchivo}</strong></div>
-        {emitida && <span className="badge green">Emitida</span>}
+        {emitida && <span className="badge green">
+          {emitida.estado_formalizacion === 'FORMALIZADA' ? 'Formalizada' : 'Emitida'}
+        </span>}
       </div>
       {cargando ? <p className="empty">Consultando Disposición...</p> : emitida ? (
         <>
@@ -130,6 +159,35 @@ export function DisposicionOPCard({
             <div><span>OP</span><strong>{emitida.numero_op}</strong></div>
             <div><span>Proveedor</span><strong>{emitida.proveedor}</strong></div>
             <div><span>CUIT</span><strong>{emitida.cuit}</strong></div>
+          </div>
+          <div className="disposicion-op-formalizacion">
+            {emitida.estado_formalizacion === 'FORMALIZADA' ? (
+              <div className="notice success">
+                <strong><CheckCircle2 />Disposición formalizada</strong>
+                <span>Fecha: {emitida.fecha_formalizacion}</span>
+                <span>Registrado por: {emitida.usuario_registro_formalizacion}</span>
+                <span>Registrado en SIGD-ST: {emitida.registrado_formalizacion_en ? new Date(emitida.registrado_formalizacion_en).toLocaleString() : '—'}</span>
+              </div>
+            ) : (
+              <>
+                <p className="muted"><strong>Disposición emitida</strong> · Pendiente de formalización</p>
+                {!confirmandoFormalizacion ? (
+                  <button className="primary" type="button" onClick={() => {
+                    setFechaFormalizacion(fechaLocalISO());
+                    setConfirmandoFormalizacion(true);
+                  }}><FileSignature />Registrar formalización</button>
+                ) : (
+                  <div className="disposicion-op-confirmacion">
+                    <p>Confirme que la Disposición N.º {emitida.numero_disposicion} fue incorporada al expediente papel y firmada. SIGD-ST registrará esta constancia administrativa; no realiza ni valida la firma.</p>
+                    <label>Fecha de formalización<input type="date" min={emitida.fecha_emision.slice(0, 10)} max={fechaLocalISO()} value={fechaFormalizacion} onChange={(e) => setFechaFormalizacion(e.target.value)} /></label>
+                    <div className="disposicion-op-actions">
+                      <button className="secondary" type="button" disabled={procesando} onClick={() => setConfirmandoFormalizacion(false)}>Cancelar</button>
+                      <button className="primary" type="button" disabled={procesando || !fechaFormalizacion} onClick={() => void formalizar()}>{procesando ? 'Registrando...' : 'Confirmar formalización'}</button>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
           </div>
           <button className="secondary" type="button" onClick={descargar}><Download />Descargar DOCX definitivo</button>
         </>

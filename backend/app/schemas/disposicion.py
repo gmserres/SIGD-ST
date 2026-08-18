@@ -1,6 +1,7 @@
-from datetime import datetime
+from datetime import date, datetime
+from typing import Literal
 from decimal import Decimal
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, computed_field
 
 from app.domain.habilitacion_proveedor_op import (
     EstadoHabilitacionProveedorOP,
@@ -63,3 +64,15 @@ class DisposicionEmitidaRead(BaseModel):
     norma_uc: str
     texto_emitido: str
     ruta_docx: str
+    fecha_formalizacion: date | None = None
+    usuario_registro_formalizacion: str | None = None
+    registrado_formalizacion_en: datetime | None = None
+
+    @computed_field
+    @property
+    def estado_formalizacion(self) -> Literal["PENDIENTE", "FORMALIZADA"]:
+        return (
+            "FORMALIZADA"
+            if self.fecha_formalizacion is not None
+            else "PENDIENTE"
+        )

@@ -46,6 +46,10 @@ export type DisposicionEmitida = {
   norma_uc: string;
   texto_emitido: string;
   ruta_docx: string;
+  estado_formalizacion: 'PENDIENTE' | 'FORMALIZADA';
+  fecha_formalizacion: string | null;
+  usuario_registro_formalizacion: string | null;
+  registrado_formalizacion_en: string | null;
 };
 
 const ruta = (expedienteId: string, documentoOpId: string) => (
@@ -94,5 +98,15 @@ export function emitirDisposicionOP(
   return apiRequest(ruta(expedienteId, documentoOpId), {
     method: 'POST',
     body: JSON.stringify({ numero_disposicion: numeroDisposicion }),
+  });
+}
+
+export function formalizarDisposicion(
+  idDisposicion: string,
+  fechaFormalizacion: string,
+): Promise<DisposicionEmitida> {
+  return apiRequest(`/disposiciones/${idDisposicion}/formalizacion`, {
+    method: 'POST',
+    body: JSON.stringify({ fecha_formalizacion: fechaFormalizacion }),
   });
 }

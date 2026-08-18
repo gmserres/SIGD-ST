@@ -1,7 +1,9 @@
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 
 from sqlalchemy import (
+    CheckConstraint,
+    Date,
     DateTime,
     ForeignKey,
     Index,
@@ -56,6 +58,15 @@ class DisposicionModel(Base):
         ),
         Index("ix_disposiciones_fecha_emision", "fecha_emision"),
         Index("ix_disposiciones_numero_op", "numero_op"),
+        CheckConstraint(
+            "(fecha_formalizacion IS NULL AND "
+            "usuario_registro_formalizacion IS NULL AND "
+            "registrado_formalizacion_en IS NULL) OR "
+            "(fecha_formalizacion IS NOT NULL AND "
+            "usuario_registro_formalizacion IS NOT NULL AND "
+            "registrado_formalizacion_en IS NOT NULL)",
+            name="ck_disposiciones_formalizacion_completa",
+        ),
     )
 
     id_disposicion: Mapped[str] = mapped_column(
@@ -138,4 +149,13 @@ class DisposicionModel(Base):
     )
     proveedor_definitivo_razon_social: Mapped[str | None] = mapped_column(
         Text, nullable=True
+    )
+    fecha_formalizacion: Mapped[date | None] = mapped_column(
+        Date, nullable=True
+    )
+    usuario_registro_formalizacion: Mapped[str | None] = mapped_column(
+        String(255), nullable=True
+    )
+    registrado_formalizacion_en: Mapped[datetime | None] = mapped_column(
+        DateTime, nullable=True
     )

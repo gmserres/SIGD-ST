@@ -45,6 +45,13 @@ def a_modelo(disposicion: Disposicion) -> DisposicionModel:
         proveedor_definitivo_razon_social=(
             disposicion.proveedor_definitivo_razon_social
         ),
+        fecha_formalizacion=disposicion.fecha_formalizacion,
+        usuario_registro_formalizacion=(
+            disposicion.usuario_registro_formalizacion
+        ),
+        registrado_formalizacion_en=(
+            disposicion.registrado_formalizacion_en
+        ),
     )
 
 
@@ -81,4 +88,9 @@ def a_dominio(modelo: DisposicionModel) -> Disposicion:
         proveedor_definitivo_razon_social=(
             modelo.proveedor_definitivo_razon_social
         ),
+        fecha_formalizacion=modelo.fecha_formalizacion,
+        usuario_registro_formalizacion=(
+            modelo.usuario_registro_formalizacion
+        ),
+        registrado_formalizacion_en=modelo.registrado_formalizacion_en,
     )

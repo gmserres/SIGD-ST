@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from pathlib import PurePosixPath, PureWindowsPath
 
@@ -33,8 +33,31 @@ class Disposicion:
     proveedor_definitivo_id: str | None = None
     proveedor_definitivo_cuit: str | None = None
     proveedor_definitivo_razon_social: str | None = None
+    fecha_formalizacion: date | None = None
+    usuario_registro_formalizacion: str | None = None
+    registrado_formalizacion_en: datetime | None = None
 
     def __post_init__(self) -> None:
+        metadatos_formalizacion = (
+            self.fecha_formalizacion,
+            self.usuario_registro_formalizacion,
+            self.registrado_formalizacion_en,
+        )
+        if any(valor is None for valor in metadatos_formalizacion) and any(
+            valor is not None for valor in metadatos_formalizacion
+        ):
+            raise ValueError(
+                "Los metadatos de formalización deben estar completos."
+            )
+        if self.usuario_registro_formalizacion is not None:
+            usuario = self.usuario_registro_formalizacion.strip()
+            if not usuario:
+                raise ValueError(
+                    "usuario_registro_formalizacion no puede estar vacío."
+                )
+            object.__setattr__(
+                self, "usuario_registro_formalizacion", usuario
+            )
         obligatorios = {
             "id_disposicion": self.id_disposicion,
             "expediente_id": self.expediente_id,

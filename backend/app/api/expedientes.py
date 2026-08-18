@@ -1043,6 +1043,7 @@ def obtener_disposicion_emitida(expediente_id: str):
 @router.post(
     "/{expediente_id}/registrar-firma",
     response_model=ExpedienteRead,
+    deprecated=True,
 )
 def registrar_firma(
     expediente_id: str,
