@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
+  archivarExpediente,
   cerrarExpediente,
   consultarHabilitacionCierre,
   consultarHabilitacionDesistimiento,
@@ -21,6 +22,8 @@ type Props<T> = {
     usuario_registro_desistimiento?: string | null;
     registrado_desistimiento_en?: string | null;
     motivo_desistimiento?: string | null;
+    fecha_archivo?: string | null;
+    usuario_registro_archivo?: string | null;
   };
   onFinalizado: (expediente: T) => void;
 };
@@ -40,13 +43,13 @@ export function CompletitudExpedienteCard<T>({ expediente, onFinalizado }: Props
   const [cargando, setCargando] = useState(true);
   const [procesando, setProcesando] = useState(false);
   const [error, setError] = useState('');
-  const [modo, setModo] = useState<'cierre' | 'desistimiento' | null>(null);
+  const [modo, setModo] = useState<'cierre' | 'desistimiento' | 'archivo' | null>(null);
   const [fecha, setFecha] = useState(hoy());
   const [motivo, setMotivo] = useState('');
   const [confirmado, setConfirmado] = useState(false);
 
   const cargar = useCallback(async () => {
-    if (['CERRADO', 'DESISTIDO'].includes(expediente.estado)) {
+    if (['CERRADO', 'DESISTIDO', 'ARCHIVADO'].includes(expediente.estado)) {
       setCargando(false);
       return;
     }
@@ -77,6 +80,8 @@ export function CompletitudExpedienteCard<T>({ expediente, onFinalizado }: Props
         onFinalizado(await cerrarExpediente<T>(expediente.id, fecha));
       } else if (modo === 'desistimiento') {
         onFinalizado(await desistirExpediente<T>(expediente.id, fecha, motivo.trim()));
+      } else if (modo === 'archivo') {
+        onFinalizado(await archivarExpediente<T>(expediente.id, fecha));
       }
       setModo(null);
     } catch (err) {
@@ -86,12 +91,42 @@ export function CompletitudExpedienteCard<T>({ expediente, onFinalizado }: Props
     }
   }
 
-  if (expediente.estado === 'CERRADO') return (
-    <section className="card completitud-expediente terminal"><h3>Expediente cerrado</h3><p>Fecha: <strong>{expediente.fecha_cierre}</strong></p><p>Registrado por: <strong>{expediente.usuario_registro_cierre}</strong></p><p>Registrado en SIGD-ST: <strong>{expediente.registrado_cierre_en ? new Date(expediente.registrado_cierre_en).toLocaleString() : '—'}</strong></p></section>
-  );
-  if (expediente.estado === 'DESISTIDO') return (
-    <section className="card completitud-expediente terminal"><h3>Expediente desistido</h3><p>Fecha: <strong>{expediente.fecha_desistimiento}</strong></p><p>Motivo: <strong>{expediente.motivo_desistimiento}</strong></p><p>Registrado por: <strong>{expediente.usuario_registro_desistimiento}</strong></p><p>Registrado en SIGD-ST: <strong>{expediente.registrado_desistimiento_en ? new Date(expediente.registrado_desistimiento_en).toLocaleString() : '—'}</strong></p></section>
-  );
+  if (expediente.estado === 'ARCHIVADO') {
+    const procedencia = expediente.fecha_cierre
+      ? 'Cerrado'
+      : expediente.fecha_desistimiento
+        ? 'Desistido'
+        : 'Registro histórico / legacy';
+    return <section className="card completitud-expediente terminal">
+      <h3>Expediente archivado</h3>
+      <p>Finalización: <strong>{procedencia}</strong></p>
+      {expediente.fecha_cierre && <p>Fecha de cierre: <strong>{expediente.fecha_cierre}</strong></p>}
+      {expediente.fecha_desistimiento && <p>Fecha de desistimiento: <strong>{expediente.fecha_desistimiento}</strong></p>}
+      {expediente.motivo_desistimiento && <p>Motivo: <strong>{expediente.motivo_desistimiento}</strong></p>}
+      <p>Fecha de archivo: <strong>{expediente.fecha_archivo || '—'}</strong></p>
+      <p>Registrado por: <strong>{expediente.usuario_registro_archivo || '—'}</strong></p>
+    </section>;
+  }
+  if (['CERRADO', 'DESISTIDO'].includes(expediente.estado)) {
+    const cerrado = expediente.estado === 'CERRADO';
+    return <section className="card completitud-expediente terminal">
+      <h3>{cerrado ? 'Expediente cerrado' : 'Expediente desistido'}</h3>
+      <p>Fecha: <strong>{cerrado ? expediente.fecha_cierre : expediente.fecha_desistimiento}</strong></p>
+      {!cerrado && <p>Motivo: <strong>{expediente.motivo_desistimiento}</strong></p>}
+      <p>Registrado por: <strong>{cerrado ? expediente.usuario_registro_cierre : expediente.usuario_registro_desistimiento}</strong></p>
+      <p>Registrado en SIGD-ST: <strong>{(() => {
+        const valor = cerrado ? expediente.registrado_cierre_en : expediente.registrado_desistimiento_en;
+        return valor ? new Date(valor).toLocaleString() : '—';
+      })()}</strong></p>
+      {error && <div className="notice error">{error}</div>}
+      {modo !== 'archivo' && <button className="primary" type="button" onClick={() => setModo('archivo')}>Archivar expediente</button>}
+      {modo === 'archivo' && <div className="completitud-confirmacion">
+        <p>Confirme que este Expediente fue incorporado al archivo. Esta acción no modifica ni elimina las actuaciones registradas y no puede deshacerse desde el circuito ordinario.</p>
+        <label>Fecha de archivo<input type="date" min={(cerrado ? expediente.fecha_cierre : expediente.fecha_desistimiento) || undefined} max={hoy()} value={fecha} onChange={(e) => setFecha(e.target.value)} /></label>
+        <div className="actions"><button className="secondary" type="button" onClick={() => setModo(null)}>Cancelar</button><button className="primary" type="button" disabled={procesando || !fecha} onClick={() => void confirmar()}>{procesando ? 'Archivando...' : 'Confirmar archivo'}</button></div>
+      </div>}
+    </section>;
+  }
 
   return <section className="card completitud-expediente">
     <div className="card-title"><div><span className="eyebrow">Completitud</span><h3>Completitud del Expediente</h3></div></div>

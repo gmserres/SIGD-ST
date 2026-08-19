@@ -12,6 +12,7 @@ from app.repositories.registrar_archivo_persistence import (
     EstadoExpedienteIncompatibleParaArchivoError,
     ExpedienteNoEncontradoAlRegistrarArchivoError,
     FechaArchivoAnteriorAFirmaError,
+    FechaArchivoAnteriorAFinalizacionError,
     FirmaAusenteOInconsistenteAlArchivarError,
 )
 
@@ -55,6 +56,62 @@ class PostgresRegistrarArchivoPersistence:
                     )
                 if fecha_archivo < expediente.fecha_firma:
                     raise FechaArchivoAnteriorAFirmaError(expediente_id)
+
+                expediente.fecha_archivo = fecha_archivo
+                expediente.usuario_registro_archivo = (
+                    usuario_registro_archivo
+                )
+                expediente.estado = EstadoExpediente.ARCHIVADO.value
+                session.flush()
+                actualizado = a_dominio(expediente)
+                session.commit()
+                return actualizado
+            except Exception:
+                session.rollback()
+                raise
+
+    def registrar_finalizado(
+        self,
+        expediente_id: str,
+        fecha_archivo: date,
+        usuario_registro_archivo: str,
+    ) -> Expediente:
+        with self._session_factory() as session:
+            try:
+                expediente = session.scalar(
+                    select(ExpedienteModel)
+                    .where(ExpedienteModel.id == expediente_id)
+                    .with_for_update()
+                )
+                if expediente is None:
+                    raise ExpedienteNoEncontradoAlRegistrarArchivoError(
+                        expediente_id
+                    )
+                if (
+                    expediente.fecha_archivo is not None
+                    or expediente.usuario_registro_archivo is not None
+                ):
+                    raise ArchivoYaRegistradoError(expediente_id)
+                if expediente.estado not in {
+                    EstadoExpediente.CERRADO.value,
+                    EstadoExpediente.DESISTIDO.value,
+                }:
+                    raise EstadoExpedienteIncompatibleParaArchivoError(
+                        expediente_id
+                    )
+
+                if expediente.estado == EstadoExpediente.CERRADO.value:
+                    fecha_finalizacion = expediente.fecha_cierre
+                else:
+                    fecha_finalizacion = expediente.fecha_desistimiento
+                if (
+                    fecha_finalizacion is None
+                    or fecha_archivo < fecha_finalizacion
+                ):
+                    raise FechaArchivoAnteriorAFinalizacionError(
+                        expediente_id,
+                        expediente.estado,
+                    )
 
                 expediente.fecha_archivo = fecha_archivo
                 expediente.usuario_registro_archivo = (

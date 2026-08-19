@@ -39,8 +39,24 @@ class FechaArchivoAnteriorAFirmaError(ValueError):
         )
 
 
+class FechaArchivoAnteriorAFinalizacionError(ValueError):
+    def __init__(self, expediente_id: str, estado: str) -> None:
+        super().__init__(
+            f"La fecha de archivo del expediente {expediente_id} no puede "
+            f"ser anterior a la fecha de {estado.lower()}."
+        )
+
+
 class RegistrarArchivoPersistence(Protocol):
     def registrar(
+        self,
+        expediente_id: str,
+        fecha_archivo: date,
+        usuario_registro_archivo: str,
+    ) -> Expediente:
+        ...
+
+    def registrar_finalizado(
         self,
         expediente_id: str,
         fecha_archivo: date,

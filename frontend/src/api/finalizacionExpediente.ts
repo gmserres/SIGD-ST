@@ -42,3 +42,9 @@ export const desistirExpediente = <T>(expedienteId: string, fecha_desistimiento:
     method: 'POST',
     body: JSON.stringify({ fecha_desistimiento, motivo_desistimiento }),
   });
+
+export const archivarExpediente = <T>(expedienteId: string, fecha_archivo: string) =>
+  apiRequest<T>(`/expedientes/${expedienteId}/archivo`, {
+    method: 'POST',
+    body: JSON.stringify({ fecha_archivo }),
+  });

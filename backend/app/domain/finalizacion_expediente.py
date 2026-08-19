@@ -1,7 +1,11 @@
 from enum import Enum
 
 
-ESTADOS_TERMINALES_ORDINARIOS = frozenset({"CERRADO", "DESISTIDO"})
+ESTADOS_TERMINALES_ORDINARIOS = frozenset({
+    "CERRADO",
+    "DESISTIDO",
+    "ARCHIVADO",
+})
 
 
 class ExpedienteTerminalError(ValueError):

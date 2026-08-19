@@ -101,6 +101,7 @@ from app.repositories.registrar_archivo_persistence import (
     EstadoExpedienteIncompatibleParaArchivoError,
     ExpedienteNoEncontradoAlRegistrarArchivoError,
     FechaArchivoAnteriorAFirmaError,
+    FechaArchivoAnteriorAFinalizacionError,
     FirmaAusenteOInconsistenteAlArchivarError,
 )
 from app.services.registro_archivo import FechaArchivoFuturaError
@@ -1147,6 +1148,7 @@ def registrar_firma(
 @router.post(
     "/{expediente_id}/registrar-archivo",
     response_model=ExpedienteRead,
+    deprecated=True,
 )
 def registrar_archivo(
     expediente_id: str,
@@ -1171,6 +1173,36 @@ def registrar_archivo(
     except (
         FechaArchivoFuturaError,
         FechaArchivoAnteriorAFirmaError,
+    ) as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.post(
+    "/{expediente_id}/archivo",
+    response_model=ExpedienteRead,
+)
+def archivar_expediente_finalizado(
+    expediente_id: str,
+    data: RegistroArchivoCreate,
+):
+    try:
+        return registro_archivo_service.registrar_finalizado(
+            expediente_id,
+            data.fecha_archivo,
+        )
+    except ExpedienteNoEncontradoAlRegistrarArchivoError as exc:
+        raise HTTPException(
+            status_code=404,
+            detail="Expediente no encontrado",
+        ) from exc
+    except (
+        EstadoExpedienteIncompatibleParaArchivoError,
+        ArchivoYaRegistradoError,
+    ) as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except (
+        FechaArchivoFuturaError,
+        FechaArchivoAnteriorAFinalizacionError,
     ) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 

@@ -1936,13 +1936,21 @@ function App() {
   const opAnalizadaCorrectamente = Boolean(
     analisis?.op_detectada && analisis.modo !== 'EXTRACCION_FALLIDA',
   );
+  const expedienteArchivadoLegacy = Boolean(
+    seleccionado?.estado === 'ARCHIVADO'
+      && !seleccionado.fecha_cierre
+      && !seleccionado.fecha_desistimiento,
+  );
   const disposicionEmitida = Boolean(
     seleccionado
-      && ['DISPOSICION_EMITIDA', 'FIRMADO', 'ARCHIVADO'].includes(seleccionado.estado),
+      && (
+        ['DISPOSICION_EMITIDA', 'FIRMADO'].includes(seleccionado.estado)
+        || expedienteArchivadoLegacy
+      ),
   );
   const expedienteFirmado = seleccionado?.estado === 'FIRMADO';
   const expedienteArchivado = seleccionado?.estado === 'ARCHIVADO';
-  const expedienteTerminal = ['CERRADO', 'DESISTIDO'].includes(
+  const expedienteTerminal = ['CERRADO', 'DESISTIDO', 'ARCHIVADO'].includes(
     seleccionado?.estado || '',
   );
   const firmaPendiente = seleccionado?.estado === 'DISPOSICION_EMITIDA';
@@ -2078,6 +2086,14 @@ function App() {
   ];
 
   const accionPrincipal = (() => {
+    if (expedienteTerminal) {
+      return {
+        descripcion: 'El Expediente está finalizado. Sus actuaciones permanecen disponibles para consulta histórica.',
+        etiqueta: 'Consultar historial',
+        ejecutar: () => setTabDetalle('historial'),
+      };
+    }
+
     if (disposicionEmitida) {
       return {
         descripcion: 'La disposición fue emitida y se encuentra disponible para su descarga.',
