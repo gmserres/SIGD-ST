@@ -3,6 +3,7 @@ from datetime import date, datetime
 from sqlalchemy import (
     Date,
     DateTime,
+    CheckConstraint,
     ForeignKey,
     Index,
     Integer,
@@ -29,6 +30,31 @@ class ExpedienteModel(Base):
         Index("ix_expedientes_configuracion_uc", "configuracion_uc_id"),
         Index("ix_expedientes_id_suna", "id_suna"),
         Index("ix_expedientes_estado", "estado"),
+        CheckConstraint(
+            "(fecha_cierre IS NULL AND usuario_registro_cierre IS NULL AND registrado_cierre_en IS NULL) OR "
+            "(fecha_cierre IS NOT NULL AND usuario_registro_cierre IS NOT NULL AND registrado_cierre_en IS NOT NULL)",
+            name="ck_expedientes_cierre_completo",
+        ),
+        CheckConstraint(
+            "(fecha_desistimiento IS NULL AND usuario_registro_desistimiento IS NULL AND registrado_desistimiento_en IS NULL AND motivo_desistimiento IS NULL) OR "
+            "(fecha_desistimiento IS NOT NULL AND usuario_registro_desistimiento IS NOT NULL AND registrado_desistimiento_en IS NOT NULL AND motivo_desistimiento IS NOT NULL)",
+            name="ck_expedientes_desistimiento_completo",
+        ),
+        CheckConstraint(
+            "motivo_desistimiento IS NULL OR length(trim(motivo_desistimiento)) > 0",
+            name="ck_expedientes_motivo_desistimiento_no_vacio",
+        ),
+        CheckConstraint(
+            "NOT (fecha_cierre IS NOT NULL AND fecha_desistimiento IS NOT NULL)",
+            name="ck_expedientes_finalizaciones_exclusivas",
+        ),
+        CheckConstraint(
+            "(estado = 'CERRADO' AND fecha_cierre IS NOT NULL AND fecha_desistimiento IS NULL) OR "
+            "(estado = 'DESISTIDO' AND fecha_desistimiento IS NOT NULL AND fecha_cierre IS NULL) OR "
+            "(estado = 'ARCHIVADO' AND NOT (fecha_cierre IS NOT NULL AND fecha_desistimiento IS NOT NULL)) OR "
+            "(estado NOT IN ('CERRADO', 'DESISTIDO', 'ARCHIVADO') AND fecha_cierre IS NULL AND fecha_desistimiento IS NULL)",
+            name="ck_expedientes_estado_finalizacion",
+        ),
     )
 
     secuencia: Mapped[int] = mapped_column(
@@ -74,3 +100,18 @@ class ExpedienteModel(Base):
     usuario_registro_archivo: Mapped[str | None] = mapped_column(
         String(255), nullable=True
     )
+    fecha_cierre: Mapped[date | None] = mapped_column(Date, nullable=True)
+    usuario_registro_cierre: Mapped[str | None] = mapped_column(
+        String(255), nullable=True
+    )
+    registrado_cierre_en: Mapped[datetime | None] = mapped_column(
+        DateTime, nullable=True
+    )
+    fecha_desistimiento: Mapped[date | None] = mapped_column(Date, nullable=True)
+    usuario_registro_desistimiento: Mapped[str | None] = mapped_column(
+        String(255), nullable=True
+    )
+    registrado_desistimiento_en: Mapped[datetime | None] = mapped_column(
+        DateTime, nullable=True
+    )
+    motivo_desistimiento: Mapped[str | None] = mapped_column(Text, nullable=True)

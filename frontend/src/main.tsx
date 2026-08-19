@@ -38,6 +38,7 @@ import {
 import { DisposicionOPCard } from './components/disposiciones/DisposicionOPCard';
 import { ProveedorActualCard } from './components/proveedores/ProveedorActualCard';
 import { ProveedoresAdmin } from './components/proveedores/ProveedoresAdmin';
+import { CompletitudExpedienteCard } from './components/expedientes/CompletitudExpedienteCard';
 import './styles.css';
 
 const procedenciasDisponibles = [
@@ -111,6 +112,13 @@ type Expediente = {
   usuario_registro_firma?: string | null;
   fecha_archivo?: string | null;
   usuario_registro_archivo?: string | null;
+  fecha_cierre?: string | null;
+  usuario_registro_cierre?: string | null;
+  registrado_cierre_en?: string | null;
+  fecha_desistimiento?: string | null;
+  usuario_registro_desistimiento?: string | null;
+  registrado_desistimiento_en?: string | null;
+  motivo_desistimiento?: string | null;
   solicitud_intervencion_id?: string | null;
   decision_administrativa_id?: string | null;
   creado: string;
@@ -322,6 +330,8 @@ function etiquetaEstado(estado: string) {
     DISPOSICION_EMITIDA: 'Disposición emitida',
     FIRMADO: 'Firmado',
     ARCHIVADO: 'Archivado',
+    CERRADO: 'Cerrado',
+    DESISTIDO: 'Desistido',
   };
   return mapa[estado] || estado;
 }
@@ -336,7 +346,8 @@ function etiquetaFondoInterviniente(fondo: string | null) {
 }
 
 function claseEstado(estado: string) {
-  if (['VALIDADO', 'DISPOSICION_EMITIDA', 'FIRMADO', 'ARCHIVADO'].includes(estado)) return 'badge green';
+  if (['VALIDADO', 'DISPOSICION_EMITIDA', 'FIRMADO', 'ARCHIVADO', 'CERRADO'].includes(estado)) return 'badge green';
+  if (estado === 'DESISTIDO') return 'badge gray';
   if (['DOCUMENTACION_EN_CARGA', 'PENDIENTE_VALIDACION', 'BORRADOR'].includes(estado)) return 'badge yellow';
   return 'badge blue';
 }
@@ -1931,6 +1942,9 @@ function App() {
   );
   const expedienteFirmado = seleccionado?.estado === 'FIRMADO';
   const expedienteArchivado = seleccionado?.estado === 'ARCHIVADO';
+  const expedienteTerminal = ['CERRADO', 'DESISTIDO'].includes(
+    seleccionado?.estado || '',
+  );
   const firmaPendiente = seleccionado?.estado === 'DISPOSICION_EMITIDA';
   const validacionAdministrativaCompleta = Boolean(
     seleccionado
@@ -3358,10 +3372,19 @@ function App() {
               </div>
             </section>
 
+            <CompletitudExpedienteCard
+              expediente={seleccionado}
+              onFinalizado={(actualizado) => {
+                setSeleccionado(actualizado);
+                void cargarDetalle(actualizado);
+              }}
+            />
+
             <ProveedorActualCard
               expedienteId={seleccionado.id}
               seleccionadoPor={decisionUsuarioRegistrante}
               revisionProveedor={revisionProveedor}
+              soloLectura={expedienteTerminal}
             />
 
             <section
@@ -3616,8 +3639,8 @@ function App() {
                         <strong>Orden de Pago</strong>
                         {validacionAdministrativaCompleta ? (
                           <>
-                            <input type="file" accept=".pdf" onChange={(e) => setArchivoOP(e.target.files?.[0] || null)} />
-                            <button className="secondary" onClick={subirOP}>Cargar OP</button>
+                            <input type="file" accept=".pdf" disabled={expedienteTerminal} onChange={(e) => setArchivoOP(e.target.files?.[0] || null)} />
+                            <button className="secondary" disabled={expedienteTerminal} onClick={subirOP}>Cargar OP</button>
                           </>
                         ) : (
                           <p className="blocked-note">
@@ -3642,8 +3665,8 @@ function App() {
                           <option value="CHECK_ARBA">Checklist ARBA</option>
                           <option value="OTRO">Otro</option>
                         </select>
-                        <input type="file" onChange={(e) => setArchivoDoc(e.target.files?.[0] || null)} />
-                        <button className="secondary" onClick={subirDocumento}>Cargar documento</button>
+                        <input type="file" disabled={expedienteTerminal} onChange={(e) => setArchivoDoc(e.target.files?.[0] || null)} />
+                        <button className="secondary" disabled={expedienteTerminal} onClick={subirDocumento}>Cargar documento</button>
                       </div>
                     </div>
 
@@ -3674,6 +3697,7 @@ function App() {
                                         decisionUsuarioRegistrante
                                       }
                                       revisionProveedor={revisionProveedor}
+                                      soloLectura={expedienteTerminal}
                                       onProveedorRegularizado={() => {
                                         setRevisionProveedor(
                                           (revision) => revision + 1,
@@ -3685,6 +3709,7 @@ function App() {
                                       documentoOpId={doc.id}
                                       nombreArchivo={doc.nombre_archivo}
                                       revisionProveedor={revisionProveedor}
+                                      soloLectura={expedienteTerminal}
                                     />
                                   </td>
                                 </tr>
@@ -3936,7 +3961,7 @@ function App() {
                           <div className="validation-action-panel green-panel">
                             <h4>Validación documental completa</h4>
                             <p>Todas las evidencias requeridas fueron acreditadas. El expediente puede ser validado para continuar con la generación de la Disposición.</p>
-                            <button className="primary" onClick={validarExpediente}>Validar expediente</button>
+                            <button className="primary" disabled={expedienteTerminal} onClick={validarExpediente}>Validar expediente</button>
                           </div>
                         )}
 
@@ -3953,7 +3978,7 @@ function App() {
                                 onChange={(e) => setMotivoObservacion(e.target.value)}
                                 placeholder="Ejemplo: Se continúa con observaciones porque la documentación será incorporada posteriormente."
                               />
-                              <button className="primary" onClick={validarConObservaciones}>Validar con observaciones</button>
+                              <button className="primary" disabled={expedienteTerminal} onClick={validarConObservaciones}>Validar con observaciones</button>
                             </div>
                           </div>
                         )}
@@ -4013,7 +4038,7 @@ function App() {
                       <div className="empty-disposition">
                         <p className="empty">Todavía no hay borrador generado para este expediente.</p>
                         {seleccionado.estado === 'VALIDADO' ? (
-                          <button className="secondary" onClick={() => prepararDisposicion(false)}>Generar borrador de Disposición</button>
+                          <button className="secondary" disabled={expedienteTerminal} onClick={() => prepararDisposicion(false)}>Generar borrador de Disposición</button>
                         ) : (
                           <p className="warn">El expediente debe estar validado antes de generar la disposición.</p>
                         )}
@@ -4053,8 +4078,8 @@ function App() {
                         </div>
 
                         <div className="actions disposition-primary-actions">
-                          <button className="secondary" onClick={() => prepararDisposicion(true)}><RefreshCw aria-hidden="true" />Regenerar borrador</button>
-                          <button className="primary" onClick={guardarBorradorDisposicion}><Save aria-hidden="true" />Guardar borrador</button>
+                          <button className="secondary" disabled={expedienteTerminal} onClick={() => prepararDisposicion(true)}><RefreshCw aria-hidden="true" />Regenerar borrador</button>
+                          <button className="primary" disabled={expedienteTerminal} onClick={guardarBorradorDisposicion}><Save aria-hidden="true" />Guardar borrador</button>
                           <button className="secondary" onClick={descargarBorradorTexto}><FileText aria-hidden="true" />Exportar texto</button>
                           <button className="primary" onClick={descargarBorradorWord}><Download aria-hidden="true" />Descargar Word</button>
                           {seleccionado.estado === 'VALIDADO' && <button className="primary" onClick={generarDisposicion}><FileSignature aria-hidden="true" />Emitir disposición</button>}
@@ -4256,7 +4281,7 @@ function App() {
 
             <div className="actions">
               <button className="secondary" onClick={() => setMostrarChecklistFisico(false)}>Cancelar</button>
-              <button className="primary" onClick={guardarChecklistFisico}>Guardar checklist</button>
+              <button className="primary" disabled={expedienteTerminal} onClick={guardarChecklistFisico}>Guardar checklist</button>
             </div>
           </div>
         </div>

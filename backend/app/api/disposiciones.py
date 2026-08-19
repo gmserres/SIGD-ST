@@ -16,6 +16,7 @@ from app.schemas.formalizacion_disposicion import (
 from app.services.formalizacion_disposicion import (
     FechaFormalizacionFuturaError,
 )
+from app.domain.finalizacion_expediente import ExpedienteTerminalError
 
 
 router = APIRouter()
@@ -39,7 +40,7 @@ def formalizar_disposicion(
         ExpedienteDisposicionNoEncontradoError,
     ) as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
-    except DisposicionYaFormalizadaError as exc:
+    except (DisposicionYaFormalizadaError, ExpedienteTerminalError) as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except (
         FechaFormalizacionFuturaError,

@@ -20,6 +20,9 @@ from app.infrastructure.database.persistence.disposicion_conflicts import (
 from app.repositories.disposicion_repository import (
     DisposicionExpedienteAmbiguoError,
 )
+from app.infrastructure.database.persistence.mutabilidad_expediente import (
+    bloquear_expediente_mutable,
+)
 
 
 class PostgresDisposicionRepository:
@@ -31,6 +34,7 @@ class PostgresDisposicionRepository:
     def guardar(self, disposicion: Disposicion) -> None:
         with self._session_factory() as session:
             try:
+                bloquear_expediente_mutable(session, disposicion.expediente_id)
                 verificar_disposicion_duplicada(session, disposicion)
                 session.add(a_modelo(disposicion))
                 session.commit()

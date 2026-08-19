@@ -1,4 +1,5 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
@@ -11,12 +12,20 @@ from app.api.selecciones_proveedor import router as selecciones_proveedor_router
 from app.api.solicitudes import router as solicitudes_router
 from app.api.sistema import router as sistema_router
 from app.core.settings import APP_STATE, APP_VERSION, STORAGE_DIR
+from app.domain.finalizacion_expediente import ExpedienteTerminalError
 
 app = FastAPI(
     title="SIGD-ST API",
     version=APP_VERSION,
     description="API Alfa del Sistema Inteligente de Gestión Documental",
 )
+
+
+@app.exception_handler(ExpedienteTerminalError)
+def expediente_terminal_handler(
+    _request: Request, exc: ExpedienteTerminalError
+) -> JSONResponse:
+    return JSONResponse(status_code=409, content={"detail": str(exc)})
 
 app.add_middleware(
     CORSMiddleware,

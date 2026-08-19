@@ -32,11 +32,17 @@ class PostgresExpedienteRepository:
                 modelo = session.scalar(
                     select(ExpedienteModel).where(
                         ExpedienteModel.id == expediente.id
-                    )
+                    ).with_for_update()
                 )
                 if modelo is None:
                     session.add(a_modelo(expediente))
                 else:
+                    from app.domain.finalizacion_expediente import (
+                        ESTADOS_TERMINALES_ORDINARIOS,
+                        ExpedienteTerminalError,
+                    )
+                    if modelo.estado in ESTADOS_TERMINALES_ORDINARIOS:
+                        raise ExpedienteTerminalError(modelo.id, modelo.estado)
                     actualizar_modelo(modelo, expediente)
                 session.commit()
             except Exception:

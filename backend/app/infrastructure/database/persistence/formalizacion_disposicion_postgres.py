@@ -13,6 +13,9 @@ from app.repositories.formalizacion_disposicion_persistence import (
     ExpedienteDisposicionNoEncontradoError,
     FechaFormalizacionAnteriorAEmisionError,
 )
+from app.infrastructure.database.persistence.mutabilidad_expediente import (
+    bloquear_expediente_mutable,
+)
 
 
 class PostgresFormalizacionDisposicionPersistence:
@@ -28,6 +31,16 @@ class PostgresFormalizacionDisposicionPersistence:
     ) -> Disposicion:
         with self._session_factory() as session:
             try:
+                expediente_id = session.scalar(
+                    select(DisposicionModel.expediente_id).where(
+                        DisposicionModel.id_disposicion == id_disposicion
+                    )
+                )
+                if expediente_id is None:
+                    raise DisposicionNoEncontradaAlFormalizarError(
+                        id_disposicion
+                    )
+                bloquear_expediente_mutable(session, expediente_id)
                 modelo = session.scalar(
                     select(DisposicionModel)
                     .where(DisposicionModel.id_disposicion == id_disposicion)
@@ -36,15 +49,6 @@ class PostgresFormalizacionDisposicionPersistence:
                 if modelo is None:
                     raise DisposicionNoEncontradaAlFormalizarError(
                         id_disposicion
-                    )
-                expediente = session.scalar(
-                    select(ExpedienteModel).where(
-                        ExpedienteModel.id == modelo.expediente_id
-                    )
-                )
-                if expediente is None:
-                    raise ExpedienteDisposicionNoEncontradoError(
-                        modelo.expediente_id
                     )
                 metadatos = (
                     modelo.fecha_formalizacion,

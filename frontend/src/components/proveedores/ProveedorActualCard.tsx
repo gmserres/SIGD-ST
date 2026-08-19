@@ -21,6 +21,7 @@ type ProveedorActualCardProps = {
   expedienteId: string;
   seleccionadoPor: string;
   revisionProveedor: number;
+  soloLectura?: boolean;
 };
 
 type SelectorModo = 'inicial' | 'reemplazo';
@@ -54,6 +55,7 @@ export function ProveedorActualCard({
   expedienteId,
   seleccionadoPor,
   revisionProveedor,
+  soloLectura = false,
 }: ProveedorActualCardProps) {
   const consultaActual = useRef(0);
   const [seleccion, setSeleccion] =
@@ -171,6 +173,7 @@ export function ProveedorActualCard({
             </div>
 
             <div className="proveedor-actual-actions">
+              {!soloLectura && (
               <button
                 className="small-button"
                 type="button"
@@ -178,6 +181,7 @@ export function ProveedorActualCard({
               >
                 Reemplazar proveedor
               </button>
+              )}
               <button
                 className="link"
                 type="button"
@@ -193,18 +197,18 @@ export function ProveedorActualCard({
               <strong>Sin proveedor seleccionado.</strong>
               <p>Seleccione el proveedor previsto para este expediente.</p>
             </div>
-            <button
+            {!soloLectura && <button
               className="primary"
               type="button"
               onClick={() => setSelectorModo('inicial')}
             >
               Seleccionar proveedor
-            </button>
+            </button>}
           </div>
         )}
       </section>
 
-      {selectorModo && (
+      {!soloLectura && selectorModo && (
         <ProveedorSelectorModal
           modo={selectorModo}
           proveedorActual={

@@ -19,6 +19,10 @@ from app.infrastructure.database.persistence.validacion_vigencia import (
     obtener_modelo_vigente,
 )
 from app.schemas.checklist_fisico import ChecklistFisicoRead
+from app.domain.finalizacion_expediente import (
+    ESTADOS_TERMINALES_ORDINARIOS,
+    ExpedienteTerminalError,
+)
 
 
 class PostgresActualizarChecklistPersistence:
@@ -43,6 +47,10 @@ class PostgresActualizarChecklistPersistence:
                 )
                 if expediente is None:
                     raise KeyError(checklist.expediente_id)
+                if expediente.estado in ESTADOS_TERMINALES_ORDINARIOS:
+                    raise ExpedienteTerminalError(
+                        checklist.expediente_id, expediente.estado
+                    )
 
                 modelo = session.scalar(
                     select(ChecklistFisicoModel).where(

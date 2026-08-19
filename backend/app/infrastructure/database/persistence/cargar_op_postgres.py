@@ -18,6 +18,10 @@ from app.infrastructure.database.persistence.validacion_vigencia import (
     obtener_modelo_vigente,
 )
 from app.schemas.documento import DocumentoCreate, DocumentoRead
+from app.domain.finalizacion_expediente import (
+    ESTADOS_TERMINALES_ORDINARIOS,
+    ExpedienteTerminalError,
+)
 
 
 class PostgresCargarOPPersistence:
@@ -42,6 +46,8 @@ class PostgresCargarOPPersistence:
                 )
                 if expediente is None:
                     raise KeyError(expediente_id)
+                if expediente.estado in ESTADOS_TERMINALES_ORDINARIOS:
+                    raise ExpedienteTerminalError(expediente_id, expediente.estado)
 
                 documento = a_modelo(
                     expediente_id,

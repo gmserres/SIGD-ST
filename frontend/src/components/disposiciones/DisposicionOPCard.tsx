@@ -20,6 +20,7 @@ type Props = {
   documentoOpId: string;
   nombreArchivo: string;
   revisionProveedor: number;
+  soloLectura?: boolean;
 };
 
 const errorMensaje = (error: unknown) => (
@@ -37,6 +38,7 @@ export function DisposicionOPCard({
   documentoOpId,
   nombreArchivo,
   revisionProveedor,
+  soloLectura = false,
 }: Props) {
   const consulta = useRef(0);
   const [habilitacion, setHabilitacion] = useState<HabilitacionProveedorOP | null>(null);
@@ -171,7 +173,7 @@ export function DisposicionOPCard({
             ) : (
               <>
                 <p className="muted"><strong>Disposición emitida</strong> · Pendiente de formalización</p>
-                {!confirmandoFormalizacion ? (
+                {soloLectura ? null : !confirmandoFormalizacion ? (
                   <button className="primary" type="button" onClick={() => {
                     setFechaFormalizacion(fechaLocalISO());
                     setConfirmandoFormalizacion(true);
@@ -191,6 +193,8 @@ export function DisposicionOPCard({
           </div>
           <button className="secondary" type="button" onClick={descargar}><Download />Descargar DOCX definitivo</button>
         </>
+      ) : soloLectura ? (
+        <p className="muted">El Expediente está finalizado. No admite nuevas actuaciones.</p>
       ) : habilitacion?.estado !== 'HABILITADO' ? (
         <div className="control-proveedor-op-message"><p>{habilitacion?.mensaje || 'La OP no está habilitada.'}</p><small>{habilitacion?.proxima_accion}</small></div>
       ) : !borrador ? (

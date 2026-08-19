@@ -110,8 +110,80 @@ from app.composition.validacion import validacion_service
 from app.services.historial import historial_service
 from app.services.parametros import parametros_institucionales_service
 from app.services.texto_documento import texto_documento_service
+from app.composition.finalizacion_expediente import finalizacion_expediente_service
+from app.repositories.finalizacion_expediente_persistence import (
+    FechaCierreAnteriorAFormalizacionError,
+    FechaDesistimientoAnteriorACreacionError,
+    FinalizacionExpedienteError,
+)
+from app.schemas.finalizacion_expediente import (
+    CierreExpedienteCreate,
+    DesistimientoExpedienteCreate,
+    HabilitacionCierreRead,
+    HabilitacionDesistimientoRead,
+)
+from app.services.finalizacion_expediente import FechaFinalizacionFuturaError
+from app.domain.finalizacion_expediente import ExpedienteTerminalError
 
 router = APIRouter()
+
+
+def _error_finalizacion(exc: Exception) -> HTTPException:
+    if isinstance(exc, KeyError):
+        return HTTPException(status_code=404, detail="Expediente no encontrado")
+    if isinstance(exc, (
+        FechaFinalizacionFuturaError,
+        FechaCierreAnteriorAFormalizacionError,
+        FechaDesistimientoAnteriorACreacionError,
+    )):
+        return HTTPException(status_code=422, detail=str(exc))
+    return HTTPException(status_code=409, detail=str(exc))
+
+
+@router.get(
+    "/{expediente_id}/habilitacion-cierre",
+    response_model=HabilitacionCierreRead,
+)
+def consultar_habilitacion_cierre(expediente_id: str):
+    try:
+        return finalizacion_expediente_service.habilitacion_cierre(expediente_id)
+    except KeyError as exc:
+        raise _error_finalizacion(exc) from exc
+
+
+@router.get(
+    "/{expediente_id}/habilitacion-desistimiento",
+    response_model=HabilitacionDesistimientoRead,
+)
+def consultar_habilitacion_desistimiento(expediente_id: str):
+    try:
+        return finalizacion_expediente_service.habilitacion_desistimiento(expediente_id)
+    except KeyError as exc:
+        raise _error_finalizacion(exc) from exc
+
+
+@router.post("/{expediente_id}/cierre", response_model=ExpedienteRead)
+def cerrar_expediente(expediente_id: str, data: CierreExpedienteCreate):
+    try:
+        resultado = finalizacion_expediente_service.cerrar(expediente_id, data)
+        historial_service.registrar(expediente_id, "EXPEDIENTE_CERRADO")
+        return resultado
+    except (KeyError, FinalizacionExpedienteError, FechaFinalizacionFuturaError) as exc:
+        raise _error_finalizacion(exc) from exc
+
+
+@router.post("/{expediente_id}/desistimiento", response_model=ExpedienteRead)
+def desistir_expediente(expediente_id: str, data: DesistimientoExpedienteCreate):
+    try:
+        resultado = finalizacion_expediente_service.desistir(expediente_id, data)
+        historial_service.registrar(
+            expediente_id,
+            "EXPEDIENTE_DESISTIDO",
+            detalle=data.motivo_desistimiento,
+        )
+        return resultado
+    except (KeyError, FinalizacionExpedienteError, FechaFinalizacionFuturaError) as exc:
+        raise _error_finalizacion(exc) from exc
 
 
 def _eliminar_archivo_guardado(ruta_relativa: str) -> None:

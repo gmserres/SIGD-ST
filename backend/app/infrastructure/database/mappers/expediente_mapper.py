@@ -22,6 +22,13 @@ def a_modelo(expediente: Expediente) -> ExpedienteModel:
         usuario_registro_firma=expediente.usuario_registro_firma,
         fecha_archivo=expediente.fecha_archivo,
         usuario_registro_archivo=expediente.usuario_registro_archivo,
+        fecha_cierre=expediente.fecha_cierre,
+        usuario_registro_cierre=expediente.usuario_registro_cierre,
+        registrado_cierre_en=expediente.registrado_cierre_en,
+        fecha_desistimiento=expediente.fecha_desistimiento,
+        usuario_registro_desistimiento=expediente.usuario_registro_desistimiento,
+        registrado_desistimiento_en=expediente.registrado_desistimiento_en,
+        motivo_desistimiento=expediente.motivo_desistimiento,
     )
 
 
@@ -44,6 +51,13 @@ def a_dominio(modelo: ExpedienteModel) -> Expediente:
         usuario_registro_firma=modelo.usuario_registro_firma,
         fecha_archivo=modelo.fecha_archivo,
         usuario_registro_archivo=modelo.usuario_registro_archivo,
+        fecha_cierre=modelo.fecha_cierre,
+        usuario_registro_cierre=modelo.usuario_registro_cierre,
+        registrado_cierre_en=modelo.registrado_cierre_en,
+        fecha_desistimiento=modelo.fecha_desistimiento,
+        usuario_registro_desistimiento=modelo.usuario_registro_desistimiento,
+        registrado_desistimiento_en=modelo.registrado_desistimiento_en,
+        motivo_desistimiento=modelo.motivo_desistimiento,
     )
 
 
@@ -64,3 +78,10 @@ def actualizar_modelo(modelo: ExpedienteModel, expediente: Expediente) -> None:
     modelo.usuario_registro_firma = expediente.usuario_registro_firma
     modelo.fecha_archivo = expediente.fecha_archivo
     modelo.usuario_registro_archivo = expediente.usuario_registro_archivo
+    modelo.fecha_cierre = expediente.fecha_cierre
+    modelo.usuario_registro_cierre = expediente.usuario_registro_cierre
+    modelo.registrado_cierre_en = expediente.registrado_cierre_en
+    modelo.fecha_desistimiento = expediente.fecha_desistimiento
+    modelo.usuario_registro_desistimiento = expediente.usuario_registro_desistimiento
+    modelo.registrado_desistimiento_en = expediente.registrado_desistimiento_en
+    modelo.motivo_desistimiento = expediente.motivo_desistimiento

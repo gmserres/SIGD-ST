@@ -22,6 +22,10 @@ from app.repositories.validar_expediente_persistence import (
     ExpedienteNoEncontradoAlValidarError,
 )
 from app.schemas.validacion import ValidacionAdministrativaRead
+from app.domain.finalizacion_expediente import (
+    ESTADOS_TERMINALES_ORDINARIOS,
+    ExpedienteTerminalError,
+)
 
 
 class PostgresValidarExpedientePersistence:
@@ -47,6 +51,10 @@ class PostgresValidarExpedientePersistence:
                 if expediente is None:
                     raise ExpedienteNoEncontradoAlValidarError(
                         validacion.expediente_id
+                    )
+                if expediente.estado in ESTADOS_TERMINALES_ORDINARIOS:
+                    raise ExpedienteTerminalError(
+                        validacion.expediente_id, expediente.estado
                     )
 
                 vigente = obtener_modelo_vigente(

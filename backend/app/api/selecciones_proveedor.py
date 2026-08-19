@@ -16,6 +16,7 @@ from app.domain.seleccion_proveedor import (
     SolicitudSeleccionInexistenteError,
 )
 from app.schemas.seleccion_proveedor import ReemplazoProveedorCreate, SeleccionProveedorCreate, SeleccionProveedorRead
+from app.domain.finalizacion_expediente import ExpedienteTerminalError
 
 
 router = APIRouter()
@@ -34,6 +35,7 @@ ERRORES_CONFLICTO = (
     ProveedorInactivoError,
     SeleccionProveedorVigenteError,
     MismoProveedorSeleccionadoError,
+    ExpedienteTerminalError,
 )
 
 
@@ -65,6 +67,7 @@ def seleccionar_proveedor(expediente_id: str, data: SeleccionProveedorCreate) ->
         SeleccionProveedorVigenteError,
         TypeError,
         ValueError,
+        ExpedienteTerminalError,
     ) as exc:
         raise _traducir_error(exc) from exc
 
@@ -101,6 +104,7 @@ def reemplazar_proveedor(expediente_id: str, data: ReemplazoProveedorCreate) -> 
         MismoProveedorSeleccionadoError,
         TypeError,
         ValueError,
+        ExpedienteTerminalError,
     ) as exc:
         raise _traducir_error(exc) from exc
 

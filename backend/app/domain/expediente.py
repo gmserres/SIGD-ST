@@ -23,3 +23,10 @@ class Expediente:
     usuario_registro_firma: str | None = None
     fecha_archivo: date | None = None
     usuario_registro_archivo: str | None = None
+    fecha_cierre: date | None = None
+    usuario_registro_cierre: str | None = None
+    registrado_cierre_en: datetime | None = None
+    fecha_desistimiento: date | None = None
+    usuario_registro_desistimiento: str | None = None
+    registrado_desistimiento_en: datetime | None = None
+    motivo_desistimiento: str | None = None

@@ -19,6 +19,9 @@ from app.infrastructure.database.models.seleccion_proveedor_model import (
 from app.repositories.control_proveedor_op_repository import (
     SeleccionControlObsoletaError,
 )
+from app.infrastructure.database.persistence.mutabilidad_expediente import (
+    bloquear_expediente_mutable,
+)
 
 
 class PostgresControlProveedorOPRepository:
@@ -34,6 +37,7 @@ class PostgresControlProveedorOPRepository:
     ) -> ControlProveedorOPEvidencia:
         with self._session_factory() as session:
             try:
+                bloquear_expediente_mutable(session, control.expediente_id)
                 seleccion = session.scalar(
                     select(SeleccionProveedorModel)
                     .where(

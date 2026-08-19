@@ -11,6 +11,9 @@ from app.infrastructure.database.models.documento_model import (
     DocumentoModel,
 )
 from app.schemas.documento import DocumentoCreate, DocumentoRead
+from app.infrastructure.database.persistence.mutabilidad_expediente import (
+    bloquear_expediente_mutable,
+)
 
 
 class PostgresDocumentoRepository:
@@ -28,6 +31,7 @@ class PostgresDocumentoRepository:
     ) -> DocumentoRead:
         with self._session_factory() as session:
             try:
+                bloquear_expediente_mutable(session, expediente_id)
                 modelo = a_modelo(
                     expediente_id,
                     data,

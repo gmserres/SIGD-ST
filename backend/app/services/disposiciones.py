@@ -17,6 +17,10 @@ from app.composition.seleccion_proveedor import (
 from app.domain.habilitacion_proveedor_op import (
     EstadoHabilitacionProveedorOP,
 )
+from app.domain.finalizacion_expediente import (
+    ESTADOS_TERMINALES_ORDINARIOS,
+    ExpedienteTerminalError,
+)
 from app.services.analisis_op import (
     DocumentoNoEsOPError,
     DocumentoOPExpedienteInconsistenteError,
@@ -73,6 +77,7 @@ class DisposicionService:
         *,
         regenerar: bool = False,
     ) -> DisposicionRead:
+        self._asegurar_mutable(expediente_id)
         habilitacion = self._evaluar_habilitacion(
             expediente_id, documento_op_id
         )
@@ -188,6 +193,7 @@ class DisposicionService:
         documento_op_id: str,
         data: DisposicionUpdate,
     ) -> DisposicionRead:
+        self._asegurar_mutable(expediente_id)
         borrador = self.obtener_exportable(expediente_id, documento_op_id)
         actualizado = borrador.model_copy(
             update={
@@ -208,6 +214,7 @@ class DisposicionService:
     ) -> DisposicionRead:
         clave = (expediente_id, documento_op_id)
         if clave not in self._borradores:
+            self._asegurar_mutable(expediente_id)
             return self.generar_borrador(expediente_id, documento_op_id)
         habilitacion = evaluar_habilitacion_proveedor_op_service.evaluar(
             expediente_id, documento_op_id
@@ -414,6 +421,16 @@ class DisposicionService:
         if habilitacion.estado != EstadoHabilitacionProveedorOP.HABILITADO:
             raise BorradorDisposicionNoHabilitadoError(habilitacion)
         return habilitacion
+
+    @staticmethod
+    def _asegurar_mutable(expediente_id: str) -> None:
+        expediente = expediente_service.obtener(expediente_id)
+        estado = getattr(expediente, "estado", None)
+        valor_estado = getattr(estado, "value", estado)
+        if valor_estado in ESTADOS_TERMINALES_ORDINARIOS:
+            raise ExpedienteTerminalError(
+                expediente_id, valor_estado
+            )
 
     @staticmethod
     def _obtener_seleccion_habilitante(

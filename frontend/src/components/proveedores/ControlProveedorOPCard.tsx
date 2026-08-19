@@ -26,6 +26,7 @@ type ControlProveedorOPCardProps = {
   seleccionadoPor: string;
   revisionProveedor: number;
   onProveedorRegularizado: () => void;
+  soloLectura?: boolean;
 };
 
 const etiquetasControl: Record<EstadoControlProveedorOP, string> = {
@@ -109,6 +110,7 @@ export function ControlProveedorOPCard({
   seleccionadoPor,
   revisionProveedor,
   onProveedorRegularizado,
+  soloLectura = false,
 }: ControlProveedorOPCardProps) {
   const consultaActual = useRef(0);
   const [control, setControl] =
@@ -349,7 +351,7 @@ export function ControlProveedorOPCard({
                 Reintentar consulta
               </button>
             )}
-            {accionControl && (
+            {!soloLectura && accionControl && (
               <button
                 className="secondary"
                 type="button"
@@ -359,7 +361,7 @@ export function ControlProveedorOPCard({
                 {ejecutando ? 'Controlando...' : accionControl}
               </button>
             )}
-            {puedeRegularizar && (
+            {!soloLectura && puedeRegularizar && (
               <button
                 className="secondary"
                 type="button"
@@ -372,7 +374,7 @@ export function ControlProveedorOPCard({
         </>
       )}
 
-      {regularizando
+      {!soloLectura && regularizando
         && control
         && habilitacion?.proveedor_definitivo_id
         && control.cuit_seleccionado

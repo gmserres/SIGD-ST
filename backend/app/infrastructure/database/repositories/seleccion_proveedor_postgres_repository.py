@@ -5,6 +5,9 @@ from sqlalchemy.orm import Session, sessionmaker
 from app.domain.seleccion_proveedor import SeleccionProveedor, SeleccionProveedorVigenteError
 from app.infrastructure.database.mappers.seleccion_proveedor_mapper import a_dominio, a_modelo
 from app.infrastructure.database.models.seleccion_proveedor_model import SeleccionProveedorModel
+from app.infrastructure.database.persistence.mutabilidad_expediente import (
+    bloquear_expediente_mutable,
+)
 
 
 class PostgresSeleccionProveedorRepository:
@@ -14,6 +17,7 @@ class PostgresSeleccionProveedorRepository:
     def guardar(self, seleccion: SeleccionProveedor) -> None:
         with self._session_factory() as session:
             try:
+                bloquear_expediente_mutable(session, seleccion.expediente_id)
                 session.add(a_modelo(seleccion))
                 session.commit()
             except IntegrityError as exc:
@@ -24,6 +28,7 @@ class PostgresSeleccionProveedorRepository:
     def reemplazar(self, anterior: SeleccionProveedor, nueva: SeleccionProveedor) -> None:
         with self._session_factory() as session:
             try:
+                bloquear_expediente_mutable(session, anterior.expediente_id)
                 modelo_anterior = session.scalar(
                     select(SeleccionProveedorModel)
                     .where(
