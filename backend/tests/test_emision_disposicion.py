@@ -2,10 +2,10 @@ import unittest
 from dataclasses import replace
 from datetime import datetime
 from decimal import Decimal
-from pathlib import Path
-from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
+
+from fastapi import HTTPException
 
 from app.domain.disposicion import Disposicion
 from app.domain.estados import EstadoExpediente
@@ -24,8 +24,8 @@ from app.services.emision_disposicion import (
 from app.services.habilitacion_disposicion import (
     ContextoEmisionDisposicion,
     HabilitacionDisposicion,
-    MotivoNoHabilitacion,
 )
+from app.api.expedientes import generar_disposicion
 
 
 class FakeEmitirDisposicionPersistence:
@@ -107,142 +107,42 @@ class EmisionDisposicionServiceTest(unittest.TestCase):
             now=lambda: self.fecha,
         )
 
-    def test_emite_snapshots_fecha_y_fondo_de_decision(self):
-        with patch(
-            "app.services.emision_disposicion.STORAGE_DIR",
-            Path("C:/app/storage"),
+    def _rechazar_legacy(self):
+        with self.assertRaisesRegex(
+            EmisionDisposicionError,
+            "Utilice una OP concreta",
         ):
-            self.docx.generar_docx.return_value = Path(
-                "C:/app/storage/exports/EXP-1/disposicion.docx"
-            )
-            resultado = self.service.emitir("EXP-1")
-        guardada = self.persistence.disposiciones[0]
-        self.assertEqual(guardada.fecha_emision, self.fecha)
-        self.assertEqual(guardada.fondo_interviniente, "CUFP")
-        self.assertNotEqual(
-            guardada.fondo_interviniente,
-            self.analisis.analizar.return_value.fondo,
-        )
-        self.assertEqual(guardada.numero_op, "OP-1")
-        self.assertEqual(guardada.numero_liquidacion, "LIQ-1")
-        self.assertEqual(guardada.texto_emitido, "Texto final")
-        self.assertEqual(
-            guardada.ruta_docx,
-            "exports/EXP-1/disposicion.docx",
-        )
-        self.assertEqual(
-            resultado.estado,
-            EstadoExpediente.DISPOSICION_EMITIDA,
-        )
-
-    def test_no_habilitado_impide_docx_y_persistencia(self):
-        habilitacion = HabilitacionDisposicion(
-            False,
-            (
-                MotivoNoHabilitacion(
-                    "PENDIENTE_REVALIDACION",
-                    "El Expediente requiere revalidación.",
-                ),
-            ),
-        )
-        self.evaluador.evaluar_para_emision.return_value = (
-            habilitacion,
-            ContextoEmisionDisposicion(
-                expediente=self.expediente,
-                decision=None,
-                analisis_op=None,
-            ),
-        )
-        with self.assertRaises(EmisionDisposicionError) as contexto:
             self.service.emitir("EXP-1")
-        self.assertIs(contexto.exception.habilitacion, habilitacion)
-        self.docx.generar_docx.assert_not_called()
+
+    def test_emision_global_legacy_esta_deshabilitada(self):
+        self._rechazar_legacy()
+
+    def test_emision_global_no_evalua_habilitacion(self):
+        self._rechazar_legacy()
+        self.evaluador.evaluar_para_emision.assert_not_called()
+
+    def test_emision_global_no_obtiene_borrador(self):
+        self._rechazar_legacy()
         self.borradores.obtener.assert_not_called()
+
+    def test_emision_global_no_construye_texto(self):
+        self._rechazar_legacy()
+        self.docx.construir_texto_emitido.assert_not_called()
+
+    def test_emision_global_no_genera_docx(self):
+        self._rechazar_legacy()
+        self.docx.generar_docx.assert_not_called()
+
+    def test_emision_global_no_persiste_disposicion(self):
+        self._rechazar_legacy()
         self.assertEqual(self.persistence.disposiciones, [])
-        self.evaluador.evaluar_para_emision.assert_called_once_with(
-            "EXP-1"
-        )
 
-    def test_fallo_docx_no_llama_persistencia(self):
-        self.docx.generar_docx.side_effect = RuntimeError("DOCX")
-        with self.assertRaisesRegex(RuntimeError, "DOCX"):
-            self.service.emitir("EXP-1")
-        self.assertEqual(self.persistence.disposiciones, [])
-
-    def test_docx_fuera_de_storage_se_elimina_y_no_persiste(self):
-        with TemporaryDirectory() as temporal:
-            raiz = Path(temporal)
-            storage = raiz / "storage"
-            storage.mkdir()
-            externo = raiz / "externo.docx"
-            externo.write_bytes(b"DOCX")
-            self.docx.generar_docx.return_value = externo
-            with patch(
-                "app.services.emision_disposicion.STORAGE_DIR",
-                storage,
-            ):
-                with self.assertRaisesRegex(
-                    EmisionDisposicionError,
-                    "fuera del almacenamiento",
-                ):
-                    self.service.emitir("EXP-1")
-            self.assertFalse(externo.exists())
-            self.assertEqual(self.persistence.disposiciones, [])
-
-    def test_fallo_persistencia_elimina_docx_generado(self):
-        self.persistence.error = RuntimeError("SQL")
-        with TemporaryDirectory() as temporal:
-            storage = Path(temporal) / "storage"
-            salida = (
-                storage
-                / "exports"
-                / "EXP-1"
-                / "disposicion.docx"
-            )
-            salida.parent.mkdir(parents=True)
-            salida.write_bytes(b"DOCX")
-            self.docx.generar_docx.return_value = salida
-            with patch(
-                "app.services.emision_disposicion.STORAGE_DIR",
-                storage,
-            ):
-                with self.assertRaisesRegex(RuntimeError, "SQL"):
-                    self.service.emitir("EXP-1")
-            self.assertFalse(salida.exists())
-
-    def test_normaliza_componentes_relativos_dentro_de_storage(self):
-        with TemporaryDirectory() as temporal:
-            storage = Path(temporal) / "storage"
-            salida = (
-                storage
-                / "exports"
-                / "temporal"
-                / ".."
-                / "EXP-1"
-                / "disposicion.docx"
-            )
-            self.docx.generar_docx.return_value = salida
-            with patch(
-                "app.services.emision_disposicion.STORAGE_DIR",
-                storage,
-            ):
-                self.service.emitir("EXP-1")
-            self.assertEqual(
-                self.persistence.disposiciones[0].ruta_docx,
-                "exports/EXP-1/disposicion.docx",
-            )
-
-    def test_error_persistence_se_propaga(self):
-        self.persistence.error = RuntimeError("SQL")
-        with patch(
-            "app.services.emision_disposicion.STORAGE_DIR",
-            Path("C:/app/storage"),
+    def test_metodo_legacy_directo_tambien_esta_deshabilitado(self):
+        with self.assertRaisesRegex(
+            EmisionDisposicionError,
+            "Utilice una OP concreta",
         ):
-            self.docx.generar_docx.return_value = Path(
-                "C:/app/storage/exports/EXP-1/disposicion.docx"
-            )
-            with self.assertRaisesRegex(RuntimeError, "SQL"):
-                self.service.emitir("EXP-1")
+            self.service.emitir_legacy("EXP-1")
 
 
 class ConsultaDisposicionServiceTest(unittest.TestCase):
@@ -287,3 +187,17 @@ class ConsultaDisposicionServiceTest(unittest.TestCase):
             texto_emitido="Texto final",
             ruta_docx="exports/EXP-1/disposicion.docx",
         )
+
+
+class EmisionDisposicionLegacyApiTest(unittest.TestCase):
+    def test_endpoint_legacy_responde_conflicto(self):
+        with patch(
+            "app.api.expedientes.emision_disposicion_service.emitir",
+            side_effect=EmisionDisposicionError(
+                "La emisión global está deshabilitada."
+            ),
+        ):
+            with self.assertRaises(HTTPException) as contexto:
+                generar_disposicion("EXP-1")
+
+        self.assertEqual(contexto.exception.status_code, 409)

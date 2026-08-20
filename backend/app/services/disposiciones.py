@@ -49,6 +49,14 @@ class BorradorDisposicionNoHabilitadoError(ValueError):
         super().__init__(self.mensaje)
 
 
+class BorradorDisposicionLegacyDeshabilitadoError(ValueError):
+    def __init__(self) -> None:
+        super().__init__(
+            "El borrador global de Disposición por Expediente está "
+            "deshabilitado. Utilice una OP concreta."
+        )
+
+
 class BorradorDisposicionObsoletoError(ValueError):
     def __init__(self, documento_op_id: str) -> None:
         self.documento_op_id = documento_op_id
@@ -232,20 +240,12 @@ class DisposicionService:
     def generar_borrador_legacy(
         self, expediente_id: str, *, regenerar: bool = False
     ) -> DisposicionRead:
-        return self.generar_borrador(
-            expediente_id,
-            self.resolver_documento_op_legacy(expediente_id),
-            regenerar=regenerar,
-        )
+        raise BorradorDisposicionLegacyDeshabilitadoError()
 
     def actualizar_borrador_legacy(
         self, expediente_id: str, data: DisposicionUpdate
     ) -> DisposicionRead:
-        return self.actualizar_borrador(
-            expediente_id,
-            self.resolver_documento_op_legacy(expediente_id),
-            data,
-        )
+        raise BorradorDisposicionLegacyDeshabilitadoError()
 
     def obtener(self, expediente_id: str) -> DisposicionRead:
         documento_op_id = self.resolver_documento_op_legacy(expediente_id)

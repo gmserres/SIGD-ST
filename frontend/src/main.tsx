@@ -23,8 +23,6 @@ import {
   LayoutDashboard,
   PenLine,
   ReceiptText,
-  RefreshCw,
-  Save,
   ScanSearch,
   Search,
   Settings,
@@ -190,18 +188,6 @@ type Validacion = {
   errores: string[];
   advertencias: string[];
   controles: { control: string; estado: string; observacion?: string | null }[];
-};
-
-type Disposicion = {
-  expediente_id: string;
-  numero_disposicion: string | null;
-  estado: string;
-  visto: string;
-  considerando: string;
-  dispone: string;
-  observaciones_ia: string[];
-  creado: string;
-  actualizado: string;
 };
 
 type DisposicionEmitida = {
@@ -552,19 +538,14 @@ function App() {
   const [cargandoAnalisis, setCargandoAnalisis] = useState(false);
   const [errorAnalisis, setErrorAnalisis] = useState('');
   const [validacion, setValidacion] = useState<Validacion | null>(null);
-  const [disposicionBorrador, setDisposicionBorrador] = useState<Disposicion | null>(null);
   const [disposicionEmitidaDetalle, setDisposicionEmitidaDetalle] = useState<DisposicionEmitida | null>(null);
   const [cargandoDisposicionEmitida, setCargandoDisposicionEmitida] = useState(false);
   const [errorDisposicionEmitida, setErrorDisposicionEmitida] = useState('');
-  const [mostrarTextoBorrador, setMostrarTextoBorrador] = useState(false);
   const [mostrarTextoDisposicionEmitida, setMostrarTextoDisposicionEmitida] = useState(false);
   const [fechaFirma, setFechaFirma] = useState('');
   const [registrandoFirma, setRegistrandoFirma] = useState(false);
   const [fechaArchivo, setFechaArchivo] = useState('');
   const [registrandoArchivo, setRegistrandoArchivo] = useState(false);
-  const [numeroDisposicionEditable, setNumeroDisposicionEditable] = useState('');
-  const [guardandoNumeroDisposicion, setGuardandoNumeroDisposicion] = useState(false);
-  const [errorNumeroDisposicion, setErrorNumeroDisposicion] = useState('');
   const [checklistFisico, setChecklistFisico] = useState<ChecklistFisico>({ factura: false, remito_conformidad: false, cae: false, arca: false, arba: false, observaciones: '' });
   const [mostrarChecklistFisico, setMostrarChecklistFisico] = useState(false);
   const [mensaje, setMensaje] = useState('');
@@ -633,7 +614,6 @@ function App() {
   const [idSuna, setIdSuna] = useState('45872');
   const [establecimiento, setEstablecimiento] = useState('EP N° 2');
   const [objeto, setObjeto] = useState('Recambio total de cañerías de agua fría');
-  const [disposicion, setDisposicion] = useState('201/2025');
 
   const [archivoOP, setArchivoOP] = useState<File | null>(null);
   const [archivoDoc, setArchivoDoc] = useState<File | null>(null);
@@ -1432,7 +1412,6 @@ function App() {
 
     if (!['DISPOSICION_EMITIDA', 'FIRMADO', 'ARCHIVADO'].includes(expediente.estado)) return;
 
-    setDisposicionBorrador(null);
     setCargandoDisposicionEmitida(true);
     try {
       const res = await fetch(`${API_URL}/expedientes/${expediente.id}/disposicion`);
@@ -1551,7 +1530,7 @@ function App() {
     const res = await fetch(`${API_URL}/expedientes`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ numero_interno: numeroInterno, numero_gdeba: numeroGdeba || null, id_suna: idSuna, establecimiento, objeto, numero_disposicion: disposicion }),
+      body: JSON.stringify({ numero_interno: numeroInterno, numero_gdeba: numeroGdeba || null, id_suna: idSuna, establecimiento, objeto }),
     });
 
     if (!res.ok) {
@@ -1716,124 +1695,6 @@ function App() {
     await cargarDetalle(actualizado);
   }
 
-  async function prepararDisposicion(regenerar = false) {
-    if (!seleccionado) return false;
-    const res = await fetch(`${API_URL}/expedientes/${seleccionado.id}/disposicion/borrador?regenerar=${regenerar}`, { method: 'POST' });
-
-    if (!res.ok) {
-      avisar(await obtenerMensajeError(res), 'error');
-      return false;
-    }
-
-    const data = await res.json();
-    setDisposicionBorrador(data);
-    setTabDetalle('disposicion');
-    avisar('Borrador de disposición generado correctamente.', 'ok');
-    return true;
-  }
-
-  async function guardarNumeroDisposicion() {
-    if (!seleccionado) return;
-
-    const numeroNormalizado = numeroDisposicionEditable.trim();
-    if (!numeroNormalizado) {
-      setErrorNumeroDisposicion('Ingresá un número de Disposición antes de guardarlo.');
-      return;
-    }
-
-    setGuardandoNumeroDisposicion(true);
-    setErrorNumeroDisposicion('');
-
-    try {
-      const res = await fetch(`${API_URL}/expedientes/${seleccionado.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ numero_disposicion: numeroNormalizado }),
-      });
-
-      if (!res.ok) {
-        setErrorNumeroDisposicion(await obtenerMensajeError(res));
-        return;
-      }
-
-      const actualizado: Expediente = await res.json();
-      setSeleccionado(actualizado);
-      setNumeroDisposicionEditable(actualizado.numero_disposicion || '');
-      await cargarExpedientes();
-
-      if (disposicionBorrador) {
-        const regenerado = await prepararDisposicion(true);
-        if (!regenerado) {
-          const mensajeRegeneracion = 'El número de Disposición se guardó, pero no pudo regenerarse el borrador.';
-          setErrorNumeroDisposicion(mensajeRegeneracion);
-          avisar(mensajeRegeneracion, 'error');
-          return;
-        }
-      }
-
-      avisar('Número de Disposición guardado correctamente.', 'ok');
-    } catch {
-      setErrorNumeroDisposicion('No se pudo conectar con el backend para guardar el número de Disposición.');
-    } finally {
-      setGuardandoNumeroDisposicion(false);
-    }
-  }
-
-  async function guardarBorradorDisposicion() {
-    if (!seleccionado || !disposicionBorrador) return;
-    const res = await fetch(`${API_URL}/expedientes/${seleccionado.id}/disposicion/borrador`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        visto: disposicionBorrador.visto,
-        considerando: disposicionBorrador.considerando,
-        dispone: disposicionBorrador.dispone,
-      }),
-    });
-
-    if (!res.ok) {
-      avisar(await obtenerMensajeError(res), 'error');
-      return;
-    }
-
-    const data = await res.json();
-    setDisposicionBorrador(data);
-    avisar('Borrador guardado correctamente.', 'ok');
-  }
-
-
-  async function generarDisposicion() {
-    if (!seleccionado) return;
-    if (!seleccionado.numero_disposicion?.trim()) {
-      const mensajeNumero = 'Ingresá y guardá el número de Disposición antes de emitir.';
-      setErrorNumeroDisposicion(mensajeNumero);
-      avisar(mensajeNumero, 'error');
-      return;
-    }
-    const res = await fetch(`${API_URL}/expedientes/${seleccionado.id}/generar-disposicion`, { method: 'POST' });
-
-    if (!res.ok) {
-      avisar(await obtenerMensajeError(res), 'error');
-      await consultarValidacion();
-      return;
-    }
-
-    const actualizado = await res.json();
-    avisar('Disposición emitida correctamente.', 'ok');
-    await cargarExpedientes();
-    await cargarDetalle(actualizado);
-  }
-
-  function descargarBorradorTexto() {
-    if (!seleccionado) return;
-    window.open(`${API_URL}/expedientes/${seleccionado.id}/disposicion/borrador/texto`, '_blank');
-  }
-
-  function descargarBorradorWord() {
-    if (!seleccionado) return;
-    window.open(`${API_URL}/expedientes/${seleccionado.id}/disposicion/borrador/docx`, '_blank');
-  }
-
   function descargarDisposicionEmitida() {
     if (!disposicionEmitidaDetalle?.ruta_docx?.trim()) {
       setErrorDisposicionEmitida('La Disposición emitida no posee un archivo disponible para descargar.');
@@ -1922,11 +1783,8 @@ function App() {
   }, []);
 
   useEffect(() => {
-    setNumeroDisposicionEditable(seleccionado?.numero_disposicion || '');
-    setErrorNumeroDisposicion('');
-    setMostrarTextoBorrador(false);
     setMostrarTextoDisposicionEmitida(false);
-  }, [seleccionado?.id, seleccionado?.numero_disposicion]);
+  }, [seleccionado?.id]);
 
   const diag = diagnosticoIA(analisis);
   const comparacion = comparacionDocumental(analisis);
@@ -2015,9 +1873,7 @@ function App() {
       ? 'formalizacion'
       : seleccionado?.estado === 'VALIDADO'
         ? 'disposicion'
-      : disposicionBorrador
-        ? 'disposicion'
-        : opConExtraccionFallida || tieneOP
+      : opConExtraccionFallida || tieneOP
           ? 'op'
           : validacionAdministrativaCompleta
             ? 'op'
@@ -2099,14 +1955,6 @@ function App() {
         descripcion: 'La disposición fue emitida y se encuentra disponible para su descarga.',
         etiqueta: 'Descargar disposición',
         ejecutar: descargarDisposicionEmitida,
-      };
-    }
-
-    if (disposicionBorrador) {
-      return {
-        descripcion: 'Existe un borrador de disposición pendiente de revisión.',
-        etiqueta: 'Trabajar en la disposición',
-        ejecutar: () => setTabDetalle('disposicion'),
       };
     }
 
@@ -2458,9 +2306,6 @@ function App() {
 
             <label>ID SUNA</label>
             <input value={idSuna} onChange={(e) => setIdSuna(e.target.value)} />
-
-            <label>Número de disposición</label>
-            <input value={disposicion} onChange={(e) => setDisposicion(e.target.value)} />
 
             <label>Establecimiento</label>
             <input value={establecimiento} onChange={(e) => setEstablecimiento(e.target.value)} />
@@ -3509,7 +3354,7 @@ function App() {
                       {etapaWorkflow === 'disposicion' && (
                         <article>
                           <span>Disposición</span>
-                          <strong>{disposicionBorrador ? 'Borrador' : 'Pendiente'}</strong>
+                          <strong>Gestionar por Orden de Pago</strong>
                         </article>
                       )}
                       {etapaWorkflow === 'formalizacion' && (
@@ -4003,141 +3848,6 @@ function App() {
                           <div className="validation-action-panel red-panel">
                             <h4>Validación bloqueada</h4>
                             <p>Existen errores críticos que deben corregirse antes de continuar.</p>
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </div>
-                )}
-
-                {tabDetalle === 'disposicion' && (
-                  <div className="card">
-                    <div className="card-title">
-                      <h3>Editor de disposición</h3>
-                      <span className="badge yellow">{disposicionBorrador?.estado || 'BORRADOR PLANTILLA'}</span>
-                    </div>
-
-                    {!disposicionBorrador && <div className="observation-box">
-                      <h4>Número de Disposición</h4>
-                      {disposicionEmitida ? (
-                        <p><strong>{seleccionado.numero_disposicion || 'No informado'}</strong></p>
-                      ) : (
-                        <>
-                          <label htmlFor="numero-disposicion-expediente">Número asignado</label>
-                          <input
-                            id="numero-disposicion-expediente"
-                            value={numeroDisposicionEditable}
-                            onChange={(e) => {
-                              setNumeroDisposicionEditable(e.target.value);
-                              setErrorNumeroDisposicion('');
-                            }}
-                            placeholder="Ejemplo: 75/2026"
-                          />
-                          <div className="actions">
-                            <button
-                              className="secondary"
-                              type="button"
-                              onClick={guardarNumeroDisposicion}
-                              disabled={guardandoNumeroDisposicion}
-                            >
-                              {guardandoNumeroDisposicion ? 'Guardando...' : 'Guardar número'}
-                            </button>
-                          </div>
-                          {errorNumeroDisposicion && (
-                            <div className="notice error">{errorNumeroDisposicion}</div>
-                          )}
-                        </>
-                      )}
-                    </div>}
-
-                    {!disposicionBorrador ? (
-                      <div className="empty-disposition">
-                        <p className="empty">Todavía no hay borrador generado para este expediente.</p>
-                        {seleccionado.estado === 'VALIDADO' ? (
-                          <button className="secondary" disabled={expedienteTerminal} onClick={() => prepararDisposicion(false)}>Generar borrador de Disposición</button>
-                        ) : (
-                          <p className="warn">El expediente debe estar validado antes de generar la disposición.</p>
-                        )}
-                      </div>
-                    ) : (
-                      <>
-                        <div className="expediente-summary-grid disposition-summary-grid">
-                          <div>
-                            <span>Número de Disposición</span>
-                            <input
-                              aria-label="Número de Disposición"
-                              value={numeroDisposicionEditable}
-                              onChange={(e) => {
-                                setNumeroDisposicionEditable(e.target.value);
-                                setErrorNumeroDisposicion('');
-                              }}
-                              placeholder="Ejemplo: 75/2026"
-                            />
-                            <button
-                              className="secondary small-button"
-                              type="button"
-                              onClick={guardarNumeroDisposicion}
-                              disabled={guardandoNumeroDisposicion}
-                            >
-                              {guardandoNumeroDisposicion ? 'Guardando...' : 'Guardar número'}
-                            </button>
-                            {errorNumeroDisposicion && <span className="warn">{errorNumeroDisposicion}</span>}
-                          </div>
-                          <div><span>Estado</span><strong>{disposicionBorrador.estado}</strong></div>
-                          <div><span>Expediente</span><strong>{seleccionado.numero_interno}</strong></div>
-                          <div><span>OP</span><strong>{analisis?.orden_pago || 'No informada'}</strong></div>
-                          <div><span>Proveedor</span><strong>{analisis?.proveedor || 'No informado'}</strong></div>
-                          <div><span>Importe</span><strong>{analisis?.importe_bruto != null ? moneda(analisis.importe_bruto) : 'No informado'}</strong></div>
-                          <div><span>Procedimiento</span><strong>{analisis?.procedimiento || 'No informado'}</strong></div>
-                          <div><span>Norma</span><strong>{analisis?.norma_uc || 'No informada'}</strong></div>
-                          <div><span>Fecha</span><strong>{formatearFechaHora(disposicionBorrador.actualizado || disposicionBorrador.creado)}</strong></div>
-                        </div>
-
-                        <div className="actions disposition-primary-actions">
-                          <button className="secondary" disabled={expedienteTerminal} onClick={() => prepararDisposicion(true)}><RefreshCw aria-hidden="true" />Regenerar borrador</button>
-                          <button className="primary" disabled={expedienteTerminal} onClick={guardarBorradorDisposicion}><Save aria-hidden="true" />Guardar borrador</button>
-                          <button className="secondary" onClick={descargarBorradorTexto}><FileText aria-hidden="true" />Exportar texto</button>
-                          <button className="primary" onClick={descargarBorradorWord}><Download aria-hidden="true" />Descargar Word</button>
-                          {seleccionado.estado === 'VALIDADO' && <button className="primary" onClick={generarDisposicion}><FileSignature aria-hidden="true" />Emitir disposición</button>}
-                        </div>
-
-                        <button
-                          className="disposition-collapse-toggle"
-                          type="button"
-                          aria-expanded={mostrarTextoBorrador}
-                          onClick={() => setMostrarTextoBorrador((visible) => !visible)}
-                        >
-                          {mostrarTextoBorrador ? <ChevronUp aria-hidden="true" /> : <ChevronDown aria-hidden="true" />}
-                          {mostrarTextoBorrador ? 'Ocultar borrador de Disposición' : 'Ver borrador de Disposición'}
-                        </button>
-
-                        {mostrarTextoBorrador && (
-                          <div className="disposition-editor disposition-collapsible-content">
-                            <div className="disposition-main">
-                              <h4>DISPOSICIÓN Nº {disposicionBorrador.numero_disposicion || '____/____'}</h4>
-
-                              <label>VISTO</label>
-                              <textarea value={disposicionBorrador.visto} onChange={(e) => setDisposicionBorrador({ ...disposicionBorrador, visto: e.target.value })} />
-
-                              <label>CONSIDERANDO</label>
-                              <textarea value={disposicionBorrador.considerando} onChange={(e) => setDisposicionBorrador({ ...disposicionBorrador, considerando: e.target.value })} />
-
-                              <label>POR ELLO / DISPONE</label>
-                              <textarea value={disposicionBorrador.dispone} onChange={(e) => setDisposicionBorrador({ ...disposicionBorrador, dispone: e.target.value })} />
-                            </div>
-
-                            <aside className="disposition-aside">
-                              <h4>Observaciones IA</h4>
-                              {disposicionBorrador.observaciones_ia.map((obs, i) => <p key={i} className="warn"><TriangleAlert className="inline-status-icon" aria-hidden="true" /> {obs}</p>)}
-                              {fueValidadoConObservaciones(historial) && (
-                                <div className="info-note">Este expediente fue validado con observaciones. Revisá el historial antes de emitir.</div>
-                              )}
-                              <div className="info-note">Plantilla institucional 2026.2 aplicada. La exportación Word está disponible. La exportación PDF queda preparada para el próximo sprint.</div>
-                              <div className="template-status">
-                                <strong>Vista documento institucional</strong>
-                                <span>Tablas dinámicas · Negritas controladas · Variables oficiales</span>
-                              </div>
-                            </aside>
                           </div>
                         )}
                       </>

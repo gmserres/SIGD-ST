@@ -64,6 +64,7 @@ from app.services.analisis_op import (
 )
 from app.composition.documento import documento_service
 from app.services.disposiciones import (
+    BorradorDisposicionLegacyDeshabilitadoError,
     BorradorDisposicionNoHabilitadoError,
     BorradorDisposicionObsoletoError,
     DisposicionOPAmbiguaError,
@@ -107,6 +108,9 @@ from app.repositories.registrar_archivo_persistence import (
 from app.services.registro_archivo import FechaArchivoFuturaError
 from app.composition.checklist_fisico import checklist_fisico_service
 from app.composition.expediente import expediente_service
+from app.services.expedientes import (
+    EscrituraNumeroDisposicionLegacyDeshabilitadaError,
+)
 from app.composition.validacion import validacion_service
 from app.services.historial import historial_service
 from app.services.parametros import parametros_institucionales_service
@@ -208,7 +212,10 @@ def actualizar_parametros_institucionales(data: ParametrosInstitucionalesUpdate)
 
 @router.post("", response_model=ExpedienteRead)
 def crear_expediente(data: ExpedienteCreate):
-    expediente = expediente_service.crear(data)
+    try:
+        expediente = expediente_service.crear(data)
+    except EscrituraNumeroDisposicionLegacyDeshabilitadaError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     historial_service.registrar(expediente.id, "EXPEDIENTE_CREADO", detalle=f"Expediente {expediente.numero_interno}")
     return expediente
 
@@ -234,6 +241,8 @@ def actualizar_expediente(expediente_id: str, data: ExpedienteUpdate):
         return expediente
     except KeyError as exc:
         raise HTTPException(status_code=404, detail="Expediente no encontrado") from exc
+    except EscrituraNumeroDisposicionLegacyDeshabilitadaError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
 @router.post("/{expediente_id}/documentos", response_model=DocumentoRead)
@@ -776,6 +785,8 @@ def validar_expediente_con_observaciones(expediente_id: str, data: ValidacionObs
 
 
 def _traducir_error_borrador(exc: Exception) -> HTTPException:
+    if isinstance(exc, BorradorDisposicionLegacyDeshabilitadoError):
+        return HTTPException(status_code=409, detail=str(exc))
     if isinstance(exc, BorradorDisposicionNoHabilitadoError):
         return HTTPException(
             status_code=409,

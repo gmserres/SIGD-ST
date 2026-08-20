@@ -18,6 +18,7 @@ from app.repositories.expediente_in_memory_repository import (
 from app.schemas.expediente import ExpedienteCreate, ExpedienteUpdate
 from app.services.expedientes import (
     ConfiguracionUCExpedienteYaAsociadaError,
+    EscrituraNumeroDisposicionLegacyDeshabilitadaError,
     ExpedienteService,
 )
 
@@ -117,7 +118,6 @@ class ExpedientePersistenciaTest(unittest.TestCase):
             creado.id,
             ExpedienteUpdate(
                 establecimiento="EP 2",
-                numero_disposicion="10/2026",
             ),
         )
 
@@ -126,7 +126,32 @@ class ExpedientePersistenciaTest(unittest.TestCase):
         self.assertEqual(actualizado.decision_administrativa_id, creado.decision_administrativa_id)
         self.assertEqual(actualizado.creado, creado.creado)
         self.assertEqual(actualizado.estado, creado.estado)
-        self.assertEqual(actualizado.numero_disposicion, "10/2026")
+        self.assertIsNone(actualizado.numero_disposicion)
+
+    def test_rechaza_escribir_numero_disposicion_legacy(self) -> None:
+        servicio = ExpedienteService(InMemoryExpedienteRepository())
+        creado = servicio.crear(self._crear_data("033-1/2026"))
+
+        with self.assertRaises(
+            EscrituraNumeroDisposicionLegacyDeshabilitadaError
+        ):
+            servicio.actualizar(
+                creado.id,
+                ExpedienteUpdate(numero_disposicion="10/2026"),
+            )
+
+        self.assertIsNone(servicio.obtener(creado.id).numero_disposicion)
+
+    def test_rechaza_crear_con_numero_disposicion_legacy(self) -> None:
+        servicio = ExpedienteService(InMemoryExpedienteRepository())
+        data = self._crear_data("033-1/2026").model_copy(
+            update={"numero_disposicion": "10/2026"}
+        )
+
+        with self.assertRaises(
+            EscrituraNumeroDisposicionLegacyDeshabilitadaError
+        ):
+            servicio.crear(data)
 
     def test_cambia_estado_y_rechaza_expediente_inexistente(self) -> None:
         servicio = ExpedienteService(InMemoryExpedienteRepository())

@@ -10,10 +10,9 @@ from app.domain.habilitacion_proveedor_op import (
 from app.schemas.disposicion import DisposicionUpdate
 from app.services.disposicion_docx import DisposicionDocxService
 from app.services.disposiciones import (
+    BorradorDisposicionLegacyDeshabilitadoError,
     BorradorDisposicionNoHabilitadoError,
     BorradorDisposicionObsoletoError,
-    DisposicionOPAmbiguaError,
-    DisposicionOPNoEncontradaError,
     DisposicionService,
 )
 
@@ -279,23 +278,23 @@ class BorradorDisposicionDireccionadoTest(unittest.TestCase):
         self.assertEqual(resultado.control_proveedor_op_id, "CTRL-2")
         self.assertFalse(resultado.obsoleto)
 
-    def test_legacy_una_op_delega(self) -> None:
+    def test_borrador_legacy_no_inicia_aunque_haya_una_op(self) -> None:
         self.mocks["listar_documentos"].return_value = [
             SimpleNamespace(id="DOC-000001", tipo="OP")
         ]
-        resultado = self.servicio.generar_borrador_legacy("EXP-1")
-        self.assertEqual(resultado.documento_op_id, "DOC-000001")
+        with self.assertRaises(
+            BorradorDisposicionLegacyDeshabilitadoError
+        ):
+            self.servicio.generar_borrador_legacy("EXP-1")
 
-    def test_legacy_cero_o_varias_op_rechaza(self) -> None:
-        self.mocks["listar_documentos"].return_value = []
-        with self.assertRaises(DisposicionOPNoEncontradaError):
-            self.servicio.generar_borrador_legacy("EXP-1")
-        self.mocks["listar_documentos"].return_value = [
-            SimpleNamespace(id="DOC-1", tipo="OP"),
-            SimpleNamespace(id="DOC-2", tipo="OP"),
-        ]
-        with self.assertRaises(DisposicionOPAmbiguaError):
-            self.servicio.generar_borrador_legacy("EXP-1")
+    def test_actualizacion_de_borrador_legacy_tambien_rechaza(self) -> None:
+        with self.assertRaises(
+            BorradorDisposicionLegacyDeshabilitadoError
+        ):
+            self.servicio.actualizar_borrador_legacy(
+                "EXP-1",
+                DisposicionUpdate(visto="V", considerando="C", dispone="D"),
+            )
 
     def test_docx_a_y_b_quedan_separados_y_obsoleto_bloquea(self) -> None:
         with TemporaryDirectory() as temporal:

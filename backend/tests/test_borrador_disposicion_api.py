@@ -13,8 +13,8 @@ from app.domain.habilitacion_proveedor_op import (
     EstadoHabilitacionProveedorOP,
 )
 from app.services.disposiciones import (
+    BorradorDisposicionLegacyDeshabilitadoError,
     BorradorDisposicionNoHabilitadoError,
-    DisposicionOPAmbiguaError,
 )
 
 
@@ -81,7 +81,7 @@ class BorradorDisposicionApiTest(unittest.TestCase):
             return_value=SimpleNamespace(estado="VALIDADO"),
         ), patch(
             "app.api.expedientes.disposicion_service.generar_borrador_legacy",
-            side_effect=DisposicionOPAmbiguaError("EXP-1"),
+            side_effect=BorradorDisposicionLegacyDeshabilitadoError(),
         ):
             with self.assertRaises(HTTPException) as contexto:
                 generar_borrador_disposicion("EXP-1")

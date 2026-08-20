@@ -44,6 +44,14 @@ class EmisionDisposicionError(ValueError):
         super().__init__(mensaje)
 
 
+class EmisionDisposicionLegacyDeshabilitadaError(EmisionDisposicionError):
+    def __init__(self) -> None:
+        super().__init__(
+            "La emisión global de Disposición por Expediente está "
+            "deshabilitada. Utilice una OP concreta."
+        )
+
+
 class EmisionProveedorOPNoHabilitadoError(ValueError):
     def __init__(self, habilitacion) -> None:
         self.habilitacion = habilitacion
@@ -72,7 +80,7 @@ class EmisionDisposicionService:
         numero_disposicion: str | None = None,
     ) -> DisposicionEmitidaRead | ExpedienteRead:
         if documento_op_id is None and numero_disposicion is None:
-            return self.emitir_legacy(expediente_id)
+            raise EmisionDisposicionLegacyDeshabilitadaError()
         if documento_op_id is None or numero_disposicion is None:
             raise TypeError(
                 "documento_op_id y numero_disposicion son obligatorios."
@@ -184,54 +192,7 @@ class EmisionDisposicionService:
         return DisposicionEmitidaRead(**asdict(guardada))
 
     def emitir_legacy(self, expediente_id: str) -> ExpedienteRead:
-        habilitacion, contexto = (
-            self._evaluador_habilitacion.evaluar_para_emision(expediente_id)
-        )
-        if not habilitacion.habilitada:
-            raise EmisionDisposicionError(habilitacion)
-        expediente = contexto.expediente
-        analisis = contexto.analisis_op
-        borrador = self._borradores.obtener(expediente_id)
-        texto_emitido = self._docx.construir_texto_emitido(borrador)
-        ruta_generada = Path(
-            self._docx.generar_docx(expediente_id)
-        ).resolve()
-        try:
-            ruta_docx = ruta_generada.relative_to(
-                STORAGE_DIR.resolve()
-            ).as_posix()
-        except ValueError as exc:
-            _eliminar_docx_generado(ruta_generada)
-            raise EmisionDisposicionError(
-                "El DOCX fue generado fuera del almacenamiento permitido."
-            ) from exc
-        disposicion = Disposicion(
-            id_disposicion=str(uuid4()),
-            expediente_id=expediente_id,
-            configuracion_uc_id=expediente.configuracion_uc_id,
-            numero_disposicion=expediente.numero_disposicion,
-            fecha_emision=self._now(),
-            fondo_interviniente=contexto.decision.fondo_interviniente.strip(),
-            numero_op=analisis.orden_pago,
-            numero_liquidacion=analisis.liquidacion,
-            proveedor=analisis.proveedor,
-            cuit=analisis.cuit,
-            importe=Decimal(str(analisis.importe_bruto)),
-            objeto=expediente.objeto,
-            establecimiento=expediente.establecimiento,
-            valor_uc_aplicado=Decimal(str(analisis.valor_uc)),
-            cantidad_uc=Decimal(str(analisis.cantidad_uc)),
-            procedimiento_contratacion=analisis.procedimiento,
-            norma_uc=analisis.norma_uc,
-            texto_emitido=texto_emitido,
-            ruta_docx=ruta_docx,
-        )
-        try:
-            actualizado = self._persistence.emitir(disposicion, expediente_id)
-        except Exception:
-            _eliminar_docx_generado(ruta_generada)
-            raise
-        return ExpedienteRead(**asdict(actualizado))
+        raise EmisionDisposicionLegacyDeshabilitadaError()
 
     @staticmethod
     def _mismo_contexto(borrador, habilitacion) -> bool:

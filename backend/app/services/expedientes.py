@@ -7,6 +7,14 @@ from app.repositories.expediente_repository import ExpedienteRepository
 from app.schemas.expediente import ExpedienteCreate, ExpedienteRead, ExpedienteUpdate
 
 
+class EscrituraNumeroDisposicionLegacyDeshabilitadaError(ValueError):
+    def __init__(self) -> None:
+        super().__init__(
+            "El número global de Disposición del Expediente es un dato "
+            "legacy de solo lectura."
+        )
+
+
 class ConfiguracionUCExpedienteYaAsociadaError(ValueError):
     def __init__(
         self,
@@ -29,6 +37,8 @@ class ExpedienteService:
         self._repository = repository
 
     def crear(self, data: ExpedienteCreate) -> ExpedienteRead:
+        if data.numero_disposicion is not None:
+            raise EscrituraNumeroDisposicionLegacyDeshabilitadaError()
         expediente = Expediente(
             id=self._repository.siguiente_id(),
             numero_interno=data.numero_interno,
@@ -58,7 +68,12 @@ class ExpedienteService:
 
     def actualizar(self, expediente_id: str, data: ExpedienteUpdate) -> ExpedienteRead:
         expediente = self._obtener_dominio(expediente_id)
-        actualizado = replace(expediente, **data.model_dump(exclude_unset=True))
+        cambios = data.model_dump(exclude_unset=True)
+        if "numero_disposicion" in cambios:
+            numero = cambios.pop("numero_disposicion")
+            if numero != expediente.numero_disposicion:
+                raise EscrituraNumeroDisposicionLegacyDeshabilitadaError()
+        actualizado = replace(expediente, **cambios)
         self._repository.guardar(actualizado)
         return self._a_read(actualizado)
 
