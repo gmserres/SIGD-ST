@@ -463,6 +463,27 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .warn { color: #92400e; }
 .warning-panel { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; border-radius: 12px; padding: 14px; font-weight: 700; }
 .control-proveedor-op-row > td { padding: 0 8px 12px; background: #f8fafc; }
+.op-circuit-section { display: grid; gap: 12px; margin-top: 18px; }
+.op-circuit-section-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; padding-bottom: 9px; border-bottom: 1px solid #dbe1ea; }
+.op-circuit-section-heading h4 { margin: 3px 0 0; font-size: 19px; }
+.op-circuit-list { display: grid; gap: 16px; }
+.op-circuit-card { min-width: 0; overflow: hidden; border: 1px solid #b8c7d9; border-left: 5px solid #2563eb; border-radius: 14px; background: #f8fafc; box-shadow: 0 3px 10px rgba(15,23,42,.07); }
+.op-circuit-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; padding: 15px 16px; border-bottom: 1px solid #cbd5e1; background: linear-gradient(135deg, #fff, #eff6ff); }
+.op-circuit-identity { min-width: 0; }
+.op-circuit-identity h4 { margin: 3px 0 7px; color: #172554; font-size: 19px; overflow-wrap: anywhere; }
+.op-circuit-metadata { display: flex; flex-wrap: wrap; gap: 5px 16px; color: #475569; font-size: 12px; }
+.op-circuit-metadata span { overflow-wrap: anywhere; }
+.op-circuit-metadata strong { color: #64748b; text-transform: uppercase; letter-spacing: .03em; }
+.op-circuit-document-actions { display: flex; flex: 0 0 auto; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; }
+.op-circuit-document-actions .small-button { margin: 0; }
+.op-circuit-stages { display: grid; gap: 12px; padding: 14px; }
+.op-circuit-stage { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; align-items: start; }
+.op-circuit-stage-label { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 8px; align-items: center; padding: 4px 2px; color: #334155; font-size: 13px; }
+.op-circuit-stage-label > span { display: grid; width: 28px; height: 28px; place-items: center; border-radius: 50%; background: #dbeafe; color: #1d4ed8; font-weight: 800; }
+.op-circuit-stage-label strong { overflow-wrap: anywhere; }
+.op-circuit-stage .control-proveedor-op-card, .op-circuit-stage .disposicion-op-card { min-width: 0; box-shadow: none; }
+.complementary-documents { margin-top: 20px; padding-top: 14px; border-top: 1px solid #dbe1ea; overflow-x: auto; }
+.complementary-documents h4 { margin: 0 0 10px; }
 .control-proveedor-op-card { display: grid; gap: 10px; padding: 12px 14px; border: 1px solid #cbd5e1; border-radius: 12px; background: #fff; }
 .control-proveedor-op-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 14px; }
 .control-proveedor-op-heading > div { display: grid; gap: 2px; min-width: 0; }
@@ -491,6 +512,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .regularizar-proveedor-op-note { margin: 10px 0 0; color: #475569; font-size: 13px; }
 .regularizar-proveedor-op-actions { justify-content: flex-end; }
 @media (max-width: 1000px) {
+  .op-circuit-stage { grid-template-columns: 1fr; gap: 5px; }
+  .op-circuit-stage-label { padding: 4px 2px; }
   .administracion-summary .admin-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .operational-advanced-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .app-shell { display: block; }
@@ -528,6 +551,10 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 }
 
 @media (max-width: 720px) {
+  .op-circuit-header, .op-circuit-section-heading { display: grid; }
+  .op-circuit-document-actions { display: grid; grid-template-columns: 1fr; width: 100%; }
+  .op-circuit-document-actions .small-button, .op-circuit-document-actions .small-link { justify-content: center; width: 100%; }
+  .op-circuit-stages { padding: 10px; }
   .regularizar-proveedor-op-comparison { grid-template-columns: 1fr; }
   .regularizar-proveedor-op-actions { display: grid; grid-template-columns: 1fr; }
   .regularizar-proveedor-op-actions button { width: 100%; }

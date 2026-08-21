@@ -21,6 +21,7 @@ type Props = {
   nombreArchivo: string;
   revisionProveedor: number;
   soloLectura?: boolean;
+  integradaEnOP?: boolean;
 };
 
 const errorMensaje = (error: unknown) => (
@@ -39,6 +40,7 @@ export function DisposicionOPCard({
   nombreArchivo,
   revisionProveedor,
   soloLectura = false,
+  integradaEnOP = false,
 }: Props) {
   const consulta = useRef(0);
   const [habilitacion, setHabilitacion] = useState<HabilitacionProveedorOP | null>(null);
@@ -148,7 +150,10 @@ export function DisposicionOPCard({
   return (
     <section className="disposicion-op-card">
       <div className="disposicion-op-heading">
-        <div><span className="eyebrow">Disposición de esta OP</span><strong>{nombreArchivo}</strong></div>
+        <div>
+          <span className="eyebrow">Disposición de esta OP</span>
+          <strong>{integradaEnOP ? 'Disposición y formalización' : nombreArchivo}</strong>
+        </div>
         {emitida && <span className="badge green">
           {emitida.estado_formalizacion === 'FORMALIZADA' ? 'Formalizada' : 'Emitida'}
         </span>}

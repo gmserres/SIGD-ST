@@ -1859,6 +1859,8 @@ function App() {
   const comparacion = comparacionDocumental(analisis);
   const confiabilidad = confiabilidadIA(analisis);
   const tieneOP = documentos.some((documento) => documento.tipo === 'OP');
+  const documentosOP = documentos.filter((documento) => documento.tipo === 'OP');
+  const documentosComplementarios = documentos.filter((documento) => documento.tipo !== 'OP');
   const opConExtraccionFallida = analisis?.modo === 'EXTRACCION_FALLIDA';
   const opAnalizadaCorrectamente = Boolean(
     analisis?.op_detectada && analisis.modo !== 'EXTRACCION_FALLIDA',
@@ -3719,13 +3721,93 @@ function App() {
                       </div>
                     </div>}
 
-                    {documentos.length === 0 ? <p className="empty">Sin documentos cargados.</p> : (
+                    <section className="op-circuit-section" aria-labelledby="op-circuit-title">
+                      <div className="op-circuit-section-heading">
+                        <div>
+                          <span className="eyebrow">Circuito por documento</span>
+                          <h4 id="op-circuit-title">Órdenes de Pago</h4>
+                        </div>
+                        <span className="badge blue">
+                          {documentosOP.length} OP
+                        </span>
+                      </div>
+
+                      {documentosOP.length === 0 ? (
+                        <p className="empty">No hay Órdenes de Pago incorporadas.</p>
+                      ) : (
+                        <div className="op-circuit-list">
+                          {documentosOP.map((doc, indice) => (
+                            <article
+                              id={`documento-${doc.id}`}
+                              className="op-circuit-card expediente-scroll-target"
+                              key={doc.id}
+                            >
+                              <header className="op-circuit-header">
+                                <div className="op-circuit-identity">
+                                  <span className="eyebrow">Orden de Pago {indice + 1}</span>
+                                  <h4>{doc.nombre_archivo}</h4>
+                                  <div className="op-circuit-metadata">
+                                    <span><strong>Documento</strong> {doc.id}</span>
+                                    <span><strong>Cargada</strong> {new Date(doc.fecha_carga).toLocaleString()}</span>
+                                    <span><strong>Tamaño</strong> {bytes(doc.tamano_bytes)}</span>
+                                  </div>
+                                </div>
+                                <div className="op-circuit-document-actions">
+                                  <button className="small-button" onClick={() => abrirVistaPrevia(doc)}>Vista previa</button>
+                                  <a className="small-link icon-link" href={`${API_URL}/expedientes/${seleccionado.id}/documentos/${doc.id}/descargar`} target="_blank"><Download aria-hidden="true" />Descargar</a>
+                                </div>
+                              </header>
+
+                              {!circuitoLegacy && (
+                                <div className="op-circuit-stages">
+                                  <section className="op-circuit-stage">
+                                    <div className="op-circuit-stage-label">
+                                      <span>1</span>
+                                      <strong>Proveedor, control y habilitación</strong>
+                                    </div>
+                                    <ControlProveedorOPCard
+                                      expedienteId={seleccionado.id}
+                                      documentoOpId={doc.id}
+                                      nombreArchivo={doc.nombre_archivo}
+                                      seleccionadoPor={decisionUsuarioRegistrante}
+                                      revisionProveedor={revisionProveedor}
+                                      soloLectura={expedienteTerminal}
+                                      integradaEnOP
+                                      onProveedorRegularizado={() => {
+                                        setRevisionProveedor((revision) => revision + 1);
+                                      }}
+                                    />
+                                  </section>
+                                  <section className="op-circuit-stage">
+                                    <div className="op-circuit-stage-label">
+                                      <span>2</span>
+                                      <strong>Disposición y formalización</strong>
+                                    </div>
+                                    <DisposicionOPCard
+                                      expedienteId={seleccionado.id}
+                                      documentoOpId={doc.id}
+                                      nombreArchivo={doc.nombre_archivo}
+                                      revisionProveedor={revisionProveedor}
+                                      soloLectura={expedienteTerminal}
+                                      integradaEnOP
+                                    />
+                                  </section>
+                                </div>
+                              )}
+                            </article>
+                          ))}
+                        </div>
+                      )}
+                    </section>
+
+                    {documentosComplementarios.length > 0 && (
+                      <section className="complementary-documents">
+                        <h4>Documentación complementaria</h4>
                       <table>
                         <thead><tr><th>Tipo</th><th>Archivo</th><th>Tamaño</th><th>Fecha</th><th>Acción</th></tr></thead>
                         <tbody>
-                          {documentos.map(doc => (
-                            <React.Fragment key={doc.id}>
-                              <tr id={doc.tipo === 'OP' ? `documento-${doc.id}` : undefined} className="expediente-scroll-target">
+                          {documentosComplementarios.map(doc => (
+                              <tr key={doc.id}>
                                 <td><span className="badge blue">{doc.tipo}</span></td>
                                 <td>{doc.nombre_archivo}</td>
                                 <td>{bytes(doc.tamano_bytes)}</td>
@@ -3735,38 +3817,10 @@ function App() {
                                   <a className="small-link icon-link" href={`${API_URL}/expedientes/${seleccionado.id}/documentos/${doc.id}/descargar`} target="_blank"><Download aria-hidden="true" />Descargar</a>
                                 </td>
                               </tr>
-                              {doc.tipo === 'OP' && !circuitoLegacy && (
-                                <tr className="control-proveedor-op-row">
-                                  <td colSpan={5}>
-                                    <ControlProveedorOPCard
-                                      expedienteId={seleccionado.id}
-                                      documentoOpId={doc.id}
-                                      nombreArchivo={doc.nombre_archivo}
-                                      seleccionadoPor={
-                                        decisionUsuarioRegistrante
-                                      }
-                                      revisionProveedor={revisionProveedor}
-                                      soloLectura={expedienteTerminal}
-                                      onProveedorRegularizado={() => {
-                                        setRevisionProveedor(
-                                          (revision) => revision + 1,
-                                        );
-                                      }}
-                                    />
-                                    <DisposicionOPCard
-                                      expedienteId={seleccionado.id}
-                                      documentoOpId={doc.id}
-                                      nombreArchivo={doc.nombre_archivo}
-                                      revisionProveedor={revisionProveedor}
-                                      soloLectura={expedienteTerminal}
-                                    />
-                                  </td>
-                                </tr>
-                              )}
-                            </React.Fragment>
                           ))}
                         </tbody>
                       </table>
+                      </section>
                     )}
                   </div>
                 )}

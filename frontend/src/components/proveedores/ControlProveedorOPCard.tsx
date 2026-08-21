@@ -27,6 +27,7 @@ type ControlProveedorOPCardProps = {
   revisionProveedor: number;
   onProveedorRegularizado: () => void;
   soloLectura?: boolean;
+  integradaEnOP?: boolean;
 };
 
 const etiquetasControl: Record<EstadoControlProveedorOP, string> = {
@@ -111,6 +112,7 @@ export function ControlProveedorOPCard({
   revisionProveedor,
   onProveedorRegularizado,
   soloLectura = false,
+  integradaEnOP = false,
 }: ControlProveedorOPCardProps) {
   const consultaActual = useRef(0);
   const [control, setControl] =
@@ -246,8 +248,8 @@ export function ControlProveedorOPCard({
       <div className="control-proveedor-op-heading">
         <div>
           <span className="eyebrow">Proveedor de la OP</span>
-          <strong>{nombreArchivo}</strong>
-          <small>{documentoOpId}</small>
+          <strong>{integradaEnOP ? 'Control Proveedor ↔ OP' : nombreArchivo}</strong>
+          <small>{integradaEnOP ? 'Control e habilitación F5' : documentoOpId}</small>
         </div>
         {habilitacion && (
           <span
