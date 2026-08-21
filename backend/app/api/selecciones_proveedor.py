@@ -81,6 +81,10 @@ def obtener_seleccion_vigente(expediente_id: str) -> SeleccionProveedorRead:
         ExpedienteSeleccionIncompletoError,
         SolicitudSeleccionInexistenteError,
         SeleccionProveedorInexistenteError,
+        DecisionSeleccionInexistenteError,
+        DecisionNoAprobatoriaError,
+        FondoSeleccionIncompatibleError,
+        DecisionSolicitudInconsistenteError,
     ) as exc:
         raise _traducir_error(exc) from exc
 

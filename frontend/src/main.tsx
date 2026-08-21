@@ -122,6 +122,16 @@ type Expediente = {
   creado: string;
 };
 
+type ProximaAccionExpediente = {
+  expediente_id: string;
+  codigo: string;
+  etiqueta: string;
+  descripcion: string;
+  prioridad: number;
+  documento_op_id: string | null;
+  circuito_legacy: boolean;
+};
+
 type SolicitudIntervencion = {
   id_solicitud: string;
   numero_solicitud: string;
@@ -543,6 +553,9 @@ function App() {
   const [pantalla, setPantalla] = useState<Pantalla>('inicio');
   const [tabDetalle, setTabDetalle] = useState<TabDetalle>('workflow');
   const [expedientes, setExpedientes] = useState<Expediente[]>([]);
+  const [proximasAcciones, setProximasAcciones] = useState<
+    Record<string, ProximaAccionExpediente>
+  >({});
   const [cargandoExpedientes, setCargandoExpedientes] = useState(false);
   const [errorExpedientes, setErrorExpedientes] = useState('');
   const [seleccionado, setSeleccionado] = useState<Expediente | null>(null);
@@ -652,17 +665,19 @@ function App() {
     const expedientesEnTramite = expedientes.filter(
       (expediente) => expediente.estado !== 'ARCHIVADO',
     );
-    const esperandoValidacion = expedientes.filter(
-      (expediente) => expediente.estado === 'PENDIENTE_VALIDACION',
-    );
+    const esperandoValidacion = expedientes.filter((expediente) => [
+      'COMPLETAR_VALIDACION',
+      'REVALIDAR_EXPEDIENTE',
+    ].includes(proximasAcciones[expediente.id]?.codigo));
     const disposicionesPorEmitir = expedientes.filter(
-      (expediente) => expediente.estado === 'VALIDADO',
+      (expediente) => proximasAcciones[expediente.id]?.codigo === 'PREPARAR_DISPOSICION',
     );
-    const firmasPendientes = expedientes.filter(
-      (expediente) => expediente.estado === 'DISPOSICION_EMITIDA',
-    );
+    const firmasPendientes = expedientes.filter((expediente) => [
+      'REGISTRAR_FORMALIZACION',
+      'REGISTRAR_FIRMA_LEGACY',
+    ].includes(proximasAcciones[expediente.id]?.codigo));
     const archivosPendientes = expedientes.filter(
-      (expediente) => expediente.estado === 'FIRMADO',
+      (expediente) => proximasAcciones[expediente.id]?.codigo === 'ARCHIVAR_EXPEDIENTE',
     );
 
     return {
@@ -673,7 +688,7 @@ function App() {
       firmasPendientes,
       archivosPendientes,
     };
-  }, [solicitudes, expedientes, decisionesMesa]);
+  }, [solicitudes, expedientes, decisionesMesa, proximasAcciones]);
 
   const solicitudesRecientesMesa = useMemo(
     () => [...solicitudes]
@@ -1032,19 +1047,28 @@ function App() {
     setErrorExpedientes('');
 
     try {
-      const res = await fetch(`${API_URL}/expedientes`);
-      if (!res.ok) {
+      const [res, accionesRes] = await Promise.all([
+        fetch(`${API_URL}/expedientes`),
+        fetch(`${API_URL}/expedientes/proximas-acciones`),
+      ]);
+      if (!res.ok || !accionesRes.ok) {
         setExpedientes([]);
+        setProximasAcciones({});
         setErrorExpedientes('No fue posible recuperar los expedientes.');
         return;
       }
       const disponibles = await res.json();
-      if (!Array.isArray(disponibles)) {
+      const acciones: ProximaAccionExpediente[] = await accionesRes.json();
+      if (!Array.isArray(disponibles) || !Array.isArray(acciones)) {
         throw new Error('Respuesta inesperada al consultar expedientes.');
       }
       setExpedientes(disponibles);
+      setProximasAcciones(Object.fromEntries(
+        acciones.map((accion) => [accion.expediente_id, accion]),
+      ));
     } catch {
       setExpedientes([]);
+      setProximasAcciones({});
       setErrorExpedientes('No fue posible recuperar los expedientes.');
     } finally {
       setCargandoExpedientes(false);
@@ -1455,6 +1479,15 @@ function App() {
 
   async function cargarDetalle(expediente: Expediente) {
     const solicitudAnalisis = ++solicitudAnalisisActual.current;
+    const accionExpediente = proximasAcciones[expediente.id];
+    const esLegacy = accionExpediente?.circuito_legacy ?? (
+      ['DISPOSICION_EMITIDA', 'FIRMADO'].includes(expediente.estado)
+      || (
+        expediente.estado === 'ARCHIVADO'
+        && !expediente.fecha_cierre
+        && !expediente.fecha_desistimiento
+      )
+    );
     setSeleccionado(expediente);
     setTimeline([]);
     setValidacionAdministrativa(null);
@@ -1477,9 +1510,11 @@ function App() {
     ] = await Promise.all([
       fetch(`${API_URL}/expedientes/${expediente.id}/documentos`),
       fetch(`${API_URL}/expedientes/${expediente.id}/timeline`),
-      fetch(
-        `${API_URL}/expedientes/${expediente.id}/validacion-administrativa`,
-      ),
+      esLegacy
+        ? Promise.resolve(null)
+        : fetch(
+            `${API_URL}/expedientes/${expediente.id}/validacion-administrativa`,
+          ),
       expediente.solicitud_intervencion_id
         ? fetch(`${API_URL}/solicitudes/${expediente.solicitud_intervencion_id}`)
         : Promise.resolve(null),
@@ -1492,13 +1527,14 @@ function App() {
     setDocumentos(documentosCargados);
     setTimeline(await timelineRes.json());
     setValidacionAdministrativa(
-      validacionAdministrativaRes.ok
+      validacionAdministrativaRes?.ok
         ? await validacionAdministrativaRes.json()
         : null,
     );
 
     if (
       Array.isArray(documentosCargados)
+      && !esLegacy
       && documentosCargados.some((documento: Documento) => documento.tipo === 'OP')
     ) {
       setCargandoAnalisis(true);
@@ -1832,6 +1868,16 @@ function App() {
       && !seleccionado.fecha_cierre
       && !seleccionado.fecha_desistimiento,
   );
+  const proximaAccionSeleccionada = seleccionado
+    ? proximasAcciones[seleccionado.id]
+    : null;
+  const circuitoLegacy = Boolean(
+    proximaAccionSeleccionada?.circuito_legacy
+      ?? (seleccionado && (
+        ['DISPOSICION_EMITIDA', 'FIRMADO'].includes(seleccionado.estado)
+        || expedienteArchivadoLegacy
+      )),
+  );
   const disposicionEmitida = Boolean(
     seleccionado
       && (
@@ -1895,7 +1941,16 @@ function App() {
     (decision) => decision.resultado === 'Aprobar intervención',
   );
 
-  const etapaWorkflow = expedienteFirmado || expedienteArchivado
+  const etapaWorkflowDerivada = (() => {
+    if (circuitoLegacy || !proximaAccionSeleccionada) return null;
+    if (['COMPLETAR_PREPARACION', 'COMPLETAR_VALIDACION', 'REVALIDAR_EXPEDIENTE'].includes(proximaAccionSeleccionada.codigo)) return 'validacion';
+    if (['INCORPORAR_OP', 'SELECCIONAR_PROVEEDOR', 'CONTROLAR_PROVEEDOR', 'REGULARIZAR_PROVEEDOR', 'REVISAR_DOCUMENTACION_OP'].includes(proximaAccionSeleccionada.codigo)) return 'op';
+    if (proximaAccionSeleccionada.codigo === 'PREPARAR_DISPOSICION') return 'disposicion';
+    if (proximaAccionSeleccionada.codigo === 'REGISTRAR_FORMALIZACION') return 'formalizacion';
+    if (['CERRAR_EXPEDIENTE', 'ARCHIVAR_EXPEDIENTE', 'CONSULTAR_HISTORIAL'].includes(proximaAccionSeleccionada.codigo)) return 'archivo';
+    return null;
+  })();
+  const etapaWorkflow = etapaWorkflowDerivada || (expedienteFirmado || expedienteArchivado
     ? 'archivo'
     : disposicionEmitida
       ? 'formalizacion'
@@ -1905,7 +1960,7 @@ function App() {
           ? 'op'
           : validacionAdministrativaCompleta
             ? 'op'
-            : 'validacion';
+            : 'validacion');
 
   const estadoOP = opConExtraccionFallida
     ? 'Requiere atención'
@@ -1970,6 +2025,37 @@ function App() {
   ];
 
   const accionPrincipal = (() => {
+    if (!circuitoLegacy && proximaAccionSeleccionada) {
+      const ejecutar = () => {
+        if (['COMPLETAR_VALIDACION', 'REVALIDAR_EXPEDIENTE'].includes(proximaAccionSeleccionada.codigo)) {
+          consultarValidacion();
+          return;
+        }
+        if (proximaAccionSeleccionada.codigo === 'CONSULTAR_HISTORIAL') {
+          setTabDetalle('historial');
+          return;
+        }
+        if ([
+          'INCORPORAR_OP',
+          'SELECCIONAR_PROVEEDOR',
+          'CONTROLAR_PROVEEDOR',
+          'REGULARIZAR_PROVEEDOR',
+          'REVISAR_DOCUMENTACION_OP',
+          'PREPARAR_DISPOSICION',
+          'REGISTRAR_FORMALIZACION',
+        ].includes(proximaAccionSeleccionada.codigo)) {
+          setTabDetalle('documentos');
+          return;
+        }
+        setTabDetalle('workflow');
+      };
+      return {
+        descripcion: proximaAccionSeleccionada.descripcion,
+        etiqueta: proximaAccionSeleccionada.etiqueta,
+        ejecutar,
+      };
+    }
+
     if (expedienteTerminal) {
       return {
         descripcion: 'El Expediente está finalizado. Sus actuaciones permanecen disponibles para consulta histórica.',
@@ -2081,14 +2167,6 @@ function App() {
       icono: <Archive aria-hidden="true" />,
     },
   ];
-  const accionPorEstadoExpediente: Record<string, string> = {
-    BORRADOR: 'Completar preparación',
-    DOCUMENTACION_EN_CARGA: 'Completar documentación',
-    PENDIENTE_VALIDACION: 'Continuar validación',
-    VALIDADO: 'Preparar Disposición',
-    DISPOSICION_EMITIDA: 'Registrar firma',
-    FIRMADO: 'Registrar archivo',
-  };
   const prioridadOrden: Record<string, number> = {
     ALTA: 0,
     MEDIA: 1,
@@ -2115,7 +2193,7 @@ function App() {
       establecimiento: expediente.establecimiento || 'No disponible',
       asunto: expediente.objeto || expediente.tipo_tramite,
       estado: etiquetaEstado(expediente.estado),
-      accion: accionPorEstadoExpediente[expediente.estado] || 'Continuar trámite',
+      accion: proximasAcciones[expediente.id]?.etiqueta || 'Consultar expediente',
       fecha: expediente.creado,
       abrir: () => cargarDetalle(expediente),
     })),
@@ -2138,6 +2216,52 @@ function App() {
       items: trabajoPendiente.filter((trabajo) => trabajo.tipo === 'Expediente'),
     },
   ].filter((grupo) => grupo.items.length > 0);
+
+  const proximaAccionSolicitud = (() => {
+    if (!solicitudSeleccionada) return null;
+    if (decisiones.length === 0) {
+      return {
+        etiqueta: 'Registrar decisión',
+        descripcion: 'La Solicitud todavía no posee una decisión administrativa.',
+      };
+    }
+    const expedientesSolicitud = expedientes.filter(
+      (expediente) => expediente.solicitud_intervencion_id
+        === solicitudSeleccionada.id_solicitud,
+    );
+    if (expedientesSolicitud.length === 0) {
+      const aprobada = decisiones.some(
+        (decision) => decision.resultado === 'Aprobar intervención',
+      );
+      return aprobada
+        ? {
+            etiqueta: 'Crear expediente',
+            descripcion: 'La intervención fue aprobada y todavía no posee Expediente.',
+          }
+        : {
+            etiqueta: 'Revisar decisión',
+            descripcion: 'La Solicitud no posee una decisión aprobatoria que habilite un Expediente.',
+          };
+    }
+    const acciones = expedientesSolicitud
+      .map((expediente) => proximasAcciones[expediente.id])
+      .filter((accion): accion is ProximaAccionExpediente => Boolean(accion))
+      .sort((a, b) => a.prioridad - b.prioridad
+        || a.expediente_id.localeCompare(b.expediente_id));
+    const accion = acciones[0];
+    const expediente = accion
+      ? expedientesSolicitud.find((item) => item.id === accion.expediente_id)
+      : null;
+    return accion
+      ? {
+          etiqueta: accion.etiqueta,
+          descripcion: `${expediente?.numero_interno || accion.expediente_id}: ${accion.descripcion}`,
+        }
+      : {
+          etiqueta: 'Consultar expedientes',
+          descripcion: 'Revise los Expedientes derivados de esta Solicitud.',
+        };
+  })();
 
   return (
     <main className="app-shell">
@@ -2363,7 +2487,11 @@ function App() {
             ) : errorExpedientes ? (
               <div className="notice error">{errorExpedientes}</div>
             ) : (
-              <ExpedientesTabla expedientes={expedientes} abrir={cargarDetalle} />
+              <ExpedientesTabla
+                expedientes={expedientes}
+                proximasAcciones={proximasAcciones}
+                abrir={cargarDetalle}
+              />
             )}
           </section>
         )}
@@ -2677,8 +2805,8 @@ function App() {
                 <section className="solicitud-executive-grid" aria-label="Panel ejecutivo">
                   <article className="card solicitud-executive-primary">
                     <span>Próxima acción</span>
-                    <strong>Continuar gestión administrativa</strong>
-                    <small>Revise la información disponible para avanzar con el trámite.</small>
+                    <strong>{proximaAccionSolicitud?.etiqueta || 'Consultar Solicitud'}</strong>
+                    <small>{proximaAccionSolicitud?.descripcion || 'Revise la información disponible.'}</small>
                   </article>
                   <article className="card">
                     <span>Responsable</span>
@@ -2690,7 +2818,7 @@ function App() {
                   </article>
                   <article className="card">
                     <span>Pendientes</span>
-                    <strong>Revisar documentación</strong>
+                    <strong>{proximaAccionSolicitud?.etiqueta || 'Sin pendientes identificados'}</strong>
                   </article>
                 </section>
 
@@ -3138,6 +3266,9 @@ function App() {
               </div>
 
               <div className="expediente-header-status">
+                {circuitoLegacy && (
+                  <span className="badge gray">Circuito histórico / legacy</span>
+                )}
                 <span className={estadoAdministrativo(seleccionado, validacionAdministrativa).clase}>
                   {estadoAdministrativo(seleccionado, validacionAdministrativa).texto}
                 </span>
@@ -3227,22 +3358,24 @@ function App() {
               </div>
             </section>
 
-            <CompletitudExpedienteCard
-              expediente={seleccionado}
-              onFinalizado={(actualizado) => {
-                setSeleccionado(actualizado);
-                void cargarDetalle(actualizado);
-              }}
-            />
+            {(!circuitoLegacy || seleccionado.estado === 'ARCHIVADO') && (
+              <CompletitudExpedienteCard
+                expediente={seleccionado}
+                onFinalizado={(actualizado) => {
+                  setSeleccionado(actualizado);
+                  void cargarDetalle(actualizado);
+                }}
+              />
+            )}
 
-            <ProveedorActualCard
-              expedienteId={seleccionado.id}
-              seleccionadoPor={decisionUsuarioRegistrante}
-              revisionProveedor={revisionProveedor}
-              soloLectura={expedienteTerminal}
-            />
+            {!circuitoLegacy && <ProveedorActualCard
+                expedienteId={seleccionado.id}
+                seleccionadoPor={decisionUsuarioRegistrante}
+                revisionProveedor={revisionProveedor}
+                soloLectura={expedienteTerminal}
+              />}
 
-            <section
+            {!circuitoLegacy && <section
               className={`card administrative-preparation ${
                 preparacionAdministrativaCompleta ? 'complete' : ''
               }`}
@@ -3269,9 +3402,9 @@ function App() {
                 <span><Circle aria-hidden="true" /> Pendiente</span>
                 <span><CircleCheck aria-hidden="true" /> Completo</span>
               </div>
-            </section>
+            </section>}
 
-            <div className="workflow-steps" aria-label="Etapas del trámite">
+            {!circuitoLegacy && <div className="workflow-steps" aria-label="Etapas del trámite">
               {workflowSteps.map((etapa) => (
                 <div className={`workflow-step ${etapa.estado}`} key={etapa.id}>
                   <span className="workflow-step-number">
@@ -3280,7 +3413,7 @@ function App() {
                   <span>{etapa.texto}</span>
                 </div>
               ))}
-            </div>
+            </div>}
 
             {disposicionEmitida && (
               <nav className="workflow-final-navigation" aria-label="Consultas del expediente">
@@ -3290,15 +3423,15 @@ function App() {
                 <button className={tabDetalle === 'documentos' ? 'active' : ''} type="button" onClick={() => setTabDetalle('documentos')}>
                   <FileText aria-hidden="true" /> Documentos
                 </button>
-                <button className={tabDetalle === 'ia' ? 'active' : ''} type="button" onClick={() => setTabDetalle('ia')}>
+                {!circuitoLegacy && <button className={tabDetalle === 'ia' ? 'active' : ''} type="button" onClick={() => setTabDetalle('ia')}>
                   <ScanSearch aria-hidden="true" /> Análisis
-                </button>
+                </button>}
                 <button className={tabDetalle === 'historial' ? 'active' : ''} type="button" onClick={() => setTabDetalle('historial')}>
                   <History aria-hidden="true" /> Historial
                 </button>
-                <button className={tabDetalle === 'validacion' ? 'active' : ''} type="button" onClick={consultarValidacion}>
+                {!circuitoLegacy && <button className={tabDetalle === 'validacion' ? 'active' : ''} type="button" onClick={consultarValidacion}>
                   <CircleCheck aria-hidden="true" /> Validación
-                </button>
+                </button>}
                 {solicitudOrigenExpediente && (
                   <button type="button" onClick={abrirSolicitudOrigen}>
                     <ExternalLink aria-hidden="true" /> Abrir Solicitud
@@ -3489,7 +3622,7 @@ function App() {
                 {tabDetalle === 'documentos' && (
                   <div className="card">
                     <h3>Documentación del expediente</h3>
-                    <div className="upload-grid">
+                    {!circuitoLegacy && <div className="upload-grid">
                       <div className="upload-box">
                         <strong>Orden de Pago</strong>
                         {validacionAdministrativaCompleta ? (
@@ -3523,7 +3656,7 @@ function App() {
                         <input type="file" disabled={expedienteTerminal} onChange={(e) => setArchivoDoc(e.target.files?.[0] || null)} />
                         <button className="secondary" disabled={expedienteTerminal} onClick={subirDocumento}>Cargar documento</button>
                       </div>
-                    </div>
+                    </div>}
 
                     {documentos.length === 0 ? <p className="empty">Sin documentos cargados.</p> : (
                       <table>
@@ -3541,7 +3674,7 @@ function App() {
                                   <a className="small-link icon-link" href={`${API_URL}/expedientes/${seleccionado.id}/documentos/${doc.id}/descargar`} target="_blank"><Download aria-hidden="true" />Descargar</a>
                                 </td>
                               </tr>
-                              {doc.tipo === 'OP' && (
+                              {doc.tipo === 'OP' && !circuitoLegacy && (
                                 <tr className="control-proveedor-op-row">
                                   <td colSpan={5}>
                                     <ControlProveedorOPCard
@@ -4039,18 +4172,16 @@ function App() {
   );
 }
 
-function ExpedientesTabla({ expedientes, abrir }: { expedientes: Expediente[], abrir: (exp: Expediente) => void }) {
+function ExpedientesTabla({
+  expedientes,
+  proximasAcciones,
+  abrir,
+}: {
+  expedientes: Expediente[];
+  proximasAcciones: Record<string, ProximaAccionExpediente>;
+  abrir: (exp: Expediente) => void;
+}) {
   if (expedientes.length === 0) return <p className="empty">No existen expedientes registrados.</p>;
-  const proximasAcciones: Record<string, string> = {
-    BORRADOR: 'Completar preparación',
-    DOCUMENTACION_EN_CARGA: 'Completar documentación',
-    PENDIENTE_VALIDACION: 'Continuar validación',
-    VALIDADO: 'Emitir disposición',
-    DISPOSICION_EMITIDA: 'Registrar firma',
-    FIRMADO: 'Archivar',
-    PENDIENTE_REVALIDACION: 'Continuar trámite',
-    ARCHIVADO: 'Finalizado',
-  };
   return (
     <div className="expedientes-table-wrap">
     <table>
@@ -4064,7 +4195,9 @@ function ExpedientesTabla({ expedientes, abrir }: { expedientes: Expediente[], a
             <td>Fondo Comp.</td>
             <td><span className={claseEstado(exp.estado)}>{etiquetaEstado(exp.estado)}</span></td>
             <td>{exp.establecimiento || '-'}</td>
-            <td className="next-action-cell">{proximasAcciones[exp.estado] || 'Continuar trámite'}</td>
+            <td className="next-action-cell">
+              {proximasAcciones[exp.id]?.etiqueta || 'Consultar expediente'}
+            </td>
             <td><button className="small-button" onClick={() => abrir(exp)}>Abrir</button></td>
           </tr>
         ))}

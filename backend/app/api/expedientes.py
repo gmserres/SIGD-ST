@@ -29,6 +29,7 @@ from app.schemas.firma import RegistroFirmaCreate
 from app.schemas.archivo import RegistroArchivoCreate
 from app.schemas.historial import HistorialRead
 from app.schemas.timeline_expediente import EventoTimelineExpedienteRead
+from app.schemas.proxima_accion_expediente import ProximaAccionExpedienteRead
 from app.schemas.habilitacion_proveedor_op import (
     HabilitacionProveedorOPRead,
 )
@@ -46,6 +47,9 @@ from app.composition.control_proveedor_op import (
 )
 from app.composition.habilitacion_proveedor_op import (
     evaluar_habilitacion_proveedor_op_service,
+)
+from app.composition.proxima_accion_expediente import (
+    proxima_accion_expediente_service,
 )
 from app.composition.disposicion import (
     consulta_disposicion_service,
@@ -228,6 +232,25 @@ def crear_expediente(data: ExpedienteCreate):
 @router.get("", response_model=list[ExpedienteRead])
 def listar_expedientes():
     return expediente_service.listar()
+
+
+@router.get(
+    "/proximas-acciones",
+    response_model=list[ProximaAccionExpedienteRead],
+)
+def listar_proximas_acciones():
+    return proxima_accion_expediente_service.listar()
+
+
+@router.get(
+    "/{expediente_id}/proxima-accion",
+    response_model=ProximaAccionExpedienteRead,
+)
+def obtener_proxima_accion(expediente_id: str):
+    try:
+        return proxima_accion_expediente_service.obtener(expediente_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="Expediente no encontrado") from exc
 
 
 @router.get("/{expediente_id}", response_model=ExpedienteRead)

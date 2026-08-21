@@ -116,6 +116,14 @@ class SeleccionProveedorApiTest(unittest.TestCase):
                     obtener_seleccion_vigente(SOLICITUD_ID)
                 self.assertEqual(contexto.exception.status_code, 404)
 
+    def test_get_legacy_no_produce_http_500(self):
+        self.service.obtener_vigente.side_effect = DecisionNoAprobatoriaError(
+            "El Expediente pertenece al circuito histórico."
+        )
+        with self.assertRaises(HTTPException) as contexto:
+            obtener_seleccion_vigente("EXP-LEGACY")
+        self.assertEqual(contexto.exception.status_code, 409)
+
     def test_traduce_conflictos_de_seleccion_a_http_409(self):
         for error in (
             DecisionNoAprobatoriaError("La última Decisión no aprueba."),
