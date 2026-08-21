@@ -2024,35 +2024,68 @@ function App() {
     },
   ];
 
+  function desplazarABloque(id: string) {
+    window.setTimeout(() => {
+      document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 0);
+  }
+
+  function navegarAProximaAccion() {
+    if (!proximaAccionSeleccionada) return;
+
+    const codigo = proximaAccionSeleccionada.codigo;
+    if (codigo === 'CONSULTAR_HISTORIAL') {
+      setTabDetalle('historial');
+      desplazarABloque('expediente-contenido-operativo');
+      return;
+    }
+    if (codigo === 'COMPLETAR_PREPARACION') {
+      desplazarABloque('expediente-preparacion');
+      return;
+    }
+    if (['COMPLETAR_VALIDACION', 'REVALIDAR_EXPEDIENTE'].includes(codigo)) {
+      void consultarValidacion().then(() => desplazarABloque('expediente-validacion'));
+      return;
+    }
+    if (codigo === 'SELECCIONAR_PROVEEDOR') {
+      desplazarABloque('expediente-proveedor');
+      return;
+    }
+    if ([
+      'INCORPORAR_OP',
+      'CONTROLAR_PROVEEDOR',
+      'REGULARIZAR_PROVEEDOR',
+      'REVISAR_DOCUMENTACION_OP',
+      'PREPARAR_DISPOSICION',
+      'REGISTRAR_FORMALIZACION',
+    ].includes(codigo)) {
+      setTabDetalle('documentos');
+      desplazarABloque(
+        proximaAccionSeleccionada.documento_op_id
+          ? `documento-${proximaAccionSeleccionada.documento_op_id}`
+          : 'expediente-documentos',
+      );
+      return;
+    }
+    if (['CERRAR_EXPEDIENTE', 'ARCHIVAR_EXPEDIENTE'].includes(codigo)) {
+      desplazarABloque('expediente-finalizacion');
+      return;
+    }
+    if (codigo === 'REGISTRAR_FIRMA_LEGACY') {
+      setTabDetalle('workflow');
+      desplazarABloque('expediente-actuacion-legacy');
+      return;
+    }
+    setTabDetalle('workflow');
+    desplazarABloque('expediente-contenido-operativo');
+  }
+
   const accionPrincipal = (() => {
-    if (!circuitoLegacy && proximaAccionSeleccionada) {
-      const ejecutar = () => {
-        if (['COMPLETAR_VALIDACION', 'REVALIDAR_EXPEDIENTE'].includes(proximaAccionSeleccionada.codigo)) {
-          consultarValidacion();
-          return;
-        }
-        if (proximaAccionSeleccionada.codigo === 'CONSULTAR_HISTORIAL') {
-          setTabDetalle('historial');
-          return;
-        }
-        if ([
-          'INCORPORAR_OP',
-          'SELECCIONAR_PROVEEDOR',
-          'CONTROLAR_PROVEEDOR',
-          'REGULARIZAR_PROVEEDOR',
-          'REVISAR_DOCUMENTACION_OP',
-          'PREPARAR_DISPOSICION',
-          'REGISTRAR_FORMALIZACION',
-        ].includes(proximaAccionSeleccionada.codigo)) {
-          setTabDetalle('documentos');
-          return;
-        }
-        setTabDetalle('workflow');
-      };
+    if (proximaAccionSeleccionada) {
       return {
         descripcion: proximaAccionSeleccionada.descripcion,
         etiqueta: proximaAccionSeleccionada.etiqueta,
-        ejecutar,
+        ejecutar: navegarAProximaAccion,
       };
     }
 
@@ -3263,6 +3296,15 @@ function App() {
               <div className="expediente-identity">
                 <span className="eyebrow">Expediente</span>
                 <h2>{seleccionado.numero_interno}</h2>
+                <div className="expediente-header-facts">
+                  <span><strong>GDEBA</strong> {seleccionado.numero_gdeba || 'No informado'}</span>
+                  <span>
+                    <strong>Establecimiento</strong>{' '}
+                    {solicitudOrigenExpediente?.establecimiento
+                      || seleccionado.establecimiento
+                      || 'No disponible'}
+                  </span>
+                </div>
               </div>
 
               <div className="expediente-header-status">
@@ -3281,6 +3323,22 @@ function App() {
                   </strong>
                 </div>
               </div>
+
+              <section className="expediente-primary-action" aria-label="Próxima acción del Expediente">
+                <span className="eyebrow">
+                  {expedienteTerminal && proximaAccionSeleccionada?.codigo === 'CONSULTAR_HISTORIAL'
+                    ? 'Modo consulta'
+                    : 'Próxima acción'}
+                </span>
+                <strong>{accionPrincipal.etiqueta}</strong>
+                {proximaAccionSeleccionada?.documento_op_id && (
+                  <span className="badge blue">OP {proximaAccionSeleccionada.documento_op_id}</span>
+                )}
+                <p>{accionPrincipal.descripcion}</p>
+                <button className="primary" type="button" onClick={accionPrincipal.ejecutar}>
+                  Ir al bloque correspondiente
+                </button>
+              </section>
             </div>
 
             <section className="card expediente-origin-section">
@@ -3358,6 +3416,7 @@ function App() {
               </div>
             </section>
 
+            <div id="expediente-finalizacion" className="expediente-scroll-target">
             {(!circuitoLegacy || seleccionado.estado === 'ARCHIVADO') && (
               <CompletitudExpedienteCard
                 expediente={seleccionado}
@@ -3367,15 +3426,17 @@ function App() {
                 }}
               />
             )}
+            </div>
 
-            {!circuitoLegacy && <ProveedorActualCard
+            {!circuitoLegacy && <div id="expediente-proveedor" className="expediente-scroll-target"><ProveedorActualCard
                 expedienteId={seleccionado.id}
                 seleccionadoPor={decisionUsuarioRegistrante}
                 revisionProveedor={revisionProveedor}
                 soloLectura={expedienteTerminal}
-              />}
+              /></div>}
 
-            {!circuitoLegacy && <section
+            {!circuitoLegacy && !expedienteTerminal && <section
+              id="expediente-preparacion"
               className={`card administrative-preparation ${
                 preparacionAdministrativaCompleta ? 'complete' : ''
               }`}
@@ -3440,7 +3501,7 @@ function App() {
               </nav>
             )}
 
-            <div className={`workflow-layout ${disposicionEmitida ? 'final-state' : ''}`}>
+            <div id="expediente-contenido-operativo" className={`workflow-layout ${disposicionEmitida ? 'final-state' : ''}`}>
               <section className="expediente-main">
                 {tabDetalle === 'workflow' && (
                   <>
@@ -3499,7 +3560,7 @@ function App() {
                     </div>
                   </div>
                   {disposicionEmitida && (
-                    <div className="card">
+                    <div id={circuitoLegacy ? 'expediente-actuacion-legacy' : undefined} className="card expediente-scroll-target">
                       <div className="card-title">
                         <div>
                           <span className="eyebrow">Acto administrativo emitido</span>
@@ -3620,9 +3681,9 @@ function App() {
                 )}
 
                 {tabDetalle === 'documentos' && (
-                  <div className="card">
+                  <div id="expediente-documentos" className="card expediente-scroll-target">
                     <h3>Documentación del expediente</h3>
-                    {!circuitoLegacy && <div className="upload-grid">
+                    {!circuitoLegacy && !expedienteTerminal && <div className="upload-grid">
                       <div className="upload-box">
                         <strong>Orden de Pago</strong>
                         {validacionAdministrativaCompleta ? (
@@ -3664,7 +3725,7 @@ function App() {
                         <tbody>
                           {documentos.map(doc => (
                             <React.Fragment key={doc.id}>
-                              <tr>
+                              <tr id={doc.tipo === 'OP' ? `documento-${doc.id}` : undefined} className="expediente-scroll-target">
                                 <td><span className="badge blue">{doc.tipo}</span></td>
                                 <td>{doc.nombre_archivo}</td>
                                 <td>{bytes(doc.tamano_bytes)}</td>
@@ -3882,7 +3943,7 @@ function App() {
                 )}
 
                 {tabDetalle === 'validacion' && (
-                  <div className="card">
+                  <div id="expediente-validacion" className="card expediente-scroll-target">
                     <div className="card-title">
                       <h3>Validación administrativa</h3>
                       {validacion && <span className={validacion.estado_general === 'VERDE' ? 'badge green' : validacion.estado_general === 'AMARILLO' ? 'badge yellow' : 'badge red'}>{validacion.estado_general}</span>}
@@ -3945,7 +4006,7 @@ function App() {
                           </div>
                         </div>
 
-                        {validacion.estado_general === 'VERDE' && seleccionado.estado !== 'VALIDADO' && (
+                        {validacion.estado_general === 'VERDE' && seleccionado.estado !== 'VALIDADO' && !expedienteTerminal && (
                           <div className="validation-action-panel green-panel">
                             <h4>Validación documental completa</h4>
                             <p>Todas las evidencias requeridas fueron acreditadas. El expediente puede ser validado para continuar con la generación de la Disposición.</p>
@@ -3956,18 +4017,23 @@ function App() {
                         {validacion.estado_general === 'AMARILLO' && (
                           <div className="validation-action-panel yellow-panel">
                             <h4>Validación con observaciones</h4>
-                            <p>Existen evidencias pendientes. Si la documentación existe en el expediente físico, podés acreditarla mediante checklist y volver a consultar la validación.</p>
-                            <button className="secondary" onClick={cargarChecklistFisico}>Acreditar documentación física</button>
+                            <p>Existen evidencias pendientes.</p>
+                            {!expedienteTerminal && (
+                              <>
+                                <p>Si la documentación existe en el expediente físico, podés acreditarla mediante checklist y volver a consultar la validación.</p>
+                                <button className="secondary" onClick={cargarChecklistFisico}>Acreditar documentación física</button>
 
-                            <div className="observation-box">
-                              <p>Si aun así corresponde avanzar con observaciones, ingresá el motivo administrativo.</p>
-                              <textarea
-                                value={motivoObservacion}
-                                onChange={(e) => setMotivoObservacion(e.target.value)}
-                                placeholder="Ejemplo: Se continúa con observaciones porque la documentación será incorporada posteriormente."
-                              />
-                              <button className="primary" disabled={expedienteTerminal} onClick={validarConObservaciones}>Validar con observaciones</button>
-                            </div>
+                                <div className="observation-box">
+                                  <p>Si aun así corresponde avanzar con observaciones, ingresá el motivo administrativo.</p>
+                                  <textarea
+                                    value={motivoObservacion}
+                                    onChange={(e) => setMotivoObservacion(e.target.value)}
+                                    placeholder="Ejemplo: Se continúa con observaciones porque la documentación será incorporada posteriormente."
+                                  />
+                                  <button className="primary" onClick={validarConObservaciones}>Validar con observaciones</button>
+                                </div>
+                              </>
+                            )}
                           </div>
                         )}
 
@@ -4030,19 +4096,7 @@ function App() {
 
               {!disposicionEmitida && <aside className="next-action-panel">
                 <section>
-                  <span className="eyebrow">Próxima acción recomendada</span>
-                  <p>{accionPrincipal.descripcion}</p>
-                  <button
-                    className="primary next-action-button"
-                    type="button"
-                    onClick={accionPrincipal.ejecutar}
-                  >
-                    {accionPrincipal.etiqueta}
-                  </button>
-                </section>
-
-                <section>
-                  <span className="eyebrow">Acciones disponibles</span>
+                  <span className="eyebrow">Consultas disponibles</span>
                   <nav className="workflow-consultations">
                     <button
                       className={tabDetalle === 'workflow' ? 'active' : ''}

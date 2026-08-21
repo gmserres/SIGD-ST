@@ -116,10 +116,13 @@ th { color: #64748b; font-weight: 700; }
 .red { background: #fee2e2; color: #991b1b; }
 .assistant-box { display: grid; gap: 6px; font-size: 14px; color: #334155; }
 .expediente-page { display: grid; gap: 12px; }
-.expediente-header { background: linear-gradient(135deg, #ffffff, #eff6ff); border: 1px solid #dbe1ea; border-radius: 16px; padding: 14px 18px; display: flex; justify-content: space-between; gap: 20px; align-items: center; }
+.expediente-header { background: linear-gradient(135deg, #ffffff, #eff6ff); border: 1px solid #bfdbfe; border-top: 4px solid #2563eb; border-radius: 16px; padding: 16px 18px; display: grid; grid-template-columns: minmax(240px, 1fr) auto minmax(300px, 1.1fr); gap: 20px; align-items: center; box-shadow: 0 4px 14px rgba(15,23,42,.08); }
 .expediente-header h2 { margin: 2px 0 3px; font-size: 27px; line-height: 1.1; }
 .expediente-header p { margin: 0; color: #475569; }
 .expediente-identity { flex: 1; min-width: 0; }
+.expediente-header-facts { display: flex; flex-wrap: wrap; gap: 5px 18px; margin-top: 9px; color: #475569; font-size: 13px; }
+.expediente-header-facts span { overflow-wrap: anywhere; }
+.expediente-header-facts strong { color: #64748b; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
 .expediente-identity-grid { display: grid; grid-template-columns: repeat(4, minmax(130px, 1fr)); gap: 10px 18px; margin-top: 12px; }
 .expediente-identity-grid span { display: block; color: #64748b; font-size: 12px; margin-bottom: 3px; }
 .expediente-identity-grid strong { display: block; overflow-wrap: anywhere; }
@@ -128,6 +131,11 @@ th { color: #64748b; font-weight: 700; }
 .expediente-header-status > div span { color: #64748b; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
 .expediente-header-status small { color: #64748b; max-width: 240px; }
 .expediente-header-status .small-button { margin-right: 0; }
+.expediente-primary-action { min-width: 0; padding-left: 20px; border-left: 1px solid #bfdbfe; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 5px 10px; align-items: center; }
+.expediente-primary-action > strong { min-width: 0; color: #1e3a8a; font-size: 21px; line-height: 1.15; overflow-wrap: anywhere; }
+.expediente-primary-action > p { grid-column: 1 / -1; margin: 2px 0 5px; color: #334155; line-height: 1.4; }
+.expediente-primary-action > button { grid-column: 1 / -1; justify-self: start; margin: 0; }
+.expediente-scroll-target { scroll-margin-top: 18px; }
 .expediente-origin-section h4 { margin: 0 0 8px; }
 .expediente-origin-grid { display: grid; gap: 18px; }
 .expediente-origin-grid .small-button { margin-top: 12px; }
@@ -506,8 +514,9 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .solicitud-executive-primary { grid-column: 1 / -1; }
   .solicitud-future-stages { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .decision-brief-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .expediente-header { display: block; }
+  .expediente-header { grid-template-columns: minmax(0, 1fr) auto; }
   .expediente-header-status { justify-items: start; text-align: left; margin-top: 12px; }
+  .expediente-primary-action { grid-column: 1 / -1; padding: 14px 0 0; border-top: 1px solid #bfdbfe; border-left: 0; }
   .expediente-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .expediente-identity-grid { grid-template-columns: repeat(2, 1fr); }
   .next-action-panel { position: static; }
@@ -589,6 +598,10 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .decision-submit-row .primary { width: 100%; }
   .solicitud-case-actions { display: grid; grid-template-columns: 1fr; }
   .workflow-steps { grid-template-columns: 1fr; gap: 2px; padding: 7px; }
+  .expediente-header { grid-template-columns: 1fr; }
+  .expediente-header-status { margin-top: 0; }
+  .expediente-primary-action { grid-column: auto; }
+  .expediente-primary-action > button { width: 100%; }
   .workflow-step { justify-content: flex-start; min-height: 35px; text-align: left; }
   .workflow-step:not(:last-child)::after { display: none; }
   .workflow-final-navigation { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
