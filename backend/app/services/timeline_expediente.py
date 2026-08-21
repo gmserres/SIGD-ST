@@ -25,6 +25,24 @@ PRIORIDAD_EVENTO = {
 }
 
 
+def clave_orden_cronologico(
+    *,
+    fecha_hora: datetime,
+    precision_diaria: bool,
+    prioridad: int,
+    entidad_origen: str,
+    entidad_origen_id: str,
+):
+    return (
+        fecha_hora.date(),
+        1 if precision_diaria else 0,
+        fecha_hora.time(),
+        prioridad,
+        entidad_origen,
+        entidad_origen_id,
+    )
+
+
 class ExpedienteTimelineInexistenteError(LookupError):
     pass
 
@@ -366,11 +384,10 @@ class TimelineExpedienteService:
     @staticmethod
     def _clave_orden(evento: EventoTimelineExpedienteRead):
         fecha_sin_hora = evento.metadatos.get("precision_fecha") == "DIA"
-        return (
-            evento.fecha_hora.date(),
-            1 if fecha_sin_hora else 0,
-            evento.fecha_hora.time(),
-            PRIORIDAD_EVENTO[evento.tipo],
-            evento.entidad_origen,
-            evento.entidad_origen_id,
+        return clave_orden_cronologico(
+            fecha_hora=evento.fecha_hora,
+            precision_diaria=fecha_sin_hora,
+            prioridad=PRIORIDAD_EVENTO[evento.tipo],
+            entidad_origen=evento.entidad_origen,
+            entidad_origen_id=evento.entidad_origen_id,
         )

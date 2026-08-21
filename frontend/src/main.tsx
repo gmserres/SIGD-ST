@@ -147,19 +147,21 @@ type DecisionAdministrativa = {
   usuario_registrante: string;
 };
 
-type EventoHistorialSolicitud =
-  | {
-      tipo: 'solicitud';
-      id: string;
-      fecha: string;
-      solicitud: SolicitudIntervencion;
-    }
-  | {
-      tipo: 'decision';
-      id: string;
-      fecha: string;
-      decision: DecisionAdministrativa;
-    };
+type EventoTimelineSolicitud = {
+  nivel: 'SOLICITUD' | 'EXPEDIENTE';
+  solicitud_id: string;
+  expediente_id: string | null;
+  tipo: string;
+  fecha_hora: string;
+  precision_temporal: 'FECHA_HORA' | 'DIA';
+  titulo: string;
+  descripcion: string | null;
+  usuario: string | null;
+  entidad_origen: string;
+  entidad_origen_id: string;
+  documento_op_id: string | null;
+  metadatos: Record<string, string | number | boolean | null>;
+};
 
 type Documento = {
   id: string;
@@ -537,6 +539,7 @@ async function obtenerMensajeError(res: Response) {
 
 function App() {
   const solicitudAnalisisActual = useRef(0);
+  const solicitudTimelineActual = useRef(0);
   const [pantalla, setPantalla] = useState<Pantalla>('inicio');
   const [tabDetalle, setTabDetalle] = useState<TabDetalle>('workflow');
   const [expedientes, setExpedientes] = useState<Expediente[]>([]);
@@ -597,6 +600,11 @@ function App() {
   const [cargandoDecisiones, setCargandoDecisiones] = useState(false);
   const [guardandoDecision, setGuardandoDecision] = useState(false);
   const [errorDecisiones, setErrorDecisiones] = useState('');
+  const [timelineSolicitud, setTimelineSolicitud] =
+    useState<EventoTimelineSolicitud[]>([]);
+  const [cargandoTimelineSolicitud, setCargandoTimelineSolicitud] =
+    useState(false);
+  const [errorTimelineSolicitud, setErrorTimelineSolicitud] = useState('');
   const [decisionAutoridad, setDecisionAutoridad] = useState('');
   const [decisionFecha, setDecisionFecha] = useState('');
   const [decisionResultado, setDecisionResultado] = useState('');
@@ -994,50 +1002,6 @@ function App() {
     expedientes,
   ]);
 
-  const historialSolicitud = useMemo<EventoHistorialSolicitud[]>(() => {
-    if (!solicitudSeleccionada) {
-      return [];
-    }
-
-    const decisionesSolicitud = decisiones.filter(
-      (decision) =>
-        decision.solicitud_intervencion_id ===
-        solicitudSeleccionada.id_solicitud,
-    );
-    const eventos: EventoHistorialSolicitud[] = [
-      {
-        tipo: 'solicitud',
-        id: solicitudSeleccionada.id_solicitud,
-        fecha: solicitudSeleccionada.fecha_ingreso,
-        solicitud: solicitudSeleccionada,
-      },
-      ...decisionesSolicitud.map(
-        (decision): EventoHistorialSolicitud => ({
-          tipo: 'decision',
-          id: decision.id_decision,
-          fecha: decision.fecha_decision,
-          decision,
-        }),
-      ),
-    ];
-
-    return eventos.sort((eventoA, eventoB) => {
-      if (eventoA.fecha !== eventoB.fecha) {
-        return eventoA.fecha < eventoB.fecha ? -1 : 1;
-      }
-
-      if (eventoA.tipo !== eventoB.tipo) {
-        return eventoA.tipo === 'solicitud' ? -1 : 1;
-      }
-
-      if (eventoA.id === eventoB.id) {
-        return 0;
-      }
-
-      return eventoA.id < eventoB.id ? -1 : 1;
-    });
-  }, [solicitudSeleccionada, decisiones]);
-
   function avisar(texto: string, tipo: 'ok' | 'error' | 'info' = 'info') {
     setMensaje(texto);
     setMensajeTipo(tipo);
@@ -1162,6 +1126,40 @@ function App() {
     }
   }
 
+  async function cargarTimelineSolicitud(solicitudId: string) {
+    const solicitudTimeline = ++solicitudTimelineActual.current;
+    setCargandoTimelineSolicitud(true);
+    setErrorTimelineSolicitud('');
+    try {
+      const res = await fetch(
+        `${API_URL}/solicitudes/${solicitudId}/timeline`,
+      );
+      if (!res.ok) {
+        const mensajeError = await obtenerMensajeError(res);
+        if (solicitudTimeline === solicitudTimelineActual.current) {
+          setErrorTimelineSolicitud(mensajeError);
+          setTimelineSolicitud([]);
+        }
+        return;
+      }
+      const eventos: EventoTimelineSolicitud[] = await res.json();
+      if (solicitudTimeline === solicitudTimelineActual.current) {
+        setTimelineSolicitud(eventos);
+      }
+    } catch {
+      if (solicitudTimeline === solicitudTimelineActual.current) {
+        setTimelineSolicitud([]);
+        setErrorTimelineSolicitud(
+          'No se pudo recuperar la cronología durable de la Solicitud.',
+        );
+      }
+    } finally {
+      if (solicitudTimeline === solicitudTimelineActual.current) {
+        setCargandoTimelineSolicitud(false);
+      }
+    }
+  }
+
   async function abrirSolicitudes() {
     setPantalla('solicitudes');
     setMostrarFormularioSolicitud(false);
@@ -1178,8 +1176,12 @@ function App() {
     setTabGestionSolicitud('tramitacion');
     setInformacionAdministrativaExpandida(true);
     setSolicitudSeleccionada(solicitud);
+    setTimelineSolicitud([]);
     setMensaje('');
-    await cargarDecisiones(solicitud.id_solicitud);
+    await Promise.all([
+      cargarDecisiones(solicitud.id_solicitud),
+      cargarTimelineSolicitud(solicitud.id_solicitud),
+    ]);
   }
 
   async function abrirSolicitudDesdeBandeja(
@@ -1259,7 +1261,10 @@ function App() {
       setSolicitudes((actuales) => [...actuales, creada]);
       setSolicitudSeleccionada(creada);
       setMostrarFormularioSolicitud(false);
-      await cargarDecisiones(creada.id_solicitud);
+      await Promise.all([
+        cargarDecisiones(creada.id_solicitud),
+        cargarTimelineSolicitud(creada.id_solicitud),
+      ]);
       setSolicitudProcedencia('');
       setSolicitudIdSuna('');
       setSolicitudFechaIngreso('');
@@ -1341,7 +1346,10 @@ function App() {
       }
 
       const creada: DecisionAdministrativa = await res.json();
-      await cargarDecisiones(solicitudSeleccionada.id_solicitud);
+      await Promise.all([
+        cargarDecisiones(solicitudSeleccionada.id_solicitud),
+        cargarTimelineSolicitud(solicitudSeleccionada.id_solicitud),
+      ]);
       setDecisionesMesa((actuales) => [...actuales, creada]);
       setDecisionRecienCreadaId(creada.id_decision);
       setDecisionExpedienteActiva(null);
@@ -3053,89 +3061,55 @@ function App() {
                       aria-live="polite"
                     >
                       <div className="solicitud-history-heading">
-                        <h3>Historial</h3>
+                        <h3>Timeline durable de la Solicitud</h3>
                         <p>
-                          Cronología de la Solicitud y sus Decisiones registradas.
+                          Cronología global de la Solicitud y de cada Expediente derivado.
                         </p>
                       </div>
 
-                      {cargandoDecisiones ? (
+                      {cargandoTimelineSolicitud ? (
                         <p className="empty">Cargando historial...</p>
-                      ) : errorDecisiones ? (
-                        <div className="notice error">{errorDecisiones}</div>
-                      ) : historialSolicitud.length === 0 ? (
+                      ) : errorTimelineSolicitud ? (
+                        <div className="notice error">{errorTimelineSolicitud}</div>
+                      ) : timelineSolicitud.length === 0 ? (
                         <p className="empty">No existen eventos registrados.</p>
                       ) : (
                         <ol className="solicitud-history-list">
-                          {historialSolicitud.map((evento) => (
+                          {timelineSolicitud.map((evento) => (
                             <li
                               className="solicitud-history-event"
-                              key={`${evento.tipo}-${evento.id}`}
+                              key={`${evento.nivel}-${evento.tipo}-${evento.entidad_origen}-${evento.entidad_origen_id}-${evento.fecha_hora}`}
                             >
                               <div
-                                className={`solicitud-history-marker ${evento.tipo}`}
+                                className={`solicitud-history-marker ${evento.nivel.toLowerCase()}`}
                                 aria-hidden="true"
                               />
 
                               <article>
-                                <time dateTime={evento.fecha}>
-                                  {formatearFechaHora(evento.fecha)}
+                                <time dateTime={evento.fecha_hora}>
+                                  {evento.precision_temporal === 'DIA'
+                                    ? new Date(evento.fecha_hora).toLocaleDateString()
+                                    : formatearFechaHora(evento.fecha_hora)}
                                 </time>
-
-                                {evento.tipo === 'solicitud' ? (
-                                  <>
-                                    <h4>Solicitud registrada</h4>
-                                    <p>
-                                      Número de Solicitud:{' '}
-                                      <strong>
-                                        {evento.solicitud.numero_solicitud}
-                                      </strong>
-                                    </p>
-                                    <p>
-                                      Procedencia: {evento.solicitud.procedencia}
-                                    </p>
-                                    {evento.solicitud.solicitante && (
-                                      <p>
-                                        Solicitante:{' '}
-                                        {evento.solicitud.solicitante}
-                                      </p>
-                                    )}
-                                  </>
-                                ) : (
-                                  <>
-                                    <h4>Decisión registrada</h4>
-                                    <p>
-                                      Resultado: {evento.decision.resultado}
-                                    </p>
-                                    <p>
-                                      Autoridad decisora:{' '}
-                                      {evento.decision.autoridad_decisora}
-                                    </p>
-                                    {evento.decision.fondo_interviniente && (
-                                      <p>
-                                        Fondo Interviniente:{' '}
-                                        {etiquetaFondoInterviniente(
-                                          evento.decision.fondo_interviniente,
-                                        )}
-                                      </p>
-                                    )}
-                                    {evento.decision.descripcion_fondo && (
-                                      <p>
-                                        Descripción del Fondo:{' '}
-                                        {evento.decision.descripcion_fondo}
-                                      </p>
-                                    )}
-                                    <p>
-                                      Fundamento: {evento.decision.fundamento}
-                                    </p>
-                                    {evento.decision.usuario_registrante && (
-                                      <p>
-                                        Registrada por:{' '}
-                                        {evento.decision.usuario_registrante}
-                                      </p>
-                                    )}
-                                  </>
+                                <div className="solicitud-history-event-title">
+                                  <h4>{evento.titulo}</h4>
+                                  <span className={`badge ${evento.nivel === 'SOLICITUD' ? 'blue' : 'gray'}`}>
+                                    {evento.nivel === 'SOLICITUD'
+                                      ? 'Solicitud'
+                                      : `${evento.expediente_id} · ${evento.metadatos.expediente_numero_interno || 'Expediente'}`}
+                                  </span>
+                                </div>
+                                {evento.documento_op_id && (
+                                  <span className="badge blue">OP {evento.documento_op_id}</span>
                                 )}
+                                {evento.descripcion && <p>{evento.descripcion}</p>}
+                                <div className="solicitud-history-metadata">
+                                  <span>{evento.usuario || 'Usuario no registrado'}</span>
+                                  <span>{evento.entidad_origen} · {evento.entidad_origen_id}</span>
+                                  {typeof evento.metadatos.resultado === 'string' && (
+                                    <span>Resultado: {evento.metadatos.resultado.replaceAll('_', ' ')}</span>
+                                  )}
+                                </div>
                               </article>
                             </li>
                           ))}
