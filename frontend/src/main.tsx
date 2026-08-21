@@ -330,16 +330,37 @@ function bytes(valor?: number | null) {
 function etiquetaEstado(estado: string) {
   const mapa: Record<string, string> = {
     BORRADOR: 'Borrador',
+    REGISTRADA: 'Registrada',
     DOCUMENTACION_EN_CARGA: 'Documentación',
-    PENDIENTE_VALIDACION: 'Pendiente',
+    PENDIENTE_VALIDACION: 'Pendiente de validación',
     VALIDADO: 'Validado',
     DISPOSICION_EMITIDA: 'Disposición emitida',
     FIRMADO: 'Firmado',
     ARCHIVADO: 'Archivado',
     CERRADO: 'Cerrado',
     DESISTIDO: 'Desistido',
+    PENDIENTE_REVALIDACION: 'Pendiente de revalidación',
+    VALIDADA_CON_OBSERVACIONES: 'Validada con observaciones',
+    CUIT_DIFERENTE: 'CUIT diferente',
+    NO_VERIFICABLE: 'Documentación no verificable',
+    COINCIDE: 'Coincide',
   };
   return mapa[estado] || estado;
+}
+
+function textoMetadata(metadatos: Record<string, string | number | boolean | null>, clave: string) {
+  const valor = metadatos[clave];
+  return typeof valor === 'string' && valor.trim() ? valor : null;
+}
+
+function identidadAdministrativaOP(
+  documentoOpId: string,
+  metadatos: Record<string, string | number | boolean | null>,
+) {
+  return textoMetadata(metadatos, 'numero_op')
+    || textoMetadata(metadatos, 'nombre_archivo')
+    || textoMetadata(metadatos, 'documento_op_nombre')
+    || documentoOpId;
 }
 
 function etiquetaFondoInterviniente(fondo: string | null) {
@@ -1386,7 +1407,7 @@ function App() {
       avisar(
         creada.resultado === 'Aprobar intervención'
           && creada.fondo_interviniente === 'FONDO_COMPENSADOR'
-          ? 'Decisión registrada correctamente. Próxima etapa disponible: Expediente.'
+          ? 'Decisión registrada correctamente. Ya puede crear un Expediente derivado.'
           : 'Decisión registrada correctamente.',
         'ok',
       );
@@ -2252,6 +2273,13 @@ function App() {
     },
   ].filter((grupo) => grupo.items.length > 0);
 
+  const expedientesSolicitudSeleccionada = solicitudSeleccionada
+    ? expedientes.filter(
+      (expediente) => expediente.solicitud_intervencion_id
+        === solicitudSeleccionada.id_solicitud,
+    )
+    : [];
+
   const proximaAccionSolicitud = (() => {
     if (!solicitudSeleccionada) return null;
     if (decisiones.length === 0) {
@@ -2260,10 +2288,7 @@ function App() {
         descripcion: 'La Solicitud todavía no posee una decisión administrativa.',
       };
     }
-    const expedientesSolicitud = expedientes.filter(
-      (expediente) => expediente.solicitud_intervencion_id
-        === solicitudSeleccionada.id_solicitud,
-    );
+    const expedientesSolicitud = expedientesSolicitudSeleccionada;
     if (expedientesSolicitud.length === 0) {
       const aprobada = decisiones.some(
         (decision) => decision.resultado === 'Aprobar intervención',
@@ -2481,8 +2506,8 @@ function App() {
             <label>Tipo de trámite</label>
             <select defaultValue="FONDO_COMPENSADOR">
               <option value="FONDO_COMPENSADOR">Fondo Compensador</option>
-              <option value="SAE" disabled>SAE - Próximamente</option>
-              <option value="INFRAESTRUCTURA" disabled>Infraestructura - Próximamente</option>
+              <option value="SAE" disabled>SAE (no disponible)</option>
+              <option value="INFRAESTRUCTURA" disabled>Infraestructura (no disponible)</option>
             </select>
 
             <label>Expediente interno</label>
@@ -2789,7 +2814,7 @@ function App() {
                       <article>
                         <span>Estado</span>
                         <strong>
-                          <span className="badge blue">{solicitudSeleccionada.estado}</span>
+                          <span className="badge blue">{etiquetaEstado(solicitudSeleccionada.estado)}</span>
                         </strong>
                       </article>
                       <article>
@@ -2814,48 +2839,59 @@ function App() {
                   )}
                 </section>
 
-                <div className="solicitud-case-workflow" aria-label="Etapas de la gestión">
-                  {[
-                    'Solicitud',
-                    'Decisión',
-                    'Expediente',
-                    'Preparación',
-                    'Validación',
-                    'Orden de Pago',
-                    'Disposición',
-                    'Finalizada',
-                  ].map((etapa, indice) => (
-                    <div
-                      className={`solicitud-case-step ${
-                        indice === 0 ? 'completed' : indice === 1 ? 'current' : 'future'
-                      }`}
-                      key={etapa}
-                    >
-                      <span>{indice === 0 ? <Check aria-hidden="true" /> : indice + 1}</span>
-                      <strong>{etapa}</strong>
-                    </div>
-                  ))}
-                </div>
-
-                <section className="solicitud-executive-grid" aria-label="Panel ejecutivo">
-                  <article className="card solicitud-executive-primary">
+                <section className="solicitud-orientacion card" aria-label="Orientación operativa de la Solicitud">
+                  <article>
                     <span>Próxima acción</span>
                     <strong>{proximaAccionSolicitud?.etiqueta || 'Consultar Solicitud'}</strong>
                     <small>{proximaAccionSolicitud?.descripcion || 'Revise la información disponible.'}</small>
                   </article>
-                  <article className="card">
-                    <span>Responsable</span>
-                    <strong>Secretaría Técnica</strong>
-                  </article>
-                  <article className="card">
-                    <span>Bloqueos</span>
-                    <strong>Sin bloqueos informados</strong>
-                  </article>
-                  <article className="card">
-                    <span>Pendientes</span>
-                    <strong>{proximaAccionSolicitud?.etiqueta || 'Sin pendientes identificados'}</strong>
-                  </article>
+                  <p>
+                    Cada Expediente es una rama administrativa independiente y conserva su propio estado y próxima acción.
+                  </p>
                 </section>
+
+                {expedientesSolicitudSeleccionada.length > 0 && (
+                  <section className="solicitud-ramas" aria-labelledby="solicitud-ramas-title">
+                    <div className="solicitud-ramas-heading">
+                      <div>
+                        <span className="eyebrow">Ramas administrativas</span>
+                        <h3 id="solicitud-ramas-title">Expedientes derivados</h3>
+                      </div>
+                      <span>{expedientesSolicitudSeleccionada.length} en esta Solicitud</span>
+                    </div>
+                    <div className="solicitud-ramas-grid">
+                      {expedientesSolicitudSeleccionada.map((expediente) => {
+                        const accion = proximasAcciones[expediente.id];
+                        const terminal = ['CERRADO', 'DESISTIDO', 'ARCHIVADO'].includes(expediente.estado);
+                        return (
+                          <article
+                            className={`solicitud-rama-card${terminal ? ' terminal' : ''}`}
+                            key={expediente.id}
+                          >
+                            <div className="solicitud-rama-identidad">
+                              <strong>{expediente.numero_interno}</strong>
+                              <span className={claseEstado(expediente.estado)}>
+                                {etiquetaEstado(expediente.estado)}
+                              </span>
+                            </div>
+                            <span>{expediente.numero_gdeba || 'Sin número GDEBA'}</span>
+                            <div className="solicitud-rama-accion">
+                              <small>Próxima acción</small>
+                              <strong>{accion?.etiqueta || 'Consultar expediente'}</strong>
+                            </div>
+                            <button
+                              className="small-button"
+                              type="button"
+                              onClick={() => cargarDetalle(expediente)}
+                            >
+                              Ver expediente
+                            </button>
+                          </article>
+                        );
+                      })}
+                    </div>
+                  </section>
+                )}
 
                 <nav className="solicitud-case-tabs" aria-label="Secciones de la solicitud">
                   {[
@@ -3075,47 +3111,6 @@ function App() {
                                       {decision.resultado === 'Aprobar intervención'
                                         && decision.fondo_interviniente === 'FONDO_COMPENSADOR' && (
                                         <>
-                                          {expedientesDecision.length > 0 && (
-                                            <div className="subcard">
-                                              <h4>Expedientes generados</h4>
-                                              <table>
-                                                <thead>
-                                                  <tr>
-                                                    <th>Número interno</th>
-                                                    <th>Número GDEBA</th>
-                                                    <th>Estado</th>
-                                                    <th></th>
-                                                  </tr>
-                                                </thead>
-                                                <tbody>
-                                                  {expedientesDecision.map((expediente) => (
-                                                    <tr key={expediente.id}>
-                                                      <td>{expediente.numero_interno}</td>
-                                                      <td>
-                                                        {expediente.numero_gdeba
-                                                          || 'Sin número GDEBA'}
-                                                      </td>
-                                                      <td>
-                                                        <span className={claseEstado(expediente.estado)}>
-                                                          {etiquetaEstado(expediente.estado)}
-                                                        </span>
-                                                      </td>
-                                                      <td>
-                                                        <button
-                                                          className="small-button"
-                                                          type="button"
-                                                          onClick={() => cargarDetalle(expediente)}
-                                                        >
-                                                          Abrir expediente
-                                                        </button>
-                                                      </td>
-                                                    </tr>
-                                                  ))}
-                                                </tbody>
-                                              </table>
-                                            </div>
-                                          )}
-
                                         <button
                                           className="secondary"
                                           type="button"
@@ -3184,13 +3179,6 @@ function App() {
                                         </div>
                                       )}
 
-                                      {decision.resultado === 'Aprobar intervención'
-                                        && decision.fondo_interviniente
-                                        && decision.fondo_interviniente !== 'FONDO_COMPENSADOR' && (
-                                        <div className="notice info">
-                                          El circuito del Fondo Interviniente seleccionado todavía no está implementado.
-                                        </div>
-                                      )}
                                     </article>
                                   );
                                 })}
@@ -3200,21 +3188,6 @@ function App() {
                         </div>
                       </section>
 
-                      <section className="solicitud-future-stages" aria-label="Etapas posteriores de la tramitación">
-                        {[
-                          'Expediente',
-                          'Contratación',
-                          'Ejecución',
-                          'Orden de Pago',
-                          'Disposición',
-                        ].map((etapa) => (
-                          <article key={etapa}>
-                            <Circle aria-hidden="true" />
-                            <strong>{etapa}</strong>
-                            <small>Etapa futura</small>
-                          </article>
-                        ))}
-                      </section>
                       </>
                   )}
 
@@ -3259,20 +3232,27 @@ function App() {
                                   <span className={`badge ${evento.nivel === 'SOLICITUD' ? 'blue' : 'gray'}`}>
                                     {evento.nivel === 'SOLICITUD'
                                       ? 'Solicitud'
-                                      : `${evento.expediente_id} · ${evento.metadatos.expediente_numero_interno || 'Expediente'}`}
+                                      : `${evento.metadatos.expediente_numero_interno || 'Expediente'}`}
                                   </span>
                                 </div>
                                 {evento.documento_op_id && (
-                                  <span className="badge blue">OP {evento.documento_op_id}</span>
+                                  <span className="badge blue">
+                                    OP {identidadAdministrativaOP(evento.documento_op_id, evento.metadatos)}
+                                  </span>
                                 )}
                                 {evento.descripcion && <p>{evento.descripcion}</p>}
                                 <div className="solicitud-history-metadata">
-                                  <span>{evento.usuario || 'Usuario no registrado'}</span>
-                                  <span>{evento.entidad_origen} · {evento.entidad_origen_id}</span>
+                                  {evento.usuario && <span>Usuario: {evento.usuario}</span>}
                                   {typeof evento.metadatos.resultado === 'string' && (
-                                    <span>Resultado: {evento.metadatos.resultado.replaceAll('_', ' ')}</span>
+                                    <span>Resultado: {etiquetaEstado(evento.metadatos.resultado)}</span>
                                   )}
                                 </div>
+                                <details className="timeline-technical-details">
+                                  <summary>Datos técnicos</summary>
+                                  <span>{evento.entidad_origen} · {evento.entidad_origen_id}</span>
+                                  {evento.expediente_id && <span>Expediente: {evento.expediente_id}</span>}
+                                  {evento.documento_op_id && <span>Documento: {evento.documento_op_id}</span>}
+                                </details>
                               </article>
                             </li>
                           ))}
@@ -4128,17 +4108,23 @@ function App() {
                                   <strong>{evento.titulo}</strong>
                                 </div>
                                 {evento.documento_op_id && (
-                                  <span className="badge blue">OP {evento.documento_op_id}</span>
+                                  <span className="badge blue">
+                                    OP {identidadAdministrativaOP(evento.documento_op_id, evento.metadatos)}
+                                  </span>
                                 )}
                               </div>
                               {evento.descripcion && <p>{evento.descripcion}</p>}
                               <div className="expediente-timeline-metadata">
-                                <span>{evento.usuario || 'Usuario no registrado'}</span>
-                                <span>{evento.entidad_origen} · {evento.entidad_origen_id}</span>
+                                {evento.usuario && <span>Usuario: {evento.usuario}</span>}
                                 {typeof evento.metadatos.resultado === 'string' && (
-                                  <span>Resultado: {evento.metadatos.resultado.replaceAll('_', ' ')}</span>
+                                  <span>Resultado: {etiquetaEstado(evento.metadatos.resultado)}</span>
                                 )}
                               </div>
+                              <details className="timeline-technical-details">
+                                <summary>Datos técnicos</summary>
+                                <span>{evento.entidad_origen} · {evento.entidad_origen_id}</span>
+                                {evento.documento_op_id && <span>Documento: {evento.documento_op_id}</span>}
+                              </details>
                             </div>
                           </li>
                         ))}
