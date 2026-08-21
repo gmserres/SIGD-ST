@@ -28,6 +28,7 @@ from app.schemas.expediente import ExpedienteCreate, ExpedienteRead, ExpedienteU
 from app.schemas.firma import RegistroFirmaCreate
 from app.schemas.archivo import RegistroArchivoCreate
 from app.schemas.historial import HistorialRead
+from app.schemas.timeline_expediente import EventoTimelineExpedienteRead
 from app.schemas.habilitacion_proveedor_op import (
     HabilitacionProveedorOPRead,
 )
@@ -115,6 +116,7 @@ from app.services.expedientes import (
     EscrituraNumeroDisposicionLegacyDeshabilitadaError,
 )
 from app.composition.validacion import validacion_service
+from app.composition.timeline_expediente import timeline_expediente_service
 from app.services.historial import historial_service
 from app.services.parametros import parametros_institucionales_service
 from app.services.texto_documento import texto_documento_service
@@ -1234,3 +1236,12 @@ def archivar_expediente_finalizado(
 def listar_historial(expediente_id: str):
     obtener_expediente(expediente_id)
     return historial_service.listar_por_expediente(expediente_id)
+
+
+@router.get(
+    "/{expediente_id}/timeline",
+    response_model=list[EventoTimelineExpedienteRead],
+)
+def listar_timeline_expediente(expediente_id: str):
+    obtener_expediente(expediente_id)
+    return timeline_expediente_service.obtener(expediente_id)

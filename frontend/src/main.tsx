@@ -173,13 +173,16 @@ type Documento = {
   mime_type?: string | null;
 };
 
-type Historial = {
-  id: string;
-  expediente_id: string;
-  accion: string;
-  usuario: string;
-  fecha: string;
-  detalle?: string | null;
+type EventoTimelineExpediente = {
+  tipo: string;
+  fecha_hora: string;
+  titulo: string;
+  descripcion: string | null;
+  usuario: string | null;
+  entidad_origen: string;
+  entidad_origen_id: string;
+  documento_op_id: string | null;
+  metadatos: Record<string, string | number | boolean | null>;
 };
 
 type Validacion = {
@@ -542,7 +545,7 @@ function App() {
   const [seleccionado, setSeleccionado] = useState<Expediente | null>(null);
   const [revisionProveedor, setRevisionProveedor] = useState(0);
   const [documentos, setDocumentos] = useState<Documento[]>([]);
-  const [historial, setHistorial] = useState<Historial[]>([]);
+  const [timeline, setTimeline] = useState<EventoTimelineExpediente[]>([]);
   const [analisis, setAnalisis] = useState<AnalisisOP | null>(null);
   const [cargandoAnalisis, setCargandoAnalisis] = useState(false);
   const [errorAnalisis, setErrorAnalisis] = useState('');
@@ -1445,6 +1448,7 @@ function App() {
   async function cargarDetalle(expediente: Expediente) {
     const solicitudAnalisis = ++solicitudAnalisisActual.current;
     setSeleccionado(expediente);
+    setTimeline([]);
     setValidacionAdministrativa(null);
     setPantalla('detalle');
     setTabDetalle('workflow');
@@ -1458,13 +1462,13 @@ function App() {
 
     const [
       docsRes,
-      histRes,
+      timelineRes,
       validacionAdministrativaRes,
       solicitudOrigenRes,
       decisionOrigenRes,
     ] = await Promise.all([
       fetch(`${API_URL}/expedientes/${expediente.id}/documentos`),
-      fetch(`${API_URL}/expedientes/${expediente.id}/historial`),
+      fetch(`${API_URL}/expedientes/${expediente.id}/timeline`),
       fetch(
         `${API_URL}/expedientes/${expediente.id}/validacion-administrativa`,
       ),
@@ -1478,7 +1482,7 @@ function App() {
 
     const documentosCargados = await docsRes.json();
     setDocumentos(documentosCargados);
-    setHistorial(await histRes.json());
+    setTimeline(await timelineRes.json());
     setValidacionAdministrativa(
       validacionAdministrativaRes.ok
         ? await validacionAdministrativaRes.json()
@@ -3872,17 +3876,46 @@ function App() {
                 )}
 
                 {tabDetalle === 'historial' && (
-                  <div className="card">
-                    <h3>Historial</h3>
-                    {historial.length === 0 ? <p className="empty">Sin actividad registrada.</p> : (
-                      <table>
-                        <thead><tr><th>Fecha</th><th>Usuario</th><th>Acción</th><th>Detalle</th></tr></thead>
-                        <tbody>
-                          {historial.map(h => (
-                            <tr key={h.id}><td>{new Date(h.fecha).toLocaleString()}</td><td>{h.usuario}</td><td>{h.accion}</td><td>{h.detalle || '-'}</td></tr>
-                          ))}
-                        </tbody>
-                      </table>
+                  <div className="card expediente-timeline-card">
+                    <div className="expediente-timeline-heading">
+                      <div>
+                        <span className="eyebrow">Cronología administrativa</span>
+                        <h3>Historial durable del Expediente</h3>
+                      </div>
+                      <span className="badge blue">{timeline.length} actuaciones</span>
+                    </div>
+                    {timeline.length === 0 ? <p className="empty">Sin actuaciones persistidas.</p> : (
+                      <ol className="expediente-timeline-list">
+                        {timeline.map((evento) => (
+                          <li
+                            className="expediente-timeline-item"
+                            key={`${evento.tipo}-${evento.entidad_origen}-${evento.entidad_origen_id}-${evento.fecha_hora}`}
+                          >
+                            <span className="expediente-timeline-marker" aria-hidden="true" />
+                            <div className="expediente-timeline-content">
+                              <div className="expediente-timeline-title">
+                                <div>
+                                  <time dateTime={evento.fecha_hora}>
+                                    {new Date(evento.fecha_hora).toLocaleString()}
+                                  </time>
+                                  <strong>{evento.titulo}</strong>
+                                </div>
+                                {evento.documento_op_id && (
+                                  <span className="badge blue">OP {evento.documento_op_id}</span>
+                                )}
+                              </div>
+                              {evento.descripcion && <p>{evento.descripcion}</p>}
+                              <div className="expediente-timeline-metadata">
+                                <span>{evento.usuario || 'Usuario no registrado'}</span>
+                                <span>{evento.entidad_origen} · {evento.entidad_origen_id}</span>
+                                {typeof evento.metadatos.resultado === 'string' && (
+                                  <span>Resultado: {evento.metadatos.resultado.replaceAll('_', ' ')}</span>
+                                )}
+                              </div>
+                            </div>
+                          </li>
+                        ))}
+                      </ol>
                     )}
                   </div>
                 )}
