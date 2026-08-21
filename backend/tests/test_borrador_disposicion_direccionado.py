@@ -42,12 +42,20 @@ class BorradorDisposicionDireccionadoTest(unittest.TestCase):
                 "app.services.disposiciones."
                 "seleccion_proveedor_repository.obtener_por_id"
             ),
-            "historial": (
+            "validacion": (
                 "app.services.disposiciones."
-                "historial_service.listar_por_expediente"
+                "validacion_service.obtener_vigente"
+            ),
+            "checklist": (
+                "app.services.disposiciones."
+                "checklist_fisico_service.obtener"
             ),
             "registrar": (
                 "app.services.disposiciones.historial_service.registrar"
+            ),
+            "listar_historial": (
+                "app.services.disposiciones."
+                "historial_service.listar_por_expediente"
             ),
             "parametros": (
                 "app.services.disposiciones."
@@ -76,7 +84,11 @@ class BorradorDisposicionDireccionadoTest(unittest.TestCase):
             establecimiento="EP 1",
             configuracion_uc_id="UC-1",
         )
-        self.mocks["historial"].return_value = []
+        self.mocks["validacion"].return_value = None
+        self.mocks["checklist"].return_value = None
+        self.mocks["listar_historial"].side_effect = AssertionError(
+            "El borrador no debe consultar eventos en memoria."
+        )
         self.mocks["parametros"].return_value = SimpleNamespace(
             ejercicio=2026
         )
@@ -98,6 +110,92 @@ class BorradorDisposicionDireccionadoTest(unittest.TestCase):
         )
         self.servicio = DisposicionService()
         self._configurar_documento("DOC-000001")
+
+    def test_borrador_usa_validacion_y_checklist_autoritativos(self) -> None:
+        self.mocks["validacion"].return_value = SimpleNamespace(
+            resultado="VALIDADA_CON_OBSERVACIONES"
+        )
+        self.mocks["checklist"].return_value = SimpleNamespace(
+            expediente_id="EXP-1"
+        )
+
+        borrador = self.servicio.generar_borrador(
+            "EXP-1", "DOC-000001"
+        )
+
+        self.assertIn(
+            "La documentación física fue acreditada mediante checklist "
+            "de validación.",
+            borrador.observaciones_ia,
+        )
+        self.assertIn(
+            "El expediente fue validado con observaciones. Revisar el "
+            "historial antes de emitir.",
+            borrador.observaciones_ia,
+        )
+        self.mocks["validacion"].assert_called_once_with("EXP-1")
+        self.mocks["checklist"].assert_called_once_with("EXP-1")
+
+    def test_reinicio_del_historial_no_modifica_borrador(self) -> None:
+        from app.services.historial import HistorialService
+
+        self.mocks["validacion"].return_value = SimpleNamespace(
+            resultado="VALIDADA_CON_OBSERVACIONES"
+        )
+        self.mocks["checklist"].return_value = SimpleNamespace(
+            expediente_id="EXP-1"
+        )
+        primero = self.servicio.generar_borrador(
+            "EXP-1", "DOC-000001"
+        )
+
+        historial_reiniciado = HistorialService()
+        self.assertEqual(
+            historial_reiniciado.listar_por_expediente("EXP-1"), []
+        )
+        segundo = self.servicio.generar_borrador(
+            "EXP-1", "DOC-000001", regenerar=True
+        )
+
+        self.assertEqual(
+            primero.observaciones_ia,
+            segundo.observaciones_ia,
+        )
+        self.assertEqual(primero.visto, segundo.visto)
+        self.assertEqual(primero.considerando, segundo.considerando)
+        self.assertEqual(primero.dispone, segundo.dispone)
+
+    def test_evidencia_de_otro_expediente_no_produce_falsos_positivos(
+        self,
+    ) -> None:
+        self.mocks["validacion"].side_effect = lambda expediente_id: (
+            SimpleNamespace(resultado="VALIDADA_CON_OBSERVACIONES")
+            if expediente_id == "EXP-A"
+            else None
+        )
+        self.mocks["checklist"].side_effect = lambda expediente_id: (
+            SimpleNamespace(expediente_id="EXP-A")
+            if expediente_id == "EXP-A"
+            else None
+        )
+        self.mocks["expediente"].return_value.id = "EXP-B"
+        self.mocks["documento"].return_value.expediente_id = "EXP-B"
+        self.mocks["seleccion"].return_value.expediente_id = "EXP-B"
+        self.mocks["habilitar"].return_value.expediente_id = "EXP-B"
+
+        borrador_b = self.servicio.generar_borrador(
+            "EXP-B", "DOC-000001"
+        )
+
+        self.assertFalse(
+            any(
+                "checklist" in observacion.lower()
+                or "validado con observaciones" in observacion.lower()
+                for observacion in borrador_b.observaciones_ia
+            )
+        )
+        self.mocks["validacion"].assert_called_once_with("EXP-B")
+        self.mocks["checklist"].assert_called_once_with("EXP-B")
 
     def _detener_patchers(self) -> None:
         for parche in reversed(self.patchers):

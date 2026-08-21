@@ -11,6 +11,8 @@ from app.composition.habilitacion_proveedor_op import (
 )
 from app.composition.documento import documento_service
 from app.composition.expediente import expediente_service
+from app.composition.checklist_fisico import checklist_fisico_service
+from app.composition.validacion import validacion_service
 from app.composition.seleccion_proveedor import (
     seleccion_proveedor_repository,
 )
@@ -110,9 +112,15 @@ class DisposicionService:
             )
 
         expediente = expediente_service.obtener(expediente_id)
-        historial = historial_service.listar_por_expediente(expediente_id)
-        validado_observado = any(h.accion == "EXPEDIENTE_VALIDADO_CON_OBSERVACIONES" for h in historial)
-        checklist_fisico = any(h.accion == "CHECKLIST_FISICO_REGISTRADO" for h in historial)
+        validacion_vigente = validacion_service.obtener_vigente(expediente_id)
+        validado_observado = (
+            validacion_vigente is not None
+            and validacion_vigente.resultado
+            == "VALIDADA_CON_OBSERVACIONES"
+        )
+        checklist_fisico = (
+            checklist_fisico_service.obtener(expediente_id) is not None
+        )
         datos_op = self._datos_op_documento(
             expediente_id, documento_op_id
         )

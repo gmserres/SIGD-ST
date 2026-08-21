@@ -33,7 +33,10 @@ from app.schemas.habilitacion_proveedor_op import (
 )
 from app.schemas.parametros import ParametrosInstitucionalesRead, ParametrosInstitucionalesUpdate
 from app.schemas.texto_documento import TextoDocumentoRead
-from app.schemas.validacion import ValidacionExpedienteRead
+from app.schemas.validacion import (
+    ValidacionAdministrativaRead,
+    ValidacionExpedienteRead,
+)
 from app.schemas.validacion_observada import ValidacionObservadaCreate
 from app.composition.analisis_op import analisis_op_service
 from app.composition.control_proveedor_op import (
@@ -714,6 +717,15 @@ def guardar_checklist_fisico(expediente_id: str, data: ChecklistFisicoCreate):
 def validar_controles_expediente(expediente_id: str):
     obtener_expediente(expediente_id)
     return validacion_service.validar(expediente_id)
+
+
+@router.get(
+    "/{expediente_id}/validacion-administrativa",
+    response_model=ValidacionAdministrativaRead | None,
+)
+def obtener_validacion_administrativa(expediente_id: str):
+    obtener_expediente(expediente_id)
+    return validacion_service.obtener_vigente(expediente_id)
 
 
 @router.post("/{expediente_id}/validar", response_model=ExpedienteRead)

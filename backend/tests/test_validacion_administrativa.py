@@ -6,6 +6,7 @@ from fastapi import HTTPException
 
 from app.api.expedientes import (
     generar_borrador_disposicion,
+    obtener_validacion_administrativa,
     validar_controles_expediente,
     validar_expediente,
 )
@@ -144,6 +145,35 @@ class ValidacionAdministrativaTest(TestCase):
         self.assertEqual(primera.estado_general, "VERDE")
         self.assertEqual(self.expediente.estado, EstadoExpediente.BORRADOR)
         registrar_historial.assert_not_called()
+
+    def test_consulta_validacion_administrativa_usa_fuente_persistida(
+        self,
+    ) -> None:
+        validacion = object()
+        with (
+            patch(
+                "app.api.expedientes.obtener_expediente",
+                return_value=self.expediente,
+            ),
+            patch.object(
+                validacion_service,
+                "obtener_vigente",
+                return_value=validacion,
+            ) as obtener_vigente,
+            patch(
+                "app.api.expedientes.historial_service."
+                "listar_por_expediente",
+                side_effect=AssertionError(
+                    "La consulta no debe depender del historial."
+                ),
+            ),
+        ):
+            resultado = obtener_validacion_administrativa(
+                self.expediente.id
+            )
+
+        self.assertIs(resultado, validacion)
+        obtener_vigente.assert_called_once_with(self.expediente.id)
 
     def test_validacion_explicita_conserva_evento_administrativo(
         self,

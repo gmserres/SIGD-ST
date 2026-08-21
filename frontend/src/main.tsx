@@ -190,6 +190,11 @@ type Validacion = {
   controles: { control: string; estado: string; observacion?: string | null }[];
 };
 
+type ValidacionAdministrativa = {
+  resultado: 'VALIDADA' | 'VALIDADA_CON_OBSERVACIONES';
+  fecha_invalidacion: string | null;
+};
+
 type DisposicionEmitida = {
   id_disposicion: string;
   expediente_id: string;
@@ -338,12 +343,16 @@ function claseEstado(estado: string) {
   return 'badge blue';
 }
 
-function fueValidadoConObservaciones(historial: Historial[]) {
-  return historial.some(h => h.accion === 'EXPEDIENTE_VALIDADO_CON_OBSERVACIONES');
-}
-
-function estadoAdministrativo(exp: Expediente, historial: Historial[]) {
-  if (exp.estado === 'VALIDADO' && fueValidadoConObservaciones(historial)) {
+function estadoAdministrativo(
+  exp: Expediente,
+  validacionAdministrativa: ValidacionAdministrativa | null,
+) {
+  if (
+    exp.estado === 'VALIDADO'
+    && validacionAdministrativa?.resultado
+      === 'VALIDADA_CON_OBSERVACIONES'
+    && validacionAdministrativa.fecha_invalidacion === null
+  ) {
     return { texto: 'Validado con observaciones', clase: 'badge yellow' };
   }
   if (exp.estado === 'VALIDADO') return { texto: 'Validado', clase: 'badge green' };
@@ -538,6 +547,8 @@ function App() {
   const [cargandoAnalisis, setCargandoAnalisis] = useState(false);
   const [errorAnalisis, setErrorAnalisis] = useState('');
   const [validacion, setValidacion] = useState<Validacion | null>(null);
+  const [validacionAdministrativa, setValidacionAdministrativa] =
+    useState<ValidacionAdministrativa | null>(null);
   const [disposicionEmitidaDetalle, setDisposicionEmitidaDetalle] = useState<DisposicionEmitida | null>(null);
   const [cargandoDisposicionEmitida, setCargandoDisposicionEmitida] = useState(false);
   const [errorDisposicionEmitida, setErrorDisposicionEmitida] = useState('');
@@ -1434,6 +1445,7 @@ function App() {
   async function cargarDetalle(expediente: Expediente) {
     const solicitudAnalisis = ++solicitudAnalisisActual.current;
     setSeleccionado(expediente);
+    setValidacionAdministrativa(null);
     setPantalla('detalle');
     setTabDetalle('workflow');
     setAnalisis(null);
@@ -1447,11 +1459,15 @@ function App() {
     const [
       docsRes,
       histRes,
+      validacionAdministrativaRes,
       solicitudOrigenRes,
       decisionOrigenRes,
     ] = await Promise.all([
       fetch(`${API_URL}/expedientes/${expediente.id}/documentos`),
       fetch(`${API_URL}/expedientes/${expediente.id}/historial`),
+      fetch(
+        `${API_URL}/expedientes/${expediente.id}/validacion-administrativa`,
+      ),
       expediente.solicitud_intervencion_id
         ? fetch(`${API_URL}/solicitudes/${expediente.solicitud_intervencion_id}`)
         : Promise.resolve(null),
@@ -1463,6 +1479,11 @@ function App() {
     const documentosCargados = await docsRes.json();
     setDocumentos(documentosCargados);
     setHistorial(await histRes.json());
+    setValidacionAdministrativa(
+      validacionAdministrativaRes.ok
+        ? await validacionAdministrativaRes.json()
+        : null,
+    );
 
     if (
       Array.isArray(documentosCargados)
@@ -1816,12 +1837,7 @@ function App() {
     seleccionado
       && (
         ['VALIDADO', 'DISPOSICION_EMITIDA', 'FIRMADO', 'ARCHIVADO'].includes(seleccionado.estado)
-        || historial.some((evento) =>
-          [
-            'EXPEDIENTE_VALIDADO',
-            'EXPEDIENTE_VALIDADO_CON_OBSERVACIONES',
-          ].includes(evento.accion),
-        )
+        || validacionAdministrativa !== null
       ),
   );
 
@@ -3144,8 +3160,8 @@ function App() {
               </div>
 
               <div className="expediente-header-status">
-                <span className={estadoAdministrativo(seleccionado, historial).clase}>
-                  {estadoAdministrativo(seleccionado, historial).texto}
+                <span className={estadoAdministrativo(seleccionado, validacionAdministrativa).clase}>
+                  {estadoAdministrativo(seleccionado, validacionAdministrativa).texto}
                 </span>
                 <div>
                   <span>Fondo Interviniente</span>
@@ -3366,7 +3382,7 @@ function App() {
                       {etapaWorkflow === 'archivo' && (
                         <article>
                           <span>Archivo</span>
-                          <strong>{estadoAdministrativo(seleccionado, historial).texto}</strong>
+                          <strong>{estadoAdministrativo(seleccionado, validacionAdministrativa).texto}</strong>
                         </article>
                       )}
                     </div>
@@ -3393,7 +3409,7 @@ function App() {
                         <>
                           <div className="expediente-summary-grid">
                             <div><span>Número de Disposición</span><strong>{disposicionEmitidaDetalle.numero_disposicion}</strong></div>
-                            <div><span>Estado</span><strong>{estadoAdministrativo(seleccionado, historial).texto}</strong></div>
+                            <div><span>Estado</span><strong>{estadoAdministrativo(seleccionado, validacionAdministrativa).texto}</strong></div>
                             <div><span>Expediente</span><strong>{seleccionado.numero_interno}</strong></div>
                             <div><span>OP</span><strong>{disposicionEmitidaDetalle.numero_op}</strong></div>
                             <div><span>Proveedor</span><strong>{disposicionEmitidaDetalle.proveedor}</strong></div>
