@@ -17,3 +17,4 @@ dist/
 # Storage
 storage/expedientes/*
 !storage/expedientes/.gitkeep
+backend/storage/

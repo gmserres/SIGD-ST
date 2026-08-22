@@ -6,25 +6,30 @@ echo ==========================================
 echo.
 
 echo [1/4] Python
-python --version
+where python >nul 2>nul
 if errorlevel 1 (
-  if exist "C:\Users\Usuario\AppData\Local\Programs\Python\Python312\python.exe" (
-    "C:\Users\Usuario\AppData\Local\Programs\Python\Python312\python.exe" --version
-  ) else (
-    echo ERROR: Python no encontrado.
-  )
+  echo ERROR: Python no encontrado en PATH.
+) else (
+python --version
 )
 echo.
 
 echo [2/4] Node
-set "PATH=%PATH%;C:\Program Files\nodejs"
-node --version
-if errorlevel 1 echo ERROR: Node.js no encontrado.
+where node >nul 2>nul
+if errorlevel 1 (
+  echo ERROR: Node.js no encontrado en PATH.
+) else (
+  node --version
+)
 echo.
 
 echo [3/4] npm
-npm --version
-if errorlevel 1 echo ERROR: npm no encontrado.
+where npm >nul 2>nul
+if errorlevel 1 (
+  echo ERROR: npm no encontrado en PATH.
+) else (
+  npm --version
+)
 echo.
 
 echo [4/4] Carpetas
