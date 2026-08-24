@@ -23,6 +23,13 @@ La arquitectura local utiliza:
 La guía oficial para preparar una instancia desde un clon limpio es
 [`docs/INSTALACION_LOCAL.md`](docs/INSTALACION_LOCAL.md).
 
+Documentación funcional de referencia:
+
+- [`docs/GUIA_FUNCIONAL_V1.md`](docs/GUIA_FUNCIONAL_V1.md): modelo, reglas,
+  circuitos modernos, compatibilidad legacy y límites de la V1;
+- [`docs/GUIA_OPERADOR_V1.md`](docs/GUIA_OPERADOR_V1.md): recorrido breve para
+  la operación cotidiana.
+
 Requisitos básicos:
 
 - Python 3.12;

@@ -1,5 +1,9 @@
 # Modelo funcional de Evaluación Administrativa v1
 
+> **Documento histórico de diseño no implementado.** La V1 vigente no posee
+> una entidad durable separada de Evaluación Administrativa. Para el sistema
+> realmente disponible consulte [GUIA_FUNCIONAL_V1.md](GUIA_FUNCIONAL_V1.md).
+
 ## 1. Propósito
 
 La Evaluación Administrativa representa la etapa de análisis previa a la

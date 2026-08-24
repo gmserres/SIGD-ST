@@ -1,5 +1,8 @@
 # Modelo de Dominio SIGD-ST v2 — Lineamientos de implementación
 
+> **Documento histórico de desarrollo.** Para el comportamiento funcional
+> vigente de V1 consulte [GUIA_FUNCIONAL_V1.md](GUIA_FUNCIONAL_V1.md).
+
 ## 1. Propósito
 
 Este documento traduce el Modelo de Dominio v2 a lineamientos de
