@@ -2352,7 +2352,7 @@ function App() {
           <button className={pantalla === 'administracion' ? 'active' : ''} onClick={() => setPantalla('administracion')}><Settings aria-hidden="true" />Administración</button>
         </nav>
 
-        <div className="version">Versión Alfa 0.29B</div>
+        <div className="version">v1.0.0</div>
       </aside>
 
       <section className="content">
@@ -2490,7 +2490,7 @@ function App() {
                 <dl>
                   <div><dt>Sistema</dt><dd>SIGD-ST</dd></div>
                   <div><dt>Fondo activo</dt><dd>Fondo Compensador</dd></div>
-                  <div><dt>Versión</dt><dd>Alfa 0.29B</dd></div>
+                  <div><dt>Versión</dt><dd>v1.0.0</dd></div>
                 </dl>
               </aside>
             </section>
