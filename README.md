@@ -25,6 +25,7 @@ La guía oficial para preparar una instancia desde un clon limpio es
 
 Documentación funcional de referencia:
 
+- [`docs/manuales/Manual_Basico_Usuario_SIGD-ST_Edicion_1.0.pdf`](docs/manuales/Manual_Basico_Usuario_SIGD-ST_Edicion_1.0.pdf): manual básico para la operación del circuito Fondo Compensador;
 - [`docs/GUIA_FUNCIONAL_V1.md`](docs/GUIA_FUNCIONAL_V1.md): modelo, reglas,
   circuitos modernos, compatibilidad legacy y límites de la V1;
 - [`docs/GUIA_OPERADOR_V1.md`](docs/GUIA_OPERADOR_V1.md): recorrido breve para
