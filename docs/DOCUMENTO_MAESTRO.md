@@ -78,34 +78,70 @@ Modelo de Dominio v2.
 
 ## 6. Estado de la implementación actual
 
-SIGD-ST implementa progresivamente el Modelo de Dominio v2. Actualmente
-conviven componentes del nuevo circuito con funcionalidades anteriores
-organizadas alrededor del Expediente. La Solicitud de Intervención y la
-Decisión ya forman parte de la implementación, mientras que el alta directa de
-Expedientes se preserva como mecanismo compatible.
+### Hito: Versión demostrable
 
-De manera sintética, actualmente existen funcionalidades para:
+**Estado: ALCANZADO**
 
-- solicitudes de intervención;
-- decisiones y creación de Expediente desde una Decisión aprobatoria;
-- expedientes;
-- documentos y órdenes de pago;
-- proveedores y establecimientos;
-- checklist de existencia física;
-- Configuración UC, sus rangos y su asociación al Expediente;
-- análisis de órdenes de pago;
-- validaciones administrativas;
-- generación de borradores y emisión de disposiciones;
-- parámetros institucionales.
+Base funcional: **SIGD-ST — Fondo Compensador v1.0.0**.
 
-Solicitudes, Decisiones, Expedientes, Configuraciones UC, metadatos
-documentales, checklists, validaciones y Disposiciones emitidas se conservan en
-PostgreSQL. Los archivos cargados y los DOCX generados se almacenan en el
-filesystem. Los borradores de Disposición y el historial operativo del
-Expediente permanecen en memoria; el historial de la Solicitud puede
-reconstruirse desde la Solicitud y sus Decisiones persistidas.
+Validaciones del hito:
 
-## 7. Decisiones pendientes
+- D1 — Escenario Oficial de Demostración: **APROBADO**.
+- D2 — Paquete Demostrativo Reproducible: **APROBADO**.
+- D3 — Ensayo General Institucional: **APROBADO**.
+
+Dictamen: **VERSIÓN DEMOSTRABLE LISTA CON OBSERVACIONES**.
+
+Bloqueantes funcionales: **NINGUNO**.
+
+La demostración recorre la Mesa de Control, la Solicitud de Intervención, la
+decisión administrativa, la relación Solicitud → Expediente —incluido el caso
+1:N—, la próxima acción, el proveedor seleccionado, la preparación
+administrativa, el checklist y la validación. También demuestra la
+incorporación de una OP, el estado `PENDIENTE_REVALIDACION`, la revalidación,
+el control Proveedor ↔ OP, los resultados `COINCIDE`, `HABILITADO` y
+`CUIT_DIFERENTE`, la regularización explícita y el tratamiento de múltiples OP.
+El circuito concluye con una Disposición por OP, generación de DOCX,
+formalización, cierre, archivo y timeline durable.
+
+Fuera del repositorio existe el paquete `SIGD_ST_DEMO_V1.zip`. Contiene sólo
+datos y documentos ficticios, una base PostgreSQL y un storage aislados, los
+checkpoints CP2, CP4, CP5 y CP7, restauración controlada, verificación mediante
+los resultados `DEMO LISTA` y `DEMO NO LISTA`, protecciones contra el uso
+accidental del entorno de desarrollo, manifests SHA-256 y una guía del
+presentador. El ZIP, los dumps y sus storages no forman parte del repositorio.
+
+Las siguientes observaciones son **NO BLOQUEANTES PARA LA VERSIÓN
+DEMOSTRABLE**:
+
+- ampliar las instrucciones de arranque de la demo;
+- documentar los puertos esperados, sus posibles colisiones y la configuración
+  del storage demo;
+- mejorar la actualización visual inmediata después de determinadas
+  mutaciones;
+- reducir el scroll vertical del Expediente;
+- mejorar la legibilidad secundaria para proyección;
+- ampliar eventualmente la guía para un presentador que no conozca SIGD-ST.
+
+“Versión demostrable” no significa “despliegue institucional productivo”. La
+V1 demostrable permite presentar y validar funcionalmente el circuito. Para
+una utilización institucional productiva permanecen fuera de este hito, entre
+otros aspectos, la autenticación productiva, el despliegue institucional
+definitivo, una estrategia operativa de backup y restauración, los
+procedimientos institucionales, el procedimiento anual definitivo de UC y las
+integraciones futuras con sistemas externos. Estos límites no constituyen
+defectos de la versión demostrable.
+
+## 7. Caminos posteriores posibles
+
+El roadmap registra **VERSIÓN DEMOSTRABLE → ALCANZADA** y mantiene separados,
+sin establecer todavía un próximo objetivo, estos caminos posibles:
+
+1. presentación institucional;
+2. preparación para uso institucional o productivo;
+3. evolución funcional post-V1 o V1.1.
+
+## 8. Decisiones pendientes
 
 Permanece pendiente definir si el Fondo Interviniente será representado como:
 
@@ -119,7 +155,7 @@ También deberán definirse antes de su implementación los estados, transicione
 responsabilidades y reglas adicionales que no estén expresamente establecidos
 en el Modelo de Dominio v2.
 
-## 8. Control de cambios
+## 9. Control de cambios
 
 Toda modificación funcional deberá:
 
