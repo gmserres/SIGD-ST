@@ -18,6 +18,7 @@ from app.infrastructure.database.models import proveedor_model
 from app.infrastructure.database.models import seleccion_proveedor_model
 from app.infrastructure.database.models import solicitud_intervencion_model
 from app.infrastructure.database.models import validacion_administrativa_model
+from app.infrastructure.database.models import usuario_model
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

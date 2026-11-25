@@ -29,6 +29,8 @@ import {
   TriangleAlert,
 } from 'lucide-react';
 import { API_URL } from './api/config';
+import { authenticatedFetch as fetch } from './api/auth';
+import { AuthGate } from './components/AuthGate';
 import { PanelBusquedaFiltros } from './components/PanelBusquedaFiltros';
 import {
   ControlProveedorOPCard,
@@ -4301,4 +4303,4 @@ function ExpedientesTabla({
   );
 }
 
-createRoot(document.getElementById('root')!).render(<App />);
+createRoot(document.getElementById('root')!).render(<AuthGate><App /></AuthGate>);

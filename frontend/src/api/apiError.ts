@@ -1,4 +1,5 @@
 import { API_URL } from './config';
+import { authenticatedFetch } from './auth';
 
 type DetalleValidacion = {
   msg?: unknown;
@@ -82,7 +83,7 @@ export async function apiRequest<T>(
     headers.set('Content-Type', 'application/json');
   }
 
-  const response = await fetch(`${API_URL}${ruta}`, {
+  const response = await authenticatedFetch(`${API_URL}${ruta}`, {
     ...opciones,
     headers,
   });

@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -11,7 +11,9 @@ from app.api.proveedores import router as proveedores_router
 from app.api.selecciones_proveedor import router as selecciones_proveedor_router
 from app.api.solicitudes import router as solicitudes_router
 from app.api.sistema import router as sistema_router
+from app.api.auth import router as auth_router
 from app.core.settings import APP_STATE, APP_VERSION, STORAGE_DIR
+from app.core.security import autorizar_operacion
 from app.domain.finalizacion_expediente import ExpedienteTerminalError
 
 app = FastAPI(
@@ -39,21 +41,25 @@ STORAGE_DIR.mkdir(parents=True, exist_ok=True)
 app.mount("/storage", StaticFiles(directory=STORAGE_DIR), name="storage")
 
 app.include_router(sistema_router, prefix="/sistema", tags=["Sistema"])
-app.include_router(expedientes_router, prefix="/expedientes", tags=["Expedientes"])
-app.include_router(proveedores_router, prefix="/proveedores", tags=["Proveedores"])
-app.include_router(decisiones_router, prefix="/decisiones", tags=["Decisiones"])
+app.include_router(auth_router, prefix="/auth", tags=["Autenticación"])
+proteccion = [Depends(autorizar_operacion)]
+app.include_router(expedientes_router, prefix="/expedientes", tags=["Expedientes"], dependencies=proteccion)
+app.include_router(proveedores_router, prefix="/proveedores", tags=["Proveedores"], dependencies=proteccion)
+app.include_router(decisiones_router, prefix="/decisiones", tags=["Decisiones"], dependencies=proteccion)
 app.include_router(
     disposiciones_router,
     prefix="/disposiciones",
     tags=["Disposiciones"],
+    dependencies=proteccion,
 )
-app.include_router(solicitudes_router, prefix="/solicitudes", tags=["Solicitudes"])
+app.include_router(solicitudes_router, prefix="/solicitudes", tags=["Solicitudes"], dependencies=proteccion)
 app.include_router(
     selecciones_proveedor_router,
     prefix="/expedientes",
     tags=["Selección de Proveedor"],
+    dependencies=proteccion,
 )
-app.include_router(catalogos_router, prefix="/catalogos", tags=["Catálogos"])
+app.include_router(catalogos_router, prefix="/catalogos", tags=["Catálogos"], dependencies=proteccion)
 
 
 @app.get("/")

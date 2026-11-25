@@ -56,10 +56,11 @@ archivo actual es experimental y todavía no reproduce la instalación completa.
 
 ## Alcance operativo
 
-La V1 permite una demostración integral en un entorno local controlado. No está
-preparada para producción institucional sin resolver, entre otros aspectos:
+La V1 permite una demostración integral en un entorno local controlado. Incluye
+autenticación local y autorización básica por roles, pero no está preparada para
+producción institucional sin resolver, entre otros aspectos:
 
-- autenticación y autorización;
+- atribución completa de todos los actos a la identidad autenticada y auditoría persistente;
 - política y automatización de backup/restauración;
 - protección operativa del almacenamiento documental;
 - configuración para acceso desde otros hosts;

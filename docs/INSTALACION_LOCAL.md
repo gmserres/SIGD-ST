@@ -153,10 +153,32 @@ Orden recomendado:
 2. Configure `backend/.env`.
 3. Aplique `alembic upgrade head`.
 4. Ejecute el bootstrap UC.
-5. Inicie el backend.
-6. Inicie el frontend.
-7. Abra el navegador.
-8. Registre la primera Solicitud.
+5. Cree el administrador inicial.
+6. Inicie el backend.
+7. Inicie el frontend.
+8. Abra el navegador e inicie sesión.
+9. Registre la primera Solicitud.
+
+### Crear el primer administrador
+
+Después de aplicar las migraciones, ejecute el comando local interactivo:
+
+```powershell
+Set-Location backend
+.\.venv\Scripts\python.exe -m app.commands.crear_administrador_inicial
+```
+
+La contraseña debe tener al menos 12 caracteres. El comando es el único mecanismo
+de bootstrap: no existe un endpoint público para crear el primer administrador.
+Las cuentas posteriores se administran mediante `/auth/usuarios` por un usuario
+con rol `ADMINISTRADOR`.
+
+Los roles vigentes son:
+
+- `CONSULTA`: lectura;
+- `OPERADOR`: lectura y gestión ordinaria, sin actos administrativos sensibles;
+- `SECRETARIO_TECNICO`: operación completa y actos sensibles;
+- `ADMINISTRADOR`: operación completa y gestión de usuarios.
 
 Backend:
 
@@ -249,8 +271,9 @@ automáticos de backup o restore.
 
 ## 12. Límites de la instalación local V1
 
-- No existe autenticación ni autorización multiusuario.
-- Los actores administrativos actuales son textos o identidades técnicas.
+- La autenticación local utiliza cuentas individuales y sesiones de ocho horas.
+- Algunas atribuciones históricas del dominio todavía se conservan como textos
+  técnicos; su reemplazo por la identidad autenticada requiere una fase posterior.
 - El catálogo de establecimientos y ciertos parámetros institucionales son
   efímeros; no son requisitos para crear la primera Solicitud.
 - La renovación anual de UC requiere decisión institucional.
